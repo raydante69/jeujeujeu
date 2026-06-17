@@ -1,0 +1,72 @@
+// Evolution rules for Gen 1. Stone/trade/friendship evolutions are mapped onto
+// level thresholds so the roguelike can resolve them purely from level-ups.
+import { recomputeStats, speciesById } from '../data/pokemon.js';
+
+// fromId -> { to: speciesId, level: threshold }
+export const EVOLUTIONS = {
+  1: { to: 2, level: 16 }, 2: { to: 3, level: 32 },
+  4: { to: 5, level: 16 }, 5: { to: 6, level: 36 },
+  7: { to: 8, level: 16 }, 8: { to: 9, level: 36 },
+  10: { to: 11, level: 7 }, 11: { to: 12, level: 10 },
+  13: { to: 14, level: 7 }, 14: { to: 15, level: 10 },
+  16: { to: 17, level: 18 }, 17: { to: 18, level: 36 },
+  19: { to: 20, level: 20 }, 21: { to: 22, level: 20 },
+  23: { to: 24, level: 22 }, 25: { to: 26, level: 30 },
+  27: { to: 28, level: 22 },
+  29: { to: 30, level: 16 }, 30: { to: 31, level: 32 },
+  32: { to: 33, level: 16 }, 33: { to: 34, level: 32 },
+  35: { to: 36, level: 32 }, 37: { to: 38, level: 30 },
+  39: { to: 40, level: 32 }, 41: { to: 42, level: 22 },
+  43: { to: 44, level: 21 }, 44: { to: 45, level: 33 },
+  46: { to: 47, level: 24 }, 48: { to: 49, level: 31 },
+  50: { to: 51, level: 26 }, 52: { to: 53, level: 28 },
+  54: { to: 55, level: 33 }, 56: { to: 57, level: 28 },
+  58: { to: 59, level: 34 },
+  60: { to: 61, level: 25 }, 61: { to: 62, level: 37 },
+  63: { to: 64, level: 16 }, 64: { to: 65, level: 36 },
+  66: { to: 67, level: 28 }, 67: { to: 68, level: 40 },
+  69: { to: 70, level: 21 }, 70: { to: 71, level: 33 },
+  72: { to: 73, level: 30 },
+  74: { to: 75, level: 25 }, 75: { to: 76, level: 40 },
+  77: { to: 78, level: 40 }, 79: { to: 80, level: 37 },
+  81: { to: 82, level: 30 }, 84: { to: 85, level: 31 },
+  86: { to: 87, level: 34 }, 88: { to: 89, level: 38 },
+  90: { to: 91, level: 34 },
+  92: { to: 93, level: 25 }, 93: { to: 94, level: 40 },
+  96: { to: 97, level: 26 }, 98: { to: 99, level: 28 },
+  100: { to: 101, level: 30 }, 102: { to: 103, level: 33 },
+  104: { to: 105, level: 28 }, 109: { to: 110, level: 35 },
+  111: { to: 112, level: 42 }, 116: { to: 117, level: 32 },
+  118: { to: 119, level: 33 }, 120: { to: 121, level: 34 },
+  129: { to: 130, level: 20 }, 138: { to: 139, level: 40 },
+  140: { to: 141, level: 40 },
+  147: { to: 148, level: 30 }, 148: { to: 149, level: 55 },
+};
+
+// Eevee branches — resolved with a player choice overlay.
+export const EEVEE_FROM = 133;
+export const EEVEE_LEVEL = 25;
+export const EEVEE_OPTIONS = [134, 135, 136]; // Vaporeon, Jolteon, Flareon
+
+// Returns the species id this instance should evolve into now, or null.
+// Eevee returns the sentinel 'eevee' so the UI can offer a choice.
+export function pendingEvolution(inst) {
+  if (inst.id === EEVEE_FROM && inst.level >= EEVEE_LEVEL) return 'eevee';
+  const rule = EVOLUTIONS[inst.id];
+  if (rule && inst.level >= rule.level) return rule.to;
+  return null;
+}
+
+// Mutates the instance into the target species, preserving level / hp ratio.
+export function evolveInto(inst, targetId) {
+  const ratio = inst.hp / inst.maxHp;
+  const fromName = inst.name;
+  inst.id = targetId;
+  const sp = speciesById(targetId);
+  // Keep a custom nickname, otherwise track the new species name.
+  if (inst.name === inst.species) inst.name = sp.name;
+  inst.species = sp.name;
+  recomputeStats(inst);
+  inst.hp = Math.max(1, Math.round(inst.maxHp * ratio));
+  return { fromName, toName: sp.name };
+}

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Pokelike — Pokémon Roguelike</title>
+  <meta name="description" content="A fan-made Pokémon roguelike. Explore Kanto, battle gym leaders and the Elite Four.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0e0e0e">
+  <meta name="application-name" content="Pokelike">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pokelike">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta property="og:title" content="Pokelike — Pokémon Roguelike">
+  <meta property="og:description" content="A fan-made Pokémon roguelike. Explore Kanto, battle gym leaders and the Elite Four.">
+  <meta property="og:type" content="website">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+  <link rel="stylesheet" href="style/main.css">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<!-- ===== TITLE SCREEN ===== -->
+<div id="title-screen" class="screen">
+  <header class="title-hero">
+    <h1 class="game-logo"><span class="logo-poke">Poké</span><span class="logo-like">like</span></h1>
+    <p class="game-subtitle">
+      <span class="game-subtitle-inner">
+        <span class="game-subtitle-text" data-i18n="title.subtitle">Pokémon Roguelike</span>
+        <span class="game-subtitle-sep" aria-hidden="true">|</span>
+        <span class="title-version" onclick="openPatchNotesModal()">v2.0</span>
+      </span>
+    </p>
+  </header>
+  <div class="title-mode-cards">
+    <div class="title-mode-col">
+      <button type="button" id="btn-history-run" class="title-mode-card title-mode-card--story">
+        <span class="title-mode-card-title" data-i18n="title.story">Story</span>
+        <span class="title-mode-card-figure">
+          <span class="title-mode-card-emoji" aria-hidden="true">🗺️</span>
+          <span class="title-mode-card-action" data-i18n="title.playStory">Play Story</span>
+        </span>
+      </button>
+      <button id="btn-continue-run" class="title-mode-resume" style="display:none;" data-i18n="title.resumeStory">Resume Story</button>
+    </div>
+    <div class="title-mode-col">
+      <button type="button" id="btn-endless-run" class="title-mode-card title-mode-card--tower">
+        <span class="title-mode-card-title" data-i18n="title.battleTower">Battle Tower</span>
+        <span class="title-mode-card-figure">
+          <span class="title-mode-card-emoji" aria-hidden="true">🗼</span>
+          <span class="title-mode-card-action" data-i18n="title.enterTower">Enter Tower</span>
+        </span>
+      </button>
+      <button id="btn-continue-endless" class="title-mode-resume" style="display:none;" data-i18n="title.resumeTower">Resume Tower</button>
+    </div>
+    <div class="title-mode-col">
+      <button type="button" id="btn-challenges-run" class="title-mode-card title-mode-card--challenge">
+        <span class="title-mode-card-title" data-i18n="title.challenges">Challenges</span>
+        <span class="title-mode-card-figure">
+          <span class="title-mode-card-emoji" aria-hidden="true">🎯</span>
+          <span class="title-mode-card-action" data-i18n="title.takeChallenge">Take Challenge</span>
+        </span>
+      </button>
+      <button id="btn-continue-challenge" class="title-mode-resume" style="display:none;" data-i18n="title.resumeChallenge">Resume Challenge</button>
+    </div>
+  </div>
+  <footer class="title-legal-footer">
+    <div class="title-legal-footer-inner">
+      <a href="privacy.html" class="title-footer-link" data-i18n="title.privacy">Privacy Policy</a>
+      <p class="title-footer-legal" data-i18n="title.disclaimer">
+        Fan-made project. Not affiliated with, endorsed by, or sponsored by Nintendo, Game Freak, or The Pokémon Company. All Pokémon names and sprites are property of their respective owners.
+      </p>
+    </div>
+  </footer>
+</div>
+
+<!-- ===== STORY REGION SELECT ===== -->
+<div id="history-region-select" class="screen">
+  <div class="history-select-panel">
+    <div class="history-select-topbar">
+      <button type="button" class="btn-primary btn-md history-select-back" onclick="goHomeFromMenu()">Back</button>
+      <div class="history-select-logo" aria-hidden="true"><span class="logo-poke">Poké</span><span class="logo-like">like</span></div>
+    </div>
+    <header class="history-header">
+      <h1 class="history-header-title history-header-title--story">Story</h1>
+      <p class="history-header-intro">Explore the region, beat the 8 Gyms, and conquer the Elite Four. Choose Classic or Nuzlocke, then pick a region to begin.</p>
+    </header>
+    <div class="history-mode-toggle-wrap">
+      <button type="button" id="btn-history-classic" class="btn-primary btn-md history-mode-btn history-mode-btn--selected">Classic</button>
+      <button type="button" id="btn-history-nuzlocke" class="btn-primary btn-md history-mode-btn">Nuzlocke</button>
+    </div>
+    <div id="history-region-list" class="history-region-list"></div>
+  </div>
+</div>
+
+<!-- ===== TRAINER SELECT ===== -->
+<div id="trainer-screen" class="screen">
+  <header class="screen-intro"><h2 data-i18n="trainer.who">Who are you?</h2></header>
+  <div id="trainer-choices">
+    <div class="trainer-card" id="trainer-boy" role="button" tabindex="0">
+      <div class="trainer-icon-wrap"></div>
+      <div class="trainer-label" style="color:#cc1111" data-i18n="trainer.boy">BOY</div>
+    </div>
+    <div class="trainer-card" id="trainer-girl" role="button" tabindex="0">
+      <div class="trainer-icon-wrap"></div>
+      <div class="trainer-label" style="color:#33aa33" data-i18n="trainer.girl">GIRL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STARTER SELECT ===== -->
+<div id="starter-screen" class="screen">
+  <header class="screen-intro"><h2 data-i18n="starter.choose">Choose Your Starter!</h2></header>
+  <div id="starter-layout">
+    <div id="starter-choices"></div>
+    <div id="starter-region-panel" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ===== MAP SCREEN ===== -->
+<div id="map-screen" class="screen">
+  <div class="map-header">
+    <div id="map-info"></div>
+    <div id="badge-count"></div>
+  </div>
+  <div class="map-panels">
+    <div class="hud-box map-panel-left">
+      <div class="hud-label">TEAM</div>
+      <div id="team-bar"></div>
+    </div>
+    <div class="hud-box map-panel-right">
+      <div class="hud-label">ITEMS</div>
+      <div id="item-bar"></div>
+      <div class="hud-label map-passives-label" id="map-passives-label" style="display:none;">PASSIVE ITEMS</div>
+      <div id="passive-badges"></div>
+      <div class="hud-label map-badges-label">BADGES</div>
+      <div id="badge-count-panel"></div>
+    </div>
+  </div>
+  <div id="map-container"></div>
+</div>
+
+<!-- ===== BATTLE SCREEN ===== -->
+<div id="battle-screen" class="screen">
+  <div class="battle-header screen-intro">
+    <h2 id="battle-title">Wild Battle!</h2>
+    <p id="battle-subtitle" class="screen-desc"></p>
+  </div>
+  <div class="battle-controls">
+    <button id="btn-auto-battle" class="btn-primary btn-md" data-i18n="common.skip">Skip</button>
+    <button id="btn-continue-battle" class="btn-primary btn-md" style="display:none" data-i18n="common.continue">Continue</button>
+  </div>
+  <div class="battle-stage">
+    <div id="battle-passives-row"></div>
+    <div class="battle-field">
+      <div class="battle-side">
+        <div class="battle-trainer" id="player-trainer-icon"></div>
+        <div class="battle-side-label" data-i18n="battle.yourTeam">Your Team</div>
+        <div id="player-battle-traits" class="battle-trait-bar"></div>
+        <div id="player-side"></div>
+      </div>
+      <div class="battle-side">
+        <div class="battle-trainer" id="enemy-trainer-icon"></div>
+        <div class="battle-side-label" id="enemy-side-label" data-i18n="battle.enemy">Enemy</div>
+        <div id="enemy-battle-traits" class="battle-trait-bar battle-trait-bar-right"></div>
+        <div id="enemy-side"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CATCH SCREEN ===== -->
+<div id="catch-screen" class="screen">
+  <header class="screen-intro">
+    <h2 data-i18n="catch.title">Wild Pokémon Appeared!</h2>
+    <p class="screen-desc" data-i18n="catch.desc">Choose one Pokémon to add to your team</p>
+  </header>
+  <div id="catch-choices"></div>
+  <div class="choice-skip-row">
+    <button id="btn-skip-catch" class="btn-primary btn-md" data-i18n="catch.skipFlee">Skip (flee)</button>
+  </div>
+  <div id="catch-team-bar" class="screen-team-bar"></div>
+</div>
+
+<!-- ===== ITEM SCREEN ===== -->
+<div id="item-screen" class="screen">
+  <header class="screen-intro">
+    <h2 data-i18n="item.found">Item Found!</h2>
+    <p class="screen-desc" data-i18n="item.chooseOne">Choose one item to keep</p>
+  </header>
+  <div id="item-choices"></div>
+  <div class="choice-skip-row">
+    <button id="btn-skip-item" class="btn-secondary btn-md" data-i18n="common.skip">Skip</button>
+  </div>
+  <div id="item-team-bar" class="screen-team-bar"></div>
+</div>
+
+<!-- ===== PASSIVE ITEM SCREEN (Battle Tower) ===== -->
+<div id="passive-screen" class="screen">
+  <header class="screen-intro">
+    <h2 data-i18n="item.passiveTitle">Passive Item!</h2>
+    <p class="screen-desc" data-i18n="item.pickOne">Pick one — it stays in your bag for the rest of the run</p>
+  </header>
+  <div id="passive-choices"></div>
+  <div id="passive-team-bar" class="screen-team-bar"></div>
+</div>
+
+<!-- ===== SWAP SCREEN ===== -->
+<div id="swap-screen" class="screen">
+  <header class="screen-intro">
+    <h2 data-i18n="team.full">Team Full!</h2>
+    <p id="swap-prompt" class="screen-desc"></p>
+  </header>
+  <div id="swap-choices"></div>
+  <div id="swap-incoming"></div>
+  <div class="choice-skip-row">
+    <button id="btn-cancel-swap" class="btn-primary btn-md" data-i18n="team.keepAsIs">Keep team as-is</button>
+  </div>
+</div>
+
+<!-- ===== BADGE SCREEN ===== -->
+<div id="badge-screen" class="screen">
+  <header class="screen-intro">
+    <h2 data-i18n="badge.title">Badge Earned!</h2>
+    <p id="badge-desc" class="screen-desc"></p>
+  </header>
+  <div class="badge-earn-body">
+    <div class="badge-earn-icon-wrap"><img id="badge-icon-img" class="badge-earn-icon" src="favicon.svg" alt="Badge"></div>
+    <p id="badge-count-display" class="badge-earn-count"></p>
+  </div>
+  <div class="badge-earn-footer">
+    <button id="btn-next-map" class="btn-primary btn-md" data-i18n="map.nextMap">Next Map →</button>
+  </div>
+</div>
+
+<!-- ===== TRANSITION SCREEN ===== -->
+<div id="transition-screen" class="screen">
+  <div id="transition-msg"></div>
+  <div id="transition-sub"></div>
+</div>
+
+<!-- ===== ELITE PREP SCREEN ===== -->
+<div id="elite-prep-screen" class="screen">
+  <header class="battle-header screen-intro">
+    <h2 id="elite-prep-title"></h2>
+    <p id="elite-prep-sub" class="screen-desc"></p>
+  </header>
+  <div class="elite-prep-order-banner" data-i18n="elite.chooseOrder">Choose Your Order</div>
+  <div class="elite-prep-hint" data-i18n="elite.hint">Drag your Pokémon to reorder · hover for stats</div>
+  <div class="elite-prep-stage">
+    <aside class="elite-prep-bag" id="elite-prep-bag">
+      <div class="elite-prep-bag-title" data-i18n="elite.bag">Bag</div>
+      <div id="elite-prep-items"></div>
+    </aside>
+    <div class="battle-field elite-prep-field">
+      <div class="battle-side">
+        <div class="battle-trainer" id="elite-prep-player-trainer"></div>
+        <div class="battle-side-label" data-i18n="battle.yourTeam">Your Team</div>
+        <div id="elite-prep-player-traits" class="battle-trait-bar"></div>
+        <div id="elite-prep-player-side"></div>
+      </div>
+      <div class="battle-side">
+        <div class="battle-trainer" id="elite-prep-enemy-trainer"></div>
+        <div class="battle-side-label" id="elite-prep-enemy-name" data-i18n="elite.opponent">Opponent</div>
+        <div id="elite-prep-enemy-traits" class="battle-trait-bar battle-trait-bar-right"></div>
+        <div id="elite-prep-enemy-side"></div>
+      </div>
+    </div>
+    <button id="btn-elite-prep-continue" class="elite-prep-fight-btn" data-i18n="elite.fight">FIGHT!</button>
+  </div>
+</div>
+
+<!-- ===== GAME OVER ===== -->
+<div id="gameover-screen" class="screen">
+  <div class="gameover-title" data-i18n="gameover.title">GAME OVER</div>
+  <div id="gameover-badges"></div>
+  <div id="gameover-stats"></div>
+  <div id="gameover-team"></div>
+  <div id="gameover-actions">
+    <button id="btn-retry" class="btn-primary btn-lg" data-i18n="common.playAgain">Play Again</button>
+    <button id="btn-gameover-menu" class="btn-secondary btn-lg" data-i18n="menu.mainMenu">Main Menu</button>
+  </div>
+</div>
+
+<!-- ===== WIN SCREEN ===== -->
+<div id="win-screen" class="screen">
+  <div class="win-title">YOU ARE THE<br>CHAMPION!</div>
+  <p class="win-congrats" data-i18n="win.congrats">Congratulations! You defeated the Elite Four!</p>
+  <div id="win-run-count"></div>
+  <div id="win-team"></div>
+  <div class="win-actions">
+    <button id="btn-play-again" class="btn-primary btn-md" data-i18n="common.playAgain">Play Again</button>
+    <button onclick="shareRun()" class="btn-secondary btn-md" data-i18n="win.share">📤 Share</button>
+    <button onclick="showEndlessStageSelect()" class="btn-secondary btn-md" data-i18n="win.climbTower">🗼 Climb the Tower</button>
+    <button onclick="openHallOfFameModal()" class="btn-secondary btn-md">🏛️ Hall of Fame</button>
+  </div>
+</div>
+
+<!-- Tooltips / overlays -->
+<div id="map-node-tooltip"></div>
+<div id="item-tooltip"></div>
+<div id="trait-tooltip"></div>
+<div id="team-hover-card"></div>
+
+<div id="evo-overlay">
+  <div id="evo-msg"></div>
+  <img id="evo-sprite" alt="">
+</div>
+<div id="eevee-choice-overlay">
+  <div class="evo-choice-title">Choose its evolution:</div>
+  <div id="eevee-choices"></div>
+</div>
+
+<canvas id="battle-anim-canvas"></canvas>
+
+<!-- App menu: sidebar (desktop) / bottom bar (mobile) -->
+<button type="button" id="run-menu-toggle" class="run-menu-toggle btn-primary btn-md" aria-label="Open menu" aria-expanded="false" aria-controls="run-menu-bar"><span class="run-menu-toggle-bars" aria-hidden="true"></span></button>
+<nav id="run-menu-bar" aria-label="App menu">
+  <div class="run-menu-sidebar">
+    <div class="run-menu-brand">
+      <h1 class="run-menu-logo"><span class="logo-poke">Poké</span><span class="logo-like">like</span></h1>
+    </div>
+    <div class="run-menu-nav">
+      <div class="run-menu-group run-menu-group--main">
+        <button type="button" onclick="goHomeFromMenu()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.home">Home</button>
+        <button type="button" onclick="openPokedexModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.pokedex">Pokédex</button>
+        <button type="button" onclick="openAchievementsModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.achievements">Achievements</button>
+        <button type="button" onclick="openHallOfFameModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.hallOfFame">Hall of Fame</button>
+      </div>
+      <div class="run-menu-group run-menu-group--run">
+        <button type="button" onclick="confirmResetRun()" class="run-menu-btn btn-primary btn-md run-menu-btn--reset" data-i18n="menu.resetRun">Reset Run</button>
+      </div>
+      <div class="run-menu-group run-menu-group--bottom">
+        <button type="button" id="btn-cloud-sync" class="run-menu-btn btn-primary btn-md run-menu-btn--account"><span class="run-menu-account-label">Login / Signup</span></button>
+        <button type="button" onclick="openPatchNotesModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.patchNotes">Patch Notes</button>
+        <button type="button" onclick="openSettingsModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.settings">Settings</button>
+        <button type="button" onclick="openCreditsModal()" class="run-menu-btn btn-primary btn-md" data-i18n="menu.credits">Credits</button>
+      </div>
+    </div>
+  </div>
+  <div class="run-menu-mobile-bar" aria-label="Quick actions">
+    <button type="button" class="run-menu-btn btn-primary btn-md" onclick="openAppMenuModal()" aria-label="Open menu" data-i18n="menu.menu">Menu</button>
+    <button type="button" onclick="confirmResetRun()" class="run-menu-btn btn-primary btn-md" aria-label="Reset run" data-i18n="menu.resetRun">Reset Run</button>
+    <button type="button" class="run-menu-btn btn-primary btn-md run-menu-btn--account" aria-label="Account"><span class="run-menu-account-label">Login / Signup</span></button>
+  </div>
+</nav>
+
+<!-- Floating quick-nav -->
+<div class="map-menu-icons">
+  <button onclick="openPokedexModal()" class="btn-icon-sm" data-tip="Pokédex" aria-label="Pokédex" data-i18n-attr="data-tip:menu.pokedex;aria-label:menu.pokedex">📕</button>
+  <button onclick="openAchievementsModal()" class="btn-icon-sm" data-tip="Achievements" aria-label="Achievements" data-i18n-attr="data-tip:menu.achievements;aria-label:menu.achievements">🏆</button>
+  <button onclick="showLeagueModal()" class="btn-icon-sm nav-in-run" data-tip="Map" aria-label="Map" data-i18n-attr="data-tip:menu.map;aria-label:menu.map">🗺️</button>
+  <button onclick="openSettingsModal()" class="btn-icon-sm" data-tip="Settings" aria-label="Settings" data-i18n-attr="data-tip:menu.settings;aria-label:menu.settings">⚙️</button>
+  <button onclick="toggleFullscreen()" id="btn-fullscreen" class="btn-icon-sm" data-tip="Fullscreen" aria-label="Fullscreen" data-i18n-attr="data-tip:menu.fullscreen;aria-label:menu.fullscreen">⛶</button>
+  <button onclick="openShopModal()" class="btn-icon-sm nav-out-of-run" data-tip="Poké Mart" aria-label="Poké Mart" data-i18n-attr="data-tip:menu.pokemart;aria-label:menu.pokemart">🛒</button>
+  <button onclick="confirmResetRun()" class="btn-icon-sm nav-in-run" data-tip="Reset Run" aria-label="Reset Run" data-i18n-attr="data-tip:menu.resetRun;aria-label:menu.resetRun">🔄</button>
+  <button onclick="goHomeFromMenu()" class="btn-icon-sm nav-in-run" data-tip="Home" aria-label="Home" data-i18n-attr="data-tip:menu.home;aria-label:menu.home">🚪</button>
+</div>
+
+</body>
+</html>

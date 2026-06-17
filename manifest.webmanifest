@@ -1,0 +1,17 @@
+{
+  "name": "Pokelike — Pokémon Roguelike",
+  "short_name": "Pokelike",
+  "description": "A fan-made Pokémon roguelike. Explore Kanto, battle gym leaders and the Elite Four.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e0e0e",
+  "theme_color": "#0e0e0e",
+  "lang": "en",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
