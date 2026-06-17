@@ -1,7 +1,7 @@
 // In-run HUD: team bar, item / passive bars, badge counters and the map header,
 // plus achievement toasts. Reads the live run object.
 import { $, el, clear } from './screens.js';
-import { teamSlot } from './render.js';
+import { teamSlot, itemIcon } from './render.js';
 import { drainToasts } from '../state.js';
 import { PASSIVE_ITEMS } from '../data/items.js';
 
@@ -37,7 +37,7 @@ function renderItemBar(run) {
     if (passLabel) passLabel.style.display = passives.length ? '' : 'none';
     passives.forEach((id) => {
       const p = PASSIVE_ITEMS[id];
-      if (p) passBar.appendChild(el('span', { className: 'passive-chip', title: `${p.name} — ${p.desc}` }, p.icon));
+      if (p) passBar.appendChild(el('span', { className: 'passive-chip', title: `${p.name} — ${p.desc}` }, itemIcon(p)));
     });
   }
 }

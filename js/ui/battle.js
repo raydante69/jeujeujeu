@@ -27,7 +27,15 @@ export function playBattle(opts) {
     renderTraitBar('#enemy-battle-traits', opts.enemyTraits);
     renderPassivesStrip(run);
     $('#player-trainer-icon').replaceChildren(trainerSprite(run.trainer, 'player'));
-    $('#enemy-trainer-icon').replaceChildren(trainerSprite(ctx.enemyTrainer || 'enemy', 'enemy'));
+    if (ctx.enemyTrainer) $('#enemy-trainer-icon').replaceChildren(trainerSprite(ctx.enemyTrainer, 'enemy'));
+    else $('#enemy-trainer-icon').replaceChildren();
+
+    // Themed battle backdrop behind the field.
+    const field = $('#battle-screen .battle-field');
+    if (field) {
+      if (ctx.bg) { field.style.backgroundImage = `url(${ctx.bg})`; field.classList.add('has-bg'); }
+      else { field.style.backgroundImage = ''; field.classList.remove('has-bg'); }
+    }
 
     const pMap = renderSide('#player-side', run.team);
     const eMap = renderSide('#enemy-side', enemyTeam);
@@ -53,19 +61,23 @@ export function playBattle(opts) {
         } else if (ev.type === 'attack') {
           const atk = look(ev.side, ev.attackerUid);
           const def = look(ev.side === 'player' ? 'enemy' : 'player', ev.defenderUid);
+          const col = typeColor(ev.moveType);
           if (atk) {
             atk.slot.classList.add(ev.side === 'player' ? 'lunge-right' : 'lunge-left');
             setTimeout(() => atk.slot.classList.remove('lunge-right', 'lunge-left'), 200);
+            if (def) flyProjectile(atk.slot, def.slot, col, ev.eff);
           }
+          sfx(ev.eff > 1 ? 'hitStrong' : ev.eff < 1 ? 'hitWeak' : 'hit');
+          await wait(150, skipRef); // projectile travel
           if (def) {
             setHp(def, ev.defenderHp);
             def.slot.classList.add('hit');
             setTimeout(() => def.slot.classList.remove('hit'), 160);
             floatDamage(def.slot, ev.damage, ev.eff);
-            hitEffect(def.slot, typeColor(ev.moveType), ev.eff);
+            hitEffect(def.slot, col, ev.eff);
+            if (ev.eff > 1) screenShake();
           }
-          sfx(ev.eff > 1 ? 'hitStrong' : ev.eff < 1 ? 'hitWeak' : 'hit');
-          await wait(ev.eff > 1 ? 360 : 280, skipRef);
+          await wait(ev.eff > 1 ? 200 : 140, skipRef);
         } else if (ev.type === 'faint') {
           const s = look(ev.side, ev.uid);
           if (s) s.slot.classList.add('fainted');
@@ -144,6 +156,29 @@ function renderPassivesStrip(run) {
       if (p) host.appendChild(el('span', { className: 'passive-chip', title: `${p.name} — ${p.desc}` }, p.icon));
     });
   });
+}
+
+// A type-coloured orb that flies from attacker to defender.
+function flyProjectile(fromEl, toEl, color, eff) {
+  if (reduced()) return;
+  const a = fromEl.getBoundingClientRect();
+  const b = toEl.getBoundingClientRect();
+  const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+  const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
+  const p = el('div', { className: 'battle-proj' + (eff > 1 ? ' strong' : '') });
+  p.style.color = color; p.style.background = color;
+  p.style.left = x1 + 'px'; p.style.top = y1 + 'px';
+  document.body.appendChild(p);
+  requestAnimationFrame(() => { p.style.transform = `translate(${x2 - x1}px, ${y2 - y1}px)`; });
+  setTimeout(() => p.remove(), 240);
+}
+
+function screenShake() {
+  if (reduced()) return;
+  const s = $('#battle-screen');
+  if (!s) return;
+  s.classList.add('shake');
+  setTimeout(() => s.classList.remove('shake'), 320);
 }
 
 // Light expanding-ring hit effect on the shared canvas.

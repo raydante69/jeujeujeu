@@ -29,7 +29,7 @@
 <!-- ===== TITLE SCREEN ===== -->
 <div id="title-screen" class="screen">
   <header class="title-hero">
-    <h1 class="game-logo"><span class="logo-poke">Poké</span><span class="logo-like">like</span></h1>
+    <h1 class="game-logo"><img class="game-logo-img" src="img/logo.png" alt="Pokélike"></h1>
     <p class="game-subtitle">
       <span class="game-subtitle-inner">
         <span class="game-subtitle-text" data-i18n="title.subtitle">Pokémon Roguelike</span>
@@ -43,7 +43,7 @@
       <button type="button" id="btn-history-run" class="title-mode-card title-mode-card--story">
         <span class="title-mode-card-title" data-i18n="title.story">Story</span>
         <span class="title-mode-card-figure">
-          <span class="title-mode-card-emoji" aria-hidden="true">🗺️</span>
+          <img class="title-mode-card-img" src="img/modeImages/story-mode.png" alt="">
           <span class="title-mode-card-action" data-i18n="title.playStory">Play Story</span>
         </span>
       </button>
@@ -53,7 +53,8 @@
       <button type="button" id="btn-endless-run" class="title-mode-card title-mode-card--tower">
         <span class="title-mode-card-title" data-i18n="title.battleTower">Battle Tower</span>
         <span class="title-mode-card-figure">
-          <span class="title-mode-card-emoji" aria-hidden="true">🗼</span>
+          <img class="title-mode-card-img" src="img/modeImages/battle-tower.png" alt="">
+          <img class="title-mode-card-lock" src="img/sprites/lock.png" alt="locked">
           <span class="title-mode-card-action" data-i18n="title.enterTower">Enter Tower</span>
         </span>
       </button>
@@ -63,7 +64,8 @@
       <button type="button" id="btn-challenges-run" class="title-mode-card title-mode-card--challenge">
         <span class="title-mode-card-title" data-i18n="title.challenges">Challenges</span>
         <span class="title-mode-card-figure">
-          <span class="title-mode-card-emoji" aria-hidden="true">🎯</span>
+          <img class="title-mode-card-img" src="img/modeImages/challenges.png" alt="">
+          <img class="title-mode-card-lock" src="img/sprites/lock.png" alt="locked">
           <span class="title-mode-card-action" data-i18n="title.takeChallenge">Take Challenge</span>
         </span>
       </button>
@@ -85,7 +87,7 @@
   <div class="history-select-panel">
     <div class="history-select-topbar">
       <button type="button" class="btn-primary btn-md history-select-back" onclick="goHomeFromMenu()">Back</button>
-      <div class="history-select-logo" aria-hidden="true"><span class="logo-poke">Poké</span><span class="logo-like">like</span></div>
+      <div class="history-select-logo" aria-hidden="true"><img src="img/logo.png" alt=""></div>
     </div>
     <header class="history-header">
       <h1 class="history-header-title history-header-title--story">Story</h1>
@@ -324,7 +326,7 @@
 <nav id="run-menu-bar" aria-label="App menu">
   <div class="run-menu-sidebar">
     <div class="run-menu-brand">
-      <h1 class="run-menu-logo"><span class="logo-poke">Poké</span><span class="logo-like">like</span></h1>
+      <h1 class="run-menu-logo"><img src="img/logo.png" alt="Pokélike"></h1>
     </div>
     <div class="run-menu-nav">
       <div class="run-menu-group run-menu-group--main">
@@ -353,14 +355,14 @@
 
 <!-- Floating quick-nav -->
 <div class="map-menu-icons">
-  <button onclick="openPokedexModal()" class="btn-icon-sm" data-tip="Pokédex" aria-label="Pokédex" data-i18n-attr="data-tip:menu.pokedex;aria-label:menu.pokedex">📕</button>
-  <button onclick="openAchievementsModal()" class="btn-icon-sm" data-tip="Achievements" aria-label="Achievements" data-i18n-attr="data-tip:menu.achievements;aria-label:menu.achievements">🏆</button>
-  <button onclick="showLeagueModal()" class="btn-icon-sm nav-in-run" data-tip="Map" aria-label="Map" data-i18n-attr="data-tip:menu.map;aria-label:menu.map">🗺️</button>
-  <button onclick="openSettingsModal()" class="btn-icon-sm" data-tip="Settings" aria-label="Settings" data-i18n-attr="data-tip:menu.settings;aria-label:menu.settings">⚙️</button>
+  <button onclick="openPokedexModal()" class="btn-icon-sm" data-tip="Pokédex" aria-label="Pokédex" data-i18n-attr="data-tip:menu.pokedex;aria-label:menu.pokedex"><img src="img/menu/pokedex.png" alt=""></button>
+  <button onclick="openAchievementsModal()" class="btn-icon-sm" data-tip="Achievements" aria-label="Achievements" data-i18n-attr="data-tip:menu.achievements;aria-label:menu.achievements"><img src="img/menu/achievements.png" alt=""></button>
+  <button onclick="showLeagueModal()" class="btn-icon-sm nav-in-run" data-tip="Map" aria-label="Map" data-i18n-attr="data-tip:menu.map;aria-label:menu.map"><img src="img/menu/map.png" alt=""></button>
+  <button onclick="openSettingsModal()" class="btn-icon-sm" data-tip="Settings" aria-label="Settings" data-i18n-attr="data-tip:menu.settings;aria-label:menu.settings"><img src="img/menu/settings.png" alt=""></button>
   <button onclick="toggleFullscreen()" id="btn-fullscreen" class="btn-icon-sm" data-tip="Fullscreen" aria-label="Fullscreen" data-i18n-attr="data-tip:menu.fullscreen;aria-label:menu.fullscreen">⛶</button>
-  <button onclick="openShopModal()" class="btn-icon-sm nav-out-of-run" data-tip="Poké Mart" aria-label="Poké Mart" data-i18n-attr="data-tip:menu.pokemart;aria-label:menu.pokemart">🛒</button>
-  <button onclick="confirmResetRun()" class="btn-icon-sm nav-in-run" data-tip="Reset Run" aria-label="Reset Run" data-i18n-attr="data-tip:menu.resetRun;aria-label:menu.resetRun">🔄</button>
-  <button onclick="goHomeFromMenu()" class="btn-icon-sm nav-in-run" data-tip="Home" aria-label="Home" data-i18n-attr="data-tip:menu.home;aria-label:menu.home">🚪</button>
+  <button onclick="openShopModal()" class="btn-icon-sm nav-out-of-run" data-tip="Poké Mart" aria-label="Poké Mart" data-i18n-attr="data-tip:menu.pokemart;aria-label:menu.pokemart"><img src="img/menu/pokemart.png" alt=""></button>
+  <button onclick="confirmResetRun()" class="btn-icon-sm nav-in-run" data-tip="Reset Run" aria-label="Reset Run" data-i18n-attr="data-tip:menu.resetRun;aria-label:menu.resetRun"><img src="img/menu/reset.png" alt=""></button>
+  <button onclick="goHomeFromMenu()" class="btn-icon-sm nav-in-run" data-tip="Home" aria-label="Home" data-i18n-attr="data-tip:menu.home;aria-label:menu.home"><img src="img/menu/exit.png" alt=""></button>
 </div>
 
 </body>

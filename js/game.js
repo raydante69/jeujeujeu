@@ -18,6 +18,7 @@ import { simulateBattle } from './engine/battle.js';
 import { computeTraits } from './data/traits.js';
 import { aggregatePassives, ACTIVE_ITEMS, activeItemList } from './data/items.js';
 import { pendingEvolution, evolveInto, EEVEE_OPTIONS } from './engine/evolution.js';
+import { ASSETS, battleBgFor, leaderTrainer } from './assets.js';
 
 import { showScreen, transition, setInRun, el } from './ui/screens.js';
 import { openModal } from './ui/modals.js';
@@ -149,14 +150,14 @@ const wildLevel = () => wildLevelForLeg(region(), run().legIndex, rng);
 async function doWild(node) {
   const enemy = wildEncounter(rng, legTier(), wildLevel());
   markSeen(enemy.id);
-  await battleAndResolve([enemy], { title: 'Wild Battle!', enemyLabel: 'Wild', enemyTrainer: 'enemy' }, node);
+  await battleAndResolve([enemy], { title: 'Wild Battle!', enemyLabel: 'Wild', bg: ASSETS.battle.grass, enemyTrainer: null }, node);
 }
 
 async function doTrainer(node) {
   const lvl = Math.max(2, gymLevel(region(), run().legIndex) - rng.int(2, 6));
   const team = buildTrainerTeam(rng, lvl, legTier());
   team.forEach((e) => markSeen(e.id));
-  await battleAndResolve(team, { title: 'Trainer Battle!', enemyLabel: 'Trainer', enemyTrainer: 'enemy' }, node);
+  await battleAndResolve(team, { title: 'Trainer Battle!', enemyLabel: 'Trainer', bg: ASSETS.battle.grass, enemyTrainer: leaderTrainer(run().legIndex) }, node);
 }
 
 async function doCatch(node) {
@@ -195,12 +196,13 @@ async function doGym(node) {
   const lvl = gymLevel(region(), run().legIndex);
   const team = buildGymTeam(rng, gym, lvl);
   team.forEach((e) => markSeen(e.id));
+  const gymTrainer = leaderTrainer(run().legIndex);
   await renderElitePrep({
     run: run(), enemyTeam: team,
     title: `${gym.leader}'s Gym`, subtitle: `${cap(gym.type)} type · Lv ~${lvl}`,
-    enemyName: gym.leader, enemyTrainer: 'enemy',
+    enemyName: gym.leader, enemyTrainer: gymTrainer, bg: battleBgFor(gym.type),
   });
-  await battleAndResolve(team, { title: `${gym.leader} — ${cap(gym.type)} Gym`, enemyLabel: gym.leader }, node, {
+  await battleAndResolve(team, { title: `${gym.leader} — ${cap(gym.type)} Gym`, enemyLabel: gym.leader, bg: battleBgFor(gym.type), enemyTrainer: gymTrainer }, node, {
     onWin: async () => {
       run().badges.push(gym.badge);
       unlockAchievement('first-badge');
@@ -365,11 +367,13 @@ async function nextElite() {
   const lvl = eliteLevel(region(), r.eliteIndex);
   const team = buildEliteTeam(rng, e, lvl);
   team.forEach((x) => markSeen(x.id));
+  const eTrainer = leaderTrainer(4 + r.eliteIndex);
   await renderElitePrep({
     run: r, enemyTeam: team,
     title: `Elite Four · ${e.name}`, subtitle: `${cap(e.type)} · Lv ~${lvl}`, enemyName: e.name,
+    enemyTrainer: eTrainer, bg: battleBgFor(e.type),
   });
-  await battleAndResolve(team, { title: `${e.name} — Elite Four`, enemyLabel: e.name }, null, {
+  await battleAndResolve(team, { title: `${e.name} — Elite Four`, enemyLabel: e.name, bg: battleBgFor(e.type), enemyTrainer: eTrainer }, null, {
     onWin: async () => { run().eliteIndex++; persist(); await nextElite(); },
   });
 }
@@ -383,8 +387,9 @@ async function fightChampion() {
   await renderElitePrep({
     run: run(), enemyTeam: team,
     title: `Champion ${region().champion.name}`, subtitle: `Lv ~${lvl}`, enemyName: region().champion.name,
+    enemyTrainer: ASSETS.trainers.champion, bg: ASSETS.battle.city,
   });
-  await battleAndResolve(team, { title: `Champion ${region().champion.name}`, enemyLabel: 'Champion' }, null, {
+  await battleAndResolve(team, { title: `Champion ${region().champion.name}`, enemyLabel: 'Champion', bg: ASSETS.battle.city, enemyTrainer: ASSETS.trainers.champion }, null, {
     onWin: async () => winRun(),
   });
 }

@@ -3,6 +3,7 @@
 import { el } from './screens.js';
 import { spriteFront, spriteBack } from '../data/pokemon.js';
 import { typeColor } from '../data/types.js';
+import { ASSETS, playerTrainer, itemSprite } from '../assets.js';
 
 // Inline pokéball used when a sprite fails to load from the CDN.
 export const POKEBALL_URI = 'data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -98,8 +99,21 @@ function statLine(inst) {
     `HP ${s.hp} · ATK ${s.atk} · DEF ${s.def} · SPE ${s.spe}`);
 }
 
-export function trainerSprite(trainer, side = 'player') {
-  // Original-art placeholder: a simple coloured trainer glyph.
-  const glyph = trainer === 'girl' ? '👩' : trainer === 'boy' ? '🧑' : '🧢';
-  return el('div', { className: `trainer-glyph trainer-${side}` }, glyph);
+// Trainer sprite (pixel-art image). Accepts a direct asset URL, or a player
+// kind ('boy'/'girl'/'champion'); anything else falls back to a generic NPC.
+export function trainerSprite(kind, side = 'player') {
+  let url;
+  if (typeof kind === 'string' && kind.includes('/')) url = kind;
+  else if (kind === 'boy' || kind === 'girl' || kind === 'champion') url = playerTrainer(kind);
+  else url = ASSETS.trainers.leaders[0];
+  const img = el('img', { className: `trainer-sprite trainer-${side}`, src: url, alt: '', draggable: false });
+  return img;
+}
+
+// Item / passive icon as the open PokeAPI sprite, with an emoji fallback.
+export function itemIcon(item, cls = '') {
+  if (!item || !item.slug) return el('span', { className: 'item-icon-emoji ' + cls }, (item && item.icon) || '🎁');
+  const img = el('img', { className: 'item-icon-img ' + cls, src: itemSprite(item.slug), alt: item.name, draggable: false });
+  img.addEventListener('error', () => { img.replaceWith(el('span', { className: 'item-icon-emoji ' + cls }, item.icon || '🎁')); }, { once: true });
+  return img;
 }

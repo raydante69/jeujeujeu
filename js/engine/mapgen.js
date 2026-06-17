@@ -2,14 +2,15 @@
 // Shaped like a small roguelike map: a start node, a few rows of branching
 // choices, then the gym. The player walks row by row choosing the next node.
 import { MAP_SHAPE } from '../data/regions.js';
+import { ASSETS, itemSprite } from '../assets.js';
 
 export const NODE_TYPES = {
-  wild:    { icon: '⚔️',  label: 'Wild' },
-  trainer: { icon: '🧢', label: 'Trainer' },
-  item:    { icon: '🎁', label: 'Item' },
-  catch:   { icon: '🔴', label: 'Catch' },
-  rest:    { icon: '🏥', label: 'Rest' },
-  gym:     { icon: '🏆', label: 'Gym' },
+  wild:    { img: ASSETS.grass, label: 'Wild' },
+  trainer: { img: ASSETS.trainers.leaders[2], label: 'Trainer' },
+  item:    { img: itemSprite('potion'), label: 'Item' },
+  catch:   { img: ASSETS.ball, label: 'Catch' },
+  rest:    { img: ASSETS.pokecenter, label: 'Rest' },
+  gym:     { img: ASSETS.gym, label: 'Gym' },
 };
 
 function weightedType(rng, legIndex, row) {

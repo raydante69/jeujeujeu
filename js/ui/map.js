@@ -3,6 +3,7 @@
 import { $, el, clear } from './screens.js';
 import { NODE_TYPES } from '../engine/mapgen.js';
 import { updateHud } from './hud.js';
+import { zoneFor } from '../assets.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -11,6 +12,8 @@ export function renderMap(run, { onNode }) {
   const container = $('#map-container');
   if (!container) return;
   clear(container);
+  // Themed terrain backdrop for this leg.
+  container.style.backgroundImage = `url(${zoneFor(run.legIndex)})`;
 
   const map = run.map;
   const cleared = new Set(run.cleared || []);
@@ -39,7 +42,7 @@ export function renderMap(run, { onNode }) {
   // Nodes.
   for (const node of Object.values(map.nodes)) {
     if (node.type === 'start') continue;
-    const meta = NODE_TYPES[node.type] || { icon: '?', label: node.type };
+    const meta = NODE_TYPES[node.type] || { img: '', label: node.type };
     const isCurrent = node.id === run.nodeId;
     const isDone = cleared.has(node.id);
     const isSel = selectable.has(node.id) && !isDone;
@@ -50,7 +53,9 @@ export function renderMap(run, { onNode }) {
       style: { left: node.x + '%', top: node.y + '%' },
       'aria-label': meta.label,
     },
-      el('span', { className: 'map-node-icon' }, isDone ? '✓' : meta.icon),
+      isDone
+        ? el('span', { className: 'map-node-icon map-node-done' }, '✓')
+        : el('img', { className: 'map-node-img', src: meta.img, alt: '', draggable: false }),
       node.type === 'gym' && node.gym ? el('span', { className: 'map-node-tag' }, node.gym.leader) : null,
     );
     if (isSel) btn.addEventListener('click', () => onNode(node.id));
@@ -64,7 +69,7 @@ function showNodeTip(e, node, meta) {
   const tip = $('#map-node-tooltip');
   if (!tip) return;
   tip.innerHTML = '';
-  tip.appendChild(el('div', { className: 'tip-title' }, meta.icon + ' ' + meta.label));
+  tip.appendChild(el('div', { className: 'tip-title' }, meta.label));
   if (node.type === 'gym' && node.gym) {
     tip.appendChild(el('div', { className: 'tip-sub' }, `${node.gym.leader} · ${node.gym.type}`));
   }

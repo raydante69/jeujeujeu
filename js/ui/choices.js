@@ -1,7 +1,7 @@
 // Choice screens: catch, item pickup, passive pickup, team swap and the badge
 // award. Each returns a promise that resolves with the player's decision.
 import { $, el, clear, showScreen } from './screens.js';
-import { monCard, teamSlot, spriteImg, typeBadges } from './render.js';
+import { monCard, teamSlot, spriteImg, typeBadges, itemIcon } from './render.js';
 import { sfx } from '../audio.js';
 
 function teamStrip(host, team) {
@@ -47,7 +47,7 @@ export function renderPassive(passives, team) {
 
 function itemCard(item, onClick, passive = false) {
   return el('div', { className: 'item-card clickable' + (passive ? ' item-card--passive' : ''), onClick },
-    el('div', { className: 'item-card-icon' }, item.icon || '🎁'),
+    el('div', { className: 'item-card-icon' }, itemIcon(item)),
     el('div', { className: 'item-card-name' }, item.name),
     el('div', { className: 'item-card-desc' }, item.desc),
     item.tier ? el('div', { className: 'item-card-tier' }, '★'.repeat(item.tier)) : null,

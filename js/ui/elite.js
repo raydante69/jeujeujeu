@@ -1,17 +1,21 @@
 // Elite-prep screen: shown before gym/Elite/Champion fights. The player can
 // reorder their team (click-to-swap, also drag) before committing to FIGHT.
 import { $, el, clear, showScreen } from './screens.js';
-import { spriteImg, hpBar, trainerSprite } from './render.js';
+import { spriteImg, hpBar, trainerSprite, itemIcon } from './render.js';
 import { computeTraits } from '../data/traits.js';
 import { typeColor } from '../data/types.js';
 import { PASSIVE_ITEMS } from '../data/items.js';
+import { ASSETS } from '../assets.js';
 import { sfx } from '../audio.js';
 
-export function renderElitePrep({ run, enemyTeam, title, subtitle, enemyName, enemyTrainer }) {
+export function renderElitePrep({ run, enemyTeam, title, subtitle, enemyName, enemyTrainer, bg }) {
   return new Promise((resolve) => {
     $('#elite-prep-title').textContent = title || 'Get Ready!';
     $('#elite-prep-sub').textContent = subtitle || '';
     $('#elite-prep-enemy-name').textContent = enemyName || 'Opponent';
+
+    const field = $('#elite-prep-screen .battle-field');
+    if (field && bg) { field.style.backgroundImage = `url(${bg})`; field.classList.add('has-bg'); }
 
     // Bag (passive items).
     const bag = $('#elite-prep-items');
@@ -20,11 +24,11 @@ export function renderElitePrep({ run, enemyTeam, title, subtitle, enemyName, en
     if (!passives.length) bag.appendChild(el('span', { className: 'hud-empty' }, '—'));
     passives.forEach((id) => {
       const p = PASSIVE_ITEMS[id];
-      if (p) bag.appendChild(el('span', { className: 'passive-chip', title: `${p.name} — ${p.desc}` }, p.icon));
+      if (p) bag.appendChild(el('span', { className: 'passive-chip', title: `${p.name} — ${p.desc}` }, itemIcon(p)));
     });
 
     $('#elite-prep-player-trainer').replaceChildren(trainerSprite(run.trainer, 'player'));
-    $('#elite-prep-enemy-trainer').replaceChildren(trainerSprite(enemyTrainer || 'enemy', 'enemy'));
+    $('#elite-prep-enemy-trainer').replaceChildren(trainerSprite(enemyTrainer || ASSETS.trainers.leaders[0], 'enemy'));
     traitBar('#elite-prep-player-traits', computeTraits(run.team));
     traitBar('#elite-prep-enemy-traits', computeTraits(enemyTeam));
 

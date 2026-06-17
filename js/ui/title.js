@@ -4,6 +4,7 @@ import { $, el, clear, showScreen } from './screens.js';
 import { REGIONS } from '../data/regions.js';
 import { speciesById } from '../data/pokemon.js';
 import { typeBadges } from './render.js';
+import { ASSETS } from '../assets.js';
 import { sfx } from '../audio.js';
 
 export function updateResumeButtons(run) {
@@ -31,29 +32,32 @@ export function renderRegionSelect({ onPick }) {
   list.appendChild(regionCard({
     name: kanto.name,
     subtitle: '8 Gyms · Elite Four',
+    bg: ASSETS.regions.kanto,
     available: true,
     onClick: () => { sfx('select'); onPick('kanto', variant); },
   }));
-  list.appendChild(regionCard({ name: 'Johto', subtitle: 'Coming soon', available: false }));
+  list.appendChild(regionCard({ name: 'Johto', subtitle: 'Coming soon', bg: ASSETS.regions.johto, available: false }));
 
   showScreen('history-region-select');
 }
 
-function regionCard({ name, subtitle, available, onClick }) {
+function regionCard({ name, subtitle, bg, available, onClick }) {
   const card = el('div', {
     className: 'region-card' + (available ? ' clickable' : ' locked'),
+    style: bg ? { backgroundImage: `url(${bg})` } : null,
   },
-    el('div', { className: 'region-card-name' }, name),
-    el('div', { className: 'region-card-sub' }, subtitle),
-    available ? el('div', { className: 'region-card-go' }, 'Begin →') : el('div', { className: 'region-card-lock' }, '🔒'),
+    el('div', { className: 'region-card-overlay' },
+      el('div', { className: 'region-card-name' }, name),
+      el('div', { className: 'region-card-sub' }, subtitle),
+      available ? el('div', { className: 'region-card-go' }, 'Begin →') : el('div', { className: 'region-card-lock' }, '🔒')),
   );
   if (available && onClick) card.addEventListener('click', onClick);
   return card;
 }
 
 export function renderTrainerSelect({ onPick }) {
-  $('#trainer-boy').querySelector('.trainer-icon-wrap').textContent = '🧑';
-  $('#trainer-girl').querySelector('.trainer-icon-wrap').textContent = '👩';
+  $('#trainer-boy').querySelector('.trainer-icon-wrap').replaceChildren(el('img', { src: ASSETS.trainers.boy, alt: '', className: 'trainer-pick-img' }));
+  $('#trainer-girl').querySelector('.trainer-icon-wrap').replaceChildren(el('img', { src: ASSETS.trainers.girl, alt: '', className: 'trainer-pick-img' }));
   const wire = (id, who) => {
     const card = $('#' + id);
     const go = () => { sfx('select'); onPick(who); };

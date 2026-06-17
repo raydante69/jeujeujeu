@@ -56,10 +56,7 @@ body {
   font-family: var(--font-ui);
   font-size: var(--text-base);
   color: var(--text);
-  background: var(--bg);
-  background-image:
-    radial-gradient(circle at 50% 0%, #1c1c22 0%, #0e0e0e 60%),
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 4px);
+  background: #74c0fc url('../img/background.png') center center / cover fixed no-repeat;
   line-height: 1.6;
   -webkit-font-smoothing: none;
   image-rendering: pixelated;
@@ -534,3 +531,73 @@ body.run-menu-in-run .nav-out-of-run { display: none; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001ms !important; transition-duration: .05ms !important; }
 }
+
+/* ============================================================================
+   v2 — overworld theme: pixel-art image assets, readability on the bright
+   background, and richer battle effects.
+   ========================================================================= */
+
+/* Readable light/gold text directly on the bright overworld backdrop. */
+.game-subtitle, .screen-intro h2, .screen-desc, .title-footer-legal, .title-footer-link,
+.history-header-title, .history-header-intro, #transition-msg, #transition-sub,
+.gameover-title, .win-title, .win-congrats, #win-run-count, .elite-prep-order-banner,
+.elite-prep-hint, #map-info, #badge-count {
+  text-shadow: 1px 1px 0 #14110c, -1px 1px 0 #14110c, 1px -1px 0 #14110c, -1px -1px 0 #14110c;
+}
+.title-legal-footer-inner { background: rgba(10,14,20,.55); border-radius: 6px; padding: 8px 12px; }
+.game-subtitle { display: inline-block; background: rgba(10,14,20,.5); border-radius: 5px; padding: 5px 10px; }
+
+/* Logo images */
+.game-logo { line-height: 0; }
+.game-logo-img { width: min(360px, 82vw); height: auto; image-rendering: pixelated; filter: drop-shadow(0 4px 0 rgba(0,0,0,.45)); }
+.run-menu-logo img { width: 120px; height: auto; image-rendering: pixelated; }
+.history-select-logo img { width: 92px; height: auto; image-rendering: pixelated; vertical-align: middle; }
+
+/* Mode cards: scene image with a title above and an action bar below. */
+.title-mode-card { padding: 8px; gap: 8px; }
+.title-mode-card-figure { position: relative; display: block; border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.title-mode-card-img { display: block; width: 100%; height: 124px; object-fit: cover; image-rendering: pixelated; }
+.title-mode-card-action { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px; font-size: var(--text-xs); color: #fff; background: rgba(10,14,20,.72); }
+.title-mode-card-lock { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 38px; height: 38px; image-rendering: pixelated; filter: drop-shadow(0 2px 3px #000); }
+.title-mode-card--tower .title-mode-card-img, .title-mode-card--challenge .title-mode-card-img { filter: brightness(.62) saturate(.8); }
+
+/* Trainer sprites */
+.trainer-sprite { image-rendering: pixelated; height: 60px; width: auto; }
+.battle-trainer .trainer-sprite { height: 52px; }
+.trainer-icon-wrap img { image-rendering: pixelated; height: 84px; }
+
+/* Item / passive icons */
+.item-icon-img { image-rendering: pixelated; width: 28px; height: 28px; vertical-align: middle; }
+.item-card-icon .item-icon-img { width: 40px; height: 40px; }
+.passive-chip .item-icon-img, .item-chip .item-icon-img { width: 22px; height: 22px; }
+.passive-chip, .item-chip { display: inline-flex; align-items: center; }
+
+/* Map: terrain backdrop + image node icons */
+#map-container { background-size: cover; background-position: center; image-rendering: pixelated; }
+#map-container::after { content: ''; position: absolute; inset: 0; background: rgba(8,16,10,.18); pointer-events: none; }
+.map-lines { z-index: 1; }
+.map-node { z-index: 2; background: rgba(18,22,30,.96); border-color: #f4eedd; box-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 0 2px rgba(0,0,0,.45); }
+.map-node.done { background: rgba(20,44,24,.96); border-color: #8fe06a; }
+.map-node-img { width: 30px; height: 30px; image-rendering: pixelated; }
+.node-gym .map-node-img, .node-rest .map-node-img { width: 38px; height: 38px; }
+.map-node-done { font-size: 18px; color: var(--green); }
+
+/* Region cards with landscape backgrounds */
+.region-card { background-size: cover; background-position: center; image-rendering: pixelated; padding: 0; overflow: hidden; }
+.region-card-overlay { padding: 16px; background: linear-gradient(180deg, rgba(8,12,20,.15), rgba(8,12,20,.78)); height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 150px; }
+.region-card-name { text-shadow: 1px 1px 0 #000; }
+.region-card-sub { color: #e8e2d2; }
+
+/* Battle: themed backdrop, flying projectile, screen shake */
+.battle-field.has-bg .battle-side { background: rgba(10,16,24,.42); backdrop-filter: blur(1px); }
+.battle-field.has-bg { background-size: cover; background-position: center; image-rendering: pixelated; border-radius: 8px; padding: 6px; }
+.battle-proj { position: fixed; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; z-index: 160; pointer-events: none; transition: transform .15s linear; box-shadow: 0 0 10px currentColor, 0 0 4px #fff inset; }
+.battle-proj.strong { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+#battle-screen.shake { animation: screenShake .3s; }
+@keyframes screenShake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-5px,3px); } 40% { transform: translate(5px,-3px); } 60% { transform: translate(-4px,-2px); } 80% { transform: translate(4px,2px); } }
+
+/* Pixelate the floating-nav icon images */
+.map-menu-icons .btn-icon-sm img { width: 24px; height: 24px; image-rendering: pixelated; }
+
+/* Badge earned: use the pixel gym sprite vibe */
+.badge-earn-icon { image-rendering: pixelated; }
