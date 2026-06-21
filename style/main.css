@@ -601,3 +601,58 @@ body.run-menu-in-run .nav-out-of-run { display: none; }
 
 /* Badge earned: use the pixel gym sprite vibe */
 .badge-earn-icon { image-rendering: pixelated; }
+
+/* ---- Party manager (team screen) ---------------------------------------- */
+.pp-list { display: flex; flex-direction: column; gap: 10px; }
+.pp-card { display: flex; gap: 10px; align-items: stretch; padding: 8px; background: #fbf8ef; border: 2px solid var(--ink); border-radius: 6px; box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.pp-card.pp-targetable { cursor: pointer; }
+.pp-card.pp-targetable:hover { outline: 3px solid var(--accent-hi); outline-offset: 1px; }
+.pp-portrait { position: relative; width: 62px; height: 62px; align-self: center; display: flex; align-items: center; justify-content: center; background: #efeadd; border: 2px solid var(--ink); border-radius: 5px; flex-shrink: 0; }
+.pp-portrait.fainted { filter: grayscale(1) opacity(.55); }
+.pp-portrait .shiny-star { position: absolute; top: 1px; right: 2px; color: var(--gold); font-size: 10px; }
+.pp-sprite { width: 52px; height: 52px; image-rendering: pixelated; }
+.pp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pp-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pp-name { font-size: var(--text-sm); color: var(--ink); }
+.pp-hp-row { font-size: 8px; color: var(--ink); opacity: .8; }
+.pp-xp { display: flex; align-items: center; gap: 6px; }
+.pp-xp-label { font-size: 8px; color: var(--ink); min-width: 34px; }
+.pp-xp-bar { flex: 1; height: 8px; background: #2a2622; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.pp-xp-fill { display: block; height: 100%; background: linear-gradient(180deg, #ffe98a, var(--gold)); }
+.pp-xp-num { font-size: 7px; color: var(--ink); opacity: .7; min-width: 42px; text-align: right; }
+.pp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.pp-stat { font-size: 8px; color: var(--ink); background: #efeadd; border: 1px solid rgba(0,0,0,.25); border-radius: 3px; padding: 1px 4px; }
+.pp-stat b { color: var(--accent-edge); }
+.pp-move { display: flex; align-items: center; gap: 6px; padding: 3px 5px; background: #efeadd; border: 1px solid var(--ink); border-radius: 4px; }
+.pp-move-type { font-size: 7px; color: #fff; padding: 1px 4px; border-radius: 3px; border: 1px solid rgba(0,0,0,.4); text-shadow: 0 1px 0 rgba(0,0,0,.5); }
+.pp-move-name { flex: 1; font-size: 8px; color: var(--ink); }
+.pp-move-lv { font-size: 8px; color: var(--accent-edge); }
+.pp-reorder { display: flex; flex-direction: column; gap: 4px; justify-content: center; flex-shrink: 0; }
+.pp-arrow { width: 26px; height: 24px; border: 2px solid var(--ink); border-radius: 4px; background: #fff; font-size: 9px; line-height: 1; }
+.pp-arrow:disabled { opacity: .35; }
+/* Bag inside the team screen */
+.pp-bag { margin-top: 14px; padding-top: 12px; border-top: 2px dashed rgba(0,0,0,.3); }
+.pp-bag-title { font-size: var(--text-sm); color: var(--ink); margin-bottom: 8px; }
+.pp-bag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.pp-item { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; background: #fbf8ef; border: 2px solid var(--ink); border-radius: 5px; box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.pp-item.active { background: var(--accent-hi); box-shadow: 0 0 0 2px var(--ink); }
+.pp-item .item-icon-img { width: 22px; height: 22px; image-rendering: pixelated; }
+.pp-item-name { font-size: 8px; color: var(--ink); }
+.pp-item-ct { font-size: 8px; color: var(--accent-edge); }
+.pp-bag-empty { font-size: 8px; padding: 4px 0; }
+
+/* ---- TM (CT) event ------------------------------------------------------ */
+.pp-tm-intro { font-size: var(--text-sm); color: var(--ink); text-align: center; margin-bottom: 12px; }
+.pp-tm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.pp-tm-card { display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left; background: #fbf8ef; border: 2px solid var(--ink); border-radius: 6px; box-shadow: 0 3px 0 rgba(0,0,0,.3); }
+.pp-tm-card:hover:not(:disabled) { outline: 3px solid var(--accent-hi); outline-offset: 1px; }
+.pp-tm-card.maxed { opacity: .5; }
+.pp-tm-card > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pp-tm-card .pp-move { flex-wrap: wrap; gap: 3px 5px; }
+.pp-tm-card .pp-move-name { flex: 1 1 60px; }
+.pp-tm-up { font-size: 8px; color: var(--green); font-weight: bold; }
+
+/* HUD item count pill + prominent New Game+ button */
+.item-chip-ct { font-size: 8px; margin-left: 1px; color: var(--accent-hi); }
+.win-ngplus { background: var(--accent2); color: #fff; box-shadow: 0 var(--btn-edge) 0 #8a1408, 0 var(--btn-edge) 0 1px var(--ink); }
+.win-ngplus:active { box-shadow: 0 calc(var(--btn-edge) - var(--btn-push)) 0 #8a1408, 0 calc(var(--btn-edge) - var(--btn-push)) 0 1px var(--ink); }

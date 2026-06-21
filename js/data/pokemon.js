@@ -1,5 +1,6 @@
 // Pokémon data layer: loads the build-time JSON (Gen 1 species, factual stats
 // from PokeAPI) and turns species into level-scaled battle instances.
+import { makeMove } from './moves.js';
 
 let DATA = null;
 const BY_ID = new Map();
@@ -54,9 +55,23 @@ export function makeInstance(id, level, opts = {}) {
     level,
     shiny: !!opts.shiny,
     xp: 0,
+    move: makeMove(sp.types[0]),
   };
   recomputeStats(inst);
   inst.hp = inst.maxHp;
+  return inst;
+}
+
+// XP required to advance from `level` to the next level.
+export function xpNeeded(level) {
+  return 20 + level * 7;
+}
+
+// Backfill fields a Pokémon restored from an older save might lack.
+export function ensureInstanceShape(inst) {
+  if (!inst.move) inst.move = makeMove(inst.types ? inst.types[0] : speciesById(inst.id).types[0]);
+  if (inst.xp == null) inst.xp = 0;
+  if (!inst.bonus) inst.bonus = {};
   return inst;
 }
 

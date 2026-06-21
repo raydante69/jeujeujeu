@@ -324,6 +324,18 @@
     else if (kind === 'exit') { r(c, m, m, W / 2 - m, H - 2 * m, '#7a4a1e'); r(c, W / 2 - 2, H / 2 - 1, 3, 3, P.gold); r(c, W / 2 + 1, m, W / 2 - m, H - 2 * m, '#5a3514'); }
     else if (kind === 'lock') { r(c, W / 2 - 5, H / 2 - 1, 10, 8, P.gold); outline(c, W / 2 - 5, H / 2 - 1, 10, 8, ink); c.strokeStyle = '#cfd6e0'; c.lineWidth = 2; c.beginPath(); c.arc(W / 2, H / 2 - 1, 4, Math.PI, 0); c.stroke(); r(c, W / 2 - 1, H / 2 + 2, 2, 3, ink); }
     else if (kind === 'grass') { r(c, m, m, W - 2 * m, H - 2 * m, P.grass); for (let gx = m; gx < W - m; gx += 4) { r(c, gx, H - m - 6, 2, 6, P.grassEdge); r(c, gx + 1, H - m - 9, 1, 3, P.grassDk); } }
+    else if (kind === 'party') { const d = (W - 2 * m) / 2 - 2; for (let i = 0; i < 4; i++) { const bx = m + (i % 2) * ((W - 2 * m) / 2), by = m + ((i / 2 | 0)) * ((H - 2 * m) / 2); r(c, bx, by, d, d / 2, P.roofR); r(c, bx, by + d / 2, d, d / 2, P.white); outline(c, bx, by, d, d, ink); r(c, bx, by + d / 2 - 1, d, 1, ink); } }
+  }
+
+  function tmDisk(c, W, H) {
+    c.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 2;
+    c.fillStyle = '#2bb3c0'; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+    c.strokeStyle = P.ink; c.lineWidth = 2; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.stroke();
+    c.fillStyle = '#7fe3ec'; c.beginPath(); c.arc(cx, cy, R * 0.62, 0, 7); c.fill();
+    c.strokeStyle = P.ink; c.beginPath(); c.arc(cx, cy, R * 0.62, 0, 7); c.stroke();
+    c.fillStyle = P.ink; c.beginPath(); c.arc(cx, cy, R * 0.18, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.arc(cx - R * 0.32, cy - R * 0.32, R * 0.12, 0, 7); c.fill();
   }
 
   // ---- registry ---------------------------------------------------------
@@ -356,6 +368,8 @@
       { file: 'img/sprites/pokemart.png', w: 56, h: 56, draw: (c) => { c.clearRect(0, 0, 56, 56); pokemart(c, 8, 10, 40, 42); } },
       { file: 'img/sprites/gym.png', w: 56, h: 56, draw: (c) => { c.clearRect(0, 0, 56, 56); gym(c, 6, 8, 44, 46); } },
       { file: 'img/sprites/grass-encounter.png', w: 48, h: 48, draw: (c) => { c.clearRect(0, 0, 48, 48); for (let gx = 4; gx < 44; gx += 5) { r(c, gx, 30, 3, 14, P.grassDk); r(c, gx + 1, 26, 2, 8, P.grass); } } },
+      { file: 'img/sprites/tm.png', w: 40, h: 40, draw: (c) => tmDisk(c, 40, 40) },
+      { file: 'img/menu/party.png', w: 28, h: 28, draw: (c) => icon(c, 28, 28, 'party') },
       { file: 'img/sprites/lock.png', w: 28, h: 28, draw: (c) => icon(c, 28, 28, 'lock') },
       { file: 'img/trainers/boy.png', w: 48, h: 56, draw: (c) => trainer(c, 48, 56, { cap: P.capR, shirt: P.shirt }) },
       { file: 'img/trainers/girl.png', w: 48, h: 56, draw: (c) => trainer(c, 48, 56, { hair: P.hair, long: true, shirt: P.shirtR }) },

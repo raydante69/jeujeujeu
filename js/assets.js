@@ -11,6 +11,7 @@ export const ASSETS = {
   pokemart: A + 'sprites/pokemart.png',
   gym: A + 'sprites/gym.png',
   grass: A + 'sprites/grass-encounter.png',
+  tm: A + 'sprites/tm.png',
   ball: A + 'items/poke-ball.png',
   modeImages: {
     story: A + 'modeImages/story-mode.png',
@@ -31,6 +32,7 @@ export const ASSETS = {
     pokedex: A + 'menu/pokedex.png', achievements: A + 'menu/achievements.png',
     map: A + 'menu/map.png', settings: A + 'menu/settings.png',
     pokemart: A + 'menu/pokemart.png', reset: A + 'menu/reset.png', exit: A + 'menu/exit.png',
+    party: A + 'menu/party.png',
   },
 };
 

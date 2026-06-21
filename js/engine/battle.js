@@ -4,8 +4,8 @@
 // fast-forwards), plus the winner. Player instance HP carries over after battle.
 import { effectiveness, bestEffectiveness } from '../data/types.js';
 import { traitAtkMult } from '../data/traits.js';
+import { movePower } from '../data/moves.js';
 
-const BASE_POWER = 60;
 const MAX_TURNS = 300;
 
 function toBattleMon(inst) {
@@ -22,6 +22,7 @@ function toBattleMon(inst) {
     spa: inst.stats.spa,
     spd: inst.stats.spd,
     spe: inst.stats.spe,
+    move: inst.move,
     hp: inst.hp,
     maxHp: inst.maxHp,
     fainted: inst.hp <= 0,
@@ -40,15 +41,17 @@ function chooseMoveType(attacker, defender) {
 }
 
 function computeDamage(attacker, defender, traits, sideMods, defMods, rng) {
-  const moveType = chooseMoveType(attacker, defender);
+  // Each Pokémon attacks with its signature move; its level scales the power.
+  const moveType = attacker.move ? attacker.move.type : chooseMoveType(attacker, defender);
+  const power = movePower(attacker.move);
   const physical = attacker.atk >= attacker.spa;
   const atkStat = physical ? attacker.atk : attacker.spa;
   const defStat = physical ? defender.def : defender.spd;
   const eff = effectiveness(moveType, defender.types);
   if (eff === 0) return { moveType, eff, damage: 0 };
 
-  let dmg = Math.floor(((2 * attacker.level / 5 + 2) * BASE_POWER * (atkStat / Math.max(1, defStat))) / 50 + 2);
-  const stab = 1.5;
+  let dmg = Math.floor(((2 * attacker.level / 5 + 2) * power * (atkStat / Math.max(1, defStat))) / 50 + 2);
+  const stab = attacker.types.includes(moveType) ? 1.5 : 1;
   const variance = 0.85 + rng.next() * 0.15;
   dmg *= stab * eff * variance * traitAtkMult(traits, moveType) * sideMods.damage * defMods.taken;
   dmg = Math.max(1, Math.round(dmg));

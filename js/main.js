@@ -5,7 +5,7 @@ import { load as loadSave, state } from './state.js';
 import { applyI18n } from './i18n.js';
 import { $, $$ } from './ui/screens.js';
 import {
-  goTitle, startStory, resumeStory, resetRun, openMap, comingSoon,
+  goTitle, startStory, resumeStory, resetRun, openMap, comingSoon, openParty,
 } from './game.js';
 import {
   openPokedexModal, openAchievementsModal, openSettingsModal, openPatchNotesModal,
@@ -68,6 +68,7 @@ function exposeGlobals() {
     goHomeFromMenu: () => { document.body.classList.remove('run-menu-open'); goTitle(); },
     confirmResetRun: () => { if (confirm('End the current run and return to the title?')) resetRun(); },
     showLeagueModal: openMap,
+    openParty,
     toggleFullscreen,
     shareRun,
     showEndlessStageSelect: () => comingSoon('Battle Tower'),

@@ -24,13 +24,20 @@ export function renderGameOver(run, { onRetry, onMenu }) {
   showScreen('gameover-screen');
 }
 
-export function renderWin(run, { runCount, onPlayAgain }) {
+export function renderWin(run, { runCount, cycle = 1, onPlayAgain, onNewGamePlus }) {
   sfx('win');
-  $('#win-run-count').textContent = runCount ? `Story clears: ${runCount}` : '';
+  const parts = [];
+  if (runCount) parts.push(`Story clears: ${runCount}`);
+  if (cycle > 1) parts.push(`Cycle reached: ${cycle}`);
+  $('#win-run-count').textContent = parts.join(' · ');
+  const congrats = $('.win-congrats');
+  if (congrats && cycle > 1) congrats.textContent = `You conquered cycle ${cycle}! The gyms reset — keep climbing for tougher battles.`;
   const team = $('#win-team');
   clear(team);
   run.team.forEach((inst) => team.appendChild(teamPortrait(inst)));
   $('#btn-play-again').onclick = onPlayAgain;
+  const ng = $('#btn-newgame-plus');
+  if (ng) ng.onclick = onNewGamePlus;
   showScreen('win-screen');
 }
 

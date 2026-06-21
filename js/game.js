@@ -5,8 +5,9 @@ import {
 } from './state.js';
 import { makeRng, randomSeed } from './rng.js';
 import {
-  makeInstance, recomputeStats, ensureUidAbove, speciesById,
+  makeInstance, recomputeStats, ensureUidAbove, speciesById, xpNeeded, ensureInstanceShape,
 } from './data/pokemon.js';
+import { canUpgradeMove } from './data/moves.js';
 import {
   REGIONS, STARTER_IDS, gymLevel, eliteLevel, championLevel, wildLevelForLeg,
 } from './data/regions.js';
@@ -30,6 +31,7 @@ import { renderElitePrep } from './ui/elite.js';
 import { renderGameOver, renderWin } from './ui/endgame.js';
 import { playEvolution, chooseEevee } from './ui/evo.js';
 import { updateHud, flushToasts } from './ui/hud.js';
+import { openPartyModal, openTmEvent } from './ui/party.js';
 
 let rng = null;
 
@@ -63,9 +65,9 @@ function newStoryRun(regionId, variant) {
   state.meta.stats.runs++;
   state.run = {
     mode: 'story', variant, regionId, seed, rngState: seed,
-    trainer: null, team: [], bag: { items: [], passives: [] }, badges: [],
+    trainer: null, team: [], bag: { items: {}, passives: [] }, badges: [],
     legIndex: 0, map: null, nodeId: null, cleared: [], phase: 'trainer',
-    eliteIndex: 0, fallen: [], startedAt: Date.now(),
+    eliteIndex: 0, fallen: [], cycle: 1, startedAt: Date.now(),
   };
   persist();
   renderTrainerSelect({ onPick: chooseTrainer });
@@ -99,8 +101,10 @@ export function resumeStory() {
   restoreRng();
   ensureUidAbove(maxUid());
   const r = run();
+  migrateRun(r);
   if (r.phase === 'trainer') { renderTrainerSelect({ onPick: chooseTrainer }); return; }
   if (r.phase === 'starter') { renderStarterSelect(STARTER_IDS, { onPick: chooseStarter }); return; }
+  if (r.phase === 'won') { showWin(r); return; }
   setInRun(true);
   if (r.phase === 'elite') { nextElite(); return; }
   if (r.phase === 'champion') { fightChampion(); return; }
@@ -139,13 +143,15 @@ async function enterNode(nodeId) {
     case 'item': return doItem(node);
     case 'catch': return doCatch(node);
     case 'rest': return doRest(node);
+    case 'tm': return doTm(node);
     case 'gym': return doGym(node);
     default: return completeNode(node);
   }
 }
 
+const cycleBonus = () => (run().cycle - 1) * 14; // New Game+ level scaling
 const legTier = () => Math.min(0.95, run().legIndex / region().gyms.length + 0.1);
-const wildLevel = () => wildLevelForLeg(region(), run().legIndex, rng);
+const wildLevel = () => wildLevelForLeg(region(), run().legIndex, rng) + cycleBonus();
 
 async function doWild(node) {
   const enemy = wildEncounter(rng, legTier(), wildLevel());
@@ -154,7 +160,7 @@ async function doWild(node) {
 }
 
 async function doTrainer(node) {
-  const lvl = Math.max(2, gymLevel(region(), run().legIndex) - rng.int(2, 6));
+  const lvl = Math.max(2, gymLevel(region(), run().legIndex) - rng.int(2, 6)) + cycleBonus();
   const team = buildTrainerTeam(rng, lvl, legTier());
   team.forEach((e) => markSeen(e.id));
   await battleAndResolve(team, { title: 'Trainer Battle!', enemyLabel: 'Trainer', bg: ASSETS.battle.grass, enemyTrainer: leaderTrainer(run().legIndex) }, node);
@@ -181,7 +187,10 @@ async function doCatch(node) {
 async function doItem(node) {
   const choices = rng.sample(activeItemList(), 3);
   const chosen = await renderItem(choices, run().team);
-  if (chosen) await applyItem(chosen);
+  if (chosen) {
+    const bag = run().bag.items;
+    bag[chosen.id] = (bag[chosen.id] || 0) + 1; // stored in the bag for later
+  }
   completeNode(node);
 }
 
@@ -191,9 +200,18 @@ async function doRest(node) {
   completeNode(node);
 }
 
+async function doTm(node) {
+  const chosen = await openTmEvent(run().team);
+  if (chosen && canUpgradeMove(chosen.move)) {
+    chosen.move.level++;
+    persist();
+  }
+  completeNode(node);
+}
+
 async function doGym(node) {
   const gym = node.gym;
-  const lvl = gymLevel(region(), run().legIndex);
+  const lvl = gymLevel(region(), run().legIndex) + cycleBonus();
   const team = buildGymTeam(rng, gym, lvl);
   team.forEach((e) => markSeen(e.id));
   const gymTrainer = leaderTrainer(run().legIndex);
@@ -275,8 +293,6 @@ function applyPostHeal() {
   }
 }
 
-function xpNeeded(level) { return 20 + level * 7; }
-
 async function awardXpAndEvolve(enemyTeam) {
   const r = run();
   const mult = aggregatePassives(r.bag.passives).xp || 1;
@@ -318,27 +334,32 @@ async function doEvolve(inst, targetId) {
 }
 
 // ---- items ---------------------------------------------------------------
-async function applyItem(item) {
+// Apply a bag item to a target Pokémon. Returns true if it actually did
+// something (so the caller can consume the item). Called from the party screen.
+async function applyItemToTarget(item, target) {
   if (item.scope === 'team') {
     if (item.kind === 'healFull') run().team.forEach((m) => { m.hp = m.maxHp; m.fainted = false; });
-    return;
+    return true;
   }
-  const filter = item.kind === 'revive' ? (m) => m.hp <= 0 : null;
-  const target = await pickTeamTarget(run().team, {
-    title: `Use ${item.name}`, desc: item.desc, filter,
-  });
-  if (!target) return;
+  if (!target) return false;
   switch (item.kind) {
-    case 'heal': target.hp = Math.min(target.maxHp, target.hp + Math.round(target.maxHp * item.power)); break;
-    case 'healFull': target.hp = target.maxHp; target.fainted = false; break;
-    case 'revive': target.hp = Math.round(target.maxHp * item.power); target.fainted = false; break;
+    case 'heal':
+      if (target.hp <= 0 || target.hp >= target.maxHp) return false;
+      target.hp = Math.min(target.maxHp, target.hp + Math.round(target.maxHp * item.power));
+      return true;
+    case 'healFull':
+      if (target.hp >= target.maxHp) return false;
+      target.hp = target.maxHp; target.fainted = false; return true;
+    case 'revive':
+      if (target.hp > 0) return false;
+      target.hp = Math.round(target.maxHp * item.power); target.fainted = false; return true;
     case 'level': {
       target.level = Math.min(100, target.level + item.power);
       recomputeStats(target);
       target.hp = target.maxHp;
       let t = pendingEvolution(target);
       while (t) { const c = t === 'eevee' ? await chooseEevee(EEVEE_OPTIONS) : t; await doEvolve(target, c); t = pendingEvolution(target); }
-      break;
+      return true;
     }
     case 'stat': {
       target.bonus = target.bonus || {};
@@ -346,9 +367,23 @@ async function applyItem(item) {
       const beforeMax = target.maxHp;
       recomputeStats(target);
       if (item.stat === 'hp') target.hp += target.maxHp - beforeMax;
-      break;
+      return true;
     }
   }
+  return false;
+}
+
+// Open the party manager (stats, level/XP, move, reorder, use items).
+export function openParty() {
+  if (!state.run) return;
+  openPartyModal(run(), {
+    onChange: () => { persist(); updateHud(run()); },
+    applyItem: async (item, target) => {
+      const ok = await applyItemToTarget(item, target);
+      if (ok) { persist(); updateHud(run()); }
+      return ok;
+    },
+  });
 }
 
 // ---- Elite Four / Champion ----------------------------------------------
@@ -364,7 +399,7 @@ async function nextElite() {
   const r = run();
   if (r.eliteIndex >= region().elite.length) { await fightChampion(); return; }
   const e = region().elite[r.eliteIndex];
-  const lvl = eliteLevel(region(), r.eliteIndex);
+  const lvl = eliteLevel(region(), r.eliteIndex) + cycleBonus();
   const team = buildEliteTeam(rng, e, lvl);
   team.forEach((x) => markSeen(x.id));
   const eTrainer = leaderTrainer(4 + r.eliteIndex);
@@ -381,7 +416,7 @@ async function nextElite() {
 async function fightChampion() {
   run().phase = 'champion';
   persist();
-  const lvl = championLevel();
+  const lvl = championLevel() + cycleBonus();
   const team = buildChampionTeam(rng, lvl);
   team.forEach((x) => markSeen(x.id));
   await renderElitePrep({
@@ -395,20 +430,57 @@ async function fightChampion() {
 }
 
 function winRun() {
-  const finished = state.run;
+  const r = state.run;
   state.meta.stats.wins++;
   state.meta.storyRunCount++;
   unlockAchievement('champion');
   addHallOfFame({
-    region: finished.regionId, variant: finished.variant, date: Date.now(),
-    team: finished.team.map((m) => ({ id: m.id, level: m.level, shiny: m.shiny })),
+    region: r.regionId, variant: r.variant, date: Date.now(), cycle: r.cycle || 1,
+    team: r.team.map((m) => ({ id: m.id, level: m.level, shiny: m.shiny })),
   });
-  const runCount = state.meta.storyRunCount;
-  clearRun();
+  r.phase = 'won'; // keep the run so New Game+ can continue it
+  persist();
+  showWin(r);
+}
+
+function showWin(r) {
   setInRun(false);
-  updateResumeButtons(null);
-  renderWin(finished, { runCount, onPlayAgain: () => startStory() });
+  updateResumeButtons(state.run);
+  renderWin(r, {
+    runCount: state.meta.storyRunCount, cycle: r.cycle || 1,
+    onPlayAgain: () => { clearRun(); startStory(); },
+    onNewGamePlus: () => newGamePlus(),
+  });
   flushToasts();
+}
+
+// Continue past the Champion into a tougher cycle, keeping the team, items,
+// levels and move levels. Badges reset; enemy levels scale up (cycleBonus).
+async function newGamePlus() {
+  if (!rng) restoreRng();
+  const r = state.run;
+  r.cycle = (r.cycle || 1) + 1;
+  r.badges = [];
+  r.legIndex = 0;
+  r.eliteIndex = 0;
+  r.phase = 'map';
+  r.team.forEach((m) => { m.hp = m.maxHp; m.fainted = false; });
+  r.map = generateLeg(rng, 0, region().gyms[0]);
+  r.cleared = [];
+  r.nodeId = r.map.startId;
+  persist();
+  setInRun(true);
+  await transition('New Game+', `Cycle ${r.cycle} — the gyms return, tougher than ever!`, 1500);
+  backToMap();
+}
+
+// Backfill fields when resuming a run saved by an older version.
+function migrateRun(r) {
+  if (r.cycle == null) r.cycle = 1;
+  if (!r.bag) r.bag = { items: {}, passives: [] };
+  if (Array.isArray(r.bag.items) || !r.bag.items) r.bag.items = {};
+  if (!r.bag.passives) r.bag.passives = [];
+  (r.team || []).forEach(ensureInstanceShape);
 }
 
 function gameOver() {

@@ -3,7 +3,7 @@
 import { $, el, clear } from './screens.js';
 import { teamSlot, itemIcon } from './render.js';
 import { drainToasts } from '../state.js';
-import { PASSIVE_ITEMS } from '../data/items.js';
+import { PASSIVE_ITEMS, ACTIVE_ITEMS } from '../data/items.js';
 
 export function updateHud(run) {
   if (!run) return;
@@ -24,9 +24,15 @@ function renderItemBar(run) {
   const bar = $('#item-bar');
   if (bar) {
     clear(bar);
-    const items = run.bag.items || [];
-    if (!items.length) bar.appendChild(el('span', { className: 'hud-empty' }, '—'));
-    else items.forEach((it) => bar.appendChild(el('span', { className: 'item-chip', title: it.name }, it.icon || '🎁')));
+    const items = run.bag.items || {};
+    const ids = Object.keys(items).filter((id) => items[id] > 0);
+    if (!ids.length) bar.appendChild(el('span', { className: 'hud-empty' }, '—'));
+    else ids.forEach((id) => {
+      const it = ACTIVE_ITEMS[id];
+      if (!it) return;
+      bar.appendChild(el('span', { className: 'item-chip', title: `${it.name} ×${items[id]}` },
+        itemIcon(it), el('span', { className: 'item-chip-ct' }, '×' + items[id])));
+    });
   }
 
   const passLabel = $('#map-passives-label');

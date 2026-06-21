@@ -10,6 +10,7 @@ export const NODE_TYPES = {
   item:    { img: itemSprite('potion'), label: 'Item' },
   catch:   { img: ASSETS.ball, label: 'Catch' },
   rest:    { img: ASSETS.pokecenter, label: 'Rest' },
+  tm:      { img: ASSETS.tm, label: 'TM' },
   gym:     { img: ASSETS.gym, label: 'Gym' },
 };
 
@@ -18,7 +19,7 @@ function weightedType(rng, legIndex, row) {
   // team of at least two before any fight.
   if (legIndex === 0 && row === 1) return 'catch';
   const table = [
-    ['wild', 40], ['trainer', 22], ['item', 16], ['catch', 14], ['rest', 8],
+    ['wild', 32], ['trainer', 20], ['item', 16], ['catch', 14], ['tm', 10], ['rest', 8],
   ];
   const total = table.reduce((s, [, w]) => s + w, 0);
   let roll = rng.next() * total;
