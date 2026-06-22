@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    background-color: #0a0a14;
+    color: white;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #12121f;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a50;
+    border-radius: 2px;
+  }
+}
+
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  }
+
+  .card-holo {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background-size: 200% 200%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .card-ultra {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #fda085 100%);
+    background-size: 200% 200%;
+    animation: shimmer 2.5s linear infinite;
+  }
+
+  .card-secret {
+    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 25%, #ffd1ff 50%, #a8edea 75%, #fed6e3 100%);
+    background-size: 400% 400%;
+    animation: shimmer 2s linear infinite;
+  }
+}

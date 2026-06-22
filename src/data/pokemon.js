@@ -1,0 +1,85 @@
+import { makeMove } from './moves.js'
+
+let DATA = null
+const BY_ID = new Map()
+const BY_SLUG = new Map()
+let UID = 1
+
+export async function loadPokemonData() {
+  const res = await fetch('/data/pokemon.json')
+  if (!res.ok) throw new Error('Could not load pokemon.json')
+  DATA = await res.json()
+  for (const sp of DATA.pokemon) {
+    BY_ID.set(sp.id, sp)
+    BY_SLUG.set(sp.slug, sp)
+  }
+  return DATA
+}
+
+export function allSpecies() {
+  return DATA ? DATA.pokemon : []
+}
+export function speciesById(id) {
+  return BY_ID.get(id)
+}
+export function speciesBySlug(slug) {
+  return BY_SLUG.get(slug)
+}
+
+export function statAtLevel(base, level, isHp) {
+  if (isHp) return Math.floor((2 * base * level) / 100) + level + 10
+  return Math.floor((2 * base * level) / 100) + 5
+}
+
+export function recomputeStats(inst) {
+  const sp = speciesById(inst.id)
+  if (!sp) return inst
+  const s = sp.stats
+  inst.stats = {
+    hp: statAtLevel(s.hp, inst.level, true),
+    atk: statAtLevel(s.atk, inst.level),
+    def: statAtLevel(s.def, inst.level),
+    spa: statAtLevel(s.spa, inst.level),
+    spd: statAtLevel(s.spd, inst.level),
+    spe: statAtLevel(s.spe, inst.level),
+  }
+  inst.maxHp = inst.stats.hp
+  if (inst.hp > inst.maxHp) inst.hp = inst.maxHp
+  inst.types = sp.types.slice()
+  return inst
+}
+
+export function makeInstance(id, level, opts = {}) {
+  const sp = speciesById(id)
+  if (!sp) throw new Error(`Unknown species id ${id}`)
+  const inst = {
+    uid: UID++,
+    id,
+    name: sp.name,
+    species: sp.name,
+    types: sp.types.slice(),
+    level,
+    shiny: !!opts.shiny,
+    rarity: opts.rarity || 'common',
+    move: makeMove(sp.types[0]),
+  }
+  recomputeStats(inst)
+  inst.hp = inst.maxHp
+  return inst
+}
+
+export function spriteFront(inst) {
+  const sp = speciesById(inst.id)
+  if (!sp) return ''
+  return inst.shiny ? sp.sprites.shiny : sp.sprites.front
+}
+
+export function spriteArtwork(idOrInst) {
+  const id = typeof idOrInst === 'number' ? idOrInst : idOrInst.id
+  const sp = BY_ID.get(id)
+  return sp ? sp.sprites.artwork : ''
+}
+
+export function ensureUidAbove(n) {
+  if (n >= UID) UID = n + 1
+}
