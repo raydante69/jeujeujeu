@@ -6,6 +6,7 @@ import ShopScreen from './screens/ShopScreen.jsx'
 import PackOpeningScreen from './screens/PackOpeningScreen.jsx'
 import CollectionScreen from './screens/CollectionScreen.jsx'
 import TeamBuilderScreen from './screens/TeamBuilderScreen.jsx'
+import MapScreen from './screens/MapScreen.jsx'
 import CombatScreen from './screens/CombatScreen.jsx'
 import RewardsScreen from './screens/RewardsScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
@@ -16,6 +17,7 @@ const SCREENS = {
   opening:    PackOpeningScreen,
   collection: CollectionScreen,
   team:       TeamBuilderScreen,
+  map:        MapScreen,
   combat:     CombatScreen,
   rewards:    RewardsScreen,
 }

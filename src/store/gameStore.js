@@ -32,6 +32,7 @@ export const useGameStore = create(
 
       // --- Collection ---
       collection: [],
+      newCardUids: [],
       addToCollection: (cards) => set(s => {
         const existing = new Set(s.collection.map(c => c.uid))
         const newCards = cards.filter(c => !existing.has(c.uid))
@@ -41,8 +42,14 @@ export const useGameStore = create(
           const maxUid = Math.max(...uids)
           if (maxUid >= _uidCounter) _uidCounter = maxUid + 1
         }
-        return { collection: updated }
+        return {
+          collection: updated,
+          newCardUids: [...(s.newCardUids || []), ...newCards.map(c => c.uid).filter(Boolean)],
+        }
       }),
+      clearNewCards: (uids) => set(s => ({
+        newCardUids: (s.newCardUids || []).filter(u => !uids.includes(u)),
+      })),
 
       // --- Team ---
       team: [],
@@ -64,7 +71,14 @@ export const useGameStore = create(
         badgesEarned: [...s.badgesEarned, badge],
         currentGymId: s.currentGymId + 1,
         crystals: s.crystals + 20 + s.currentGymId * 10,
+        routeNodeIndex: 0,
       })),
+
+      // --- Route / Map ---
+      routeNodeIndex: 0,
+      combatContext: null,
+      setRouteNodeIndex: (idx) => set({ routeNodeIndex: idx }),
+      setCombatContext: (ctx) => set({ combatContext: ctx }),
 
       // --- Free boosters ---
       freeBoosterQueue: 1,
@@ -126,6 +140,9 @@ export const useGameStore = create(
         unlockedGens: [1],
         crystalsSpent: 0,
         moneySpentOnUnlocks: 0,
+        newCardUids: [],
+        routeNodeIndex: 0,
+        combatContext: null,
       }),
     }),
     {
@@ -145,6 +162,8 @@ export const useGameStore = create(
         unlockedGens: s.unlockedGens,
         crystalsSpent: s.crystalsSpent,
         moneySpentOnUnlocks: s.moneySpentOnUnlocks,
+        newCardUids: s.newCardUids,
+        routeNodeIndex: s.routeNodeIndex,
       }),
     }
   )

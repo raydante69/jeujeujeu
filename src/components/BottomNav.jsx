@@ -3,9 +3,9 @@ import { useGameStore } from '../store/gameStore.js'
 
 const TABS = [
   { id: 'shop',       label: 'Shop',       icon: '🛍️' },
-  { id: 'collection', label: 'Collection', icon: '📦' },
+  { id: 'collection', label: 'Pokédex',    icon: '📦' },
   { id: 'team',       label: 'Équipe',     icon: '⚔️' },
-  { id: 'combat',     label: 'Combat',     icon: '🏆' },
+  { id: 'map',        label: 'Carte',      icon: '🗺️' },
 ]
 
 export default function BottomNav() {
