@@ -54,30 +54,83 @@
   100% { transform: rotateY(0deg); }
 }
 
+/* ── Pack opening ── */
+@keyframes packShake {
+  0%,100% { transform: rotate(0deg) scale(1); }
+  15%  { transform: rotate(-4deg) scale(1.02); }
+  30%  { transform: rotate(4deg) scale(1.02); }
+  45%  { transform: rotate(-3deg) scale(1.035); }
+  60%  { transform: rotate(3deg) scale(1.035); }
+  75%  { transform: rotate(-1.5deg) scale(1.01); }
+  90%  { transform: rotate(1.5deg) scale(1.01); }
+}
+
+@keyframes packRip {
+  0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  30%  { transform: translateY(-20px) scale(1.08) rotate(-2deg); opacity: 1; }
+  100% { transform: translateY(-130vh) scale(0.6) rotate(22deg); opacity: 0; }
+}
+
+@keyframes screenFlash {
+  0%   { opacity: 0; }
+  25%  { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@keyframes cardPopIn {
+  0%   { transform: scale(0.3) rotateY(90deg); opacity: 0; }
+  55%  { transform: scale(1.1) rotateY(-6deg); opacity: 1; }
+  80%  { transform: scale(0.97) rotateY(2deg); }
+  100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+}
+
+/* ── Holo effects ── */
+@keyframes holoAnim {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes goldSheen {
+  0%   { background-position: -200% center; }
+  100% { background-position: 300% center; }
+}
+
+@keyframes orbPulse {
+  0%,100% { transform: scale(1);    box-shadow: 0 0 4px #8b5cf6; }
+  50%      { transform: scale(1.18); box-shadow: 0 0 10px #8b5cf6, 0 0 20px #8b5cf655; }
+}
+
+@keyframes shieldBreak {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.5); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes ragePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  50%      { box-shadow: 0 0 0 8px rgba(239,68,68,0.3); }
+}
+
+@keyframes sparkleFloat {
+  0%   { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translate(var(--sx,10px), var(--sy,-20px)) scale(1.2) rotate(45deg); opacity: 0; }
+}
+
 .animate-burst-in    { animation: burstIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
 .animate-shake       { animation: shake 0.45s ease-in-out; }
 .animate-float-dmg   { animation: floatDmg 1s ease-out forwards; }
+.animate-pack-shake  { animation: packShake 0.7s ease-in-out; }
+.animate-pack-rip    { animation: packRip 0.6s ease-in forwards; }
+.animate-screen-flash { animation: screenFlash 0.7s ease-out forwards; }
+.animate-card-pop-in  { animation: cardPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.animate-orb-pulse   { animation: orbPulse 1.4s ease-in-out infinite; }
+.animate-shield-break { animation: shieldBreak 0.5s ease-out forwards; }
+.animate-rage-pulse  { animation: ragePulse 1s ease-in-out infinite; }
 
 @layer utilities {
   .text-shadow-glow {
     text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
-  }
-
-  .card-holo {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-    background-size: 200% 200%;
-    animation: shimmer 3s linear infinite;
-  }
-
-  .card-ultra {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #fda085 100%);
-    background-size: 200% 200%;
-    animation: shimmer 2.5s linear infinite;
-  }
-
-  .card-secret {
-    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 25%, #ffd1ff 50%, #a8edea 75%, #fed6e3 100%);
-    background-size: 400% 400%;
-    animation: shimmer 2s linear infinite;
   }
 }
