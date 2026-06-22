@@ -11,10 +11,11 @@ const RARITY_STYLES = {
   secret:   { color: '#fde047', bg: 'from-yellow-700 to-gray-900', label: 'Secret',      particle: '🌟' },
 }
 
-function CardReveal({ pokemon, delay, onReveal }) {
+function CardReveal({ pokemon, delay, onReveal, isNew }) {
   const [flipped, setFlipped] = useState(false)
   const rarity = pokemon.rarity || 'common'
   const style = RARITY_STYLES[rarity] || RARITY_STYLES.common
+  const isShiny = ['rare', 'holo', 'ultra', 'secret'].includes(rarity)
   const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png`
 
   const handleClick = () => {
@@ -39,8 +40,9 @@ function CardReveal({ pokemon, delay, onReveal }) {
         {/* Front (revealed) */}
         <div
           className={`absolute inset-0 rounded-2xl bg-gradient-to-b ${style.bg} border flex flex-col items-center justify-center gap-2 p-3`}
-          style={{ backfaceVisibility: 'hidden', borderColor: style.color + '80' }}
+          style={{ backfaceVisibility: 'hidden', borderColor: style.color + '80', boxShadow: flipped && isShiny ? `0 0 24px ${style.color}99, inset 0 0 16px ${style.color}33` : 'none', transition: 'box-shadow 0.4s ease' }}
         >
+          {isNew && <div className="absolute top-1.5 left-1.5 bg-yellow-400 text-black text-[8px] font-black px-1.5 py-0.5 rounded leading-none z-10">NEW</div>}
           <div className="text-xs font-bold uppercase tracking-widest" style={{ color: style.color }}>
             {style.particle} {style.label} {style.particle}
           </div>
@@ -84,10 +86,17 @@ function CardReveal({ pokemon, delay, onReveal }) {
   )
 }
 
+const RARITY_RANK = { common: 0, uncommon: 1, rare: 2, holo: 3, ultra: 4, secret: 5 }
+
 export default function PackOpeningScreen() {
-  const { pendingBoosters, clearPendingBoosters, addToCollection, navigate } = useGameStore()
+  const { pendingBoosters, clearPendingBoosters, addToCollection, navigate, collection } = useGameStore()
   const [revealedCount, setRevealedCount] = useState(0)
   const [canContinue, setCanContinue] = useState(false)
+  const [ownedAtOpen] = useState(() => new Set(collection.map(c => c.id)))
+
+  const bestCard = pendingBoosters.reduce((best, c) =>
+    (RARITY_RANK[c.rarity] || 0) > (RARITY_RANK[best?.rarity] || -1) ? c : best, null)
+  const newCount = pendingBoosters.filter(c => !ownedAtOpen.has(c.id)).length
 
   useEffect(() => {
     if (!pendingBoosters.length) {
@@ -142,10 +151,23 @@ export default function PackOpeningScreen() {
               key={card.uid}
               pokemon={card}
               delay={i * 100}
+              isNew={!ownedAtOpen.has(card.id)}
               onReveal={i === revealedCount ? handleReveal : undefined}
             />
           ))}
         </div>
+
+        {/* Best pull + new banner */}
+        {canContinue && bestCard && (
+          <div className="mt-6 rounded-2xl p-4 text-center border animate-burst-in"
+            style={{ background: (RARITY_STYLES[bestCard.rarity]?.color || '#888') + '14', borderColor: (RARITY_STYLES[bestCard.rarity]?.color || '#888') + '55' }}>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Meilleure carte</p>
+            <p className="font-bold text-base mt-0.5" style={{ color: RARITY_STYLES[bestCard.rarity]?.color }}>
+              {RARITY_STYLES[bestCard.rarity]?.particle} {bestCard.name} · {RARITY_STYLES[bestCard.rarity]?.label}
+            </p>
+            {newCount > 0 && <p className="text-xs text-yellow-400 font-bold mt-1">✨ {newCount} nouvelle{newCount > 1 ? 's' : ''} espèce{newCount > 1 ? 's' : ''} !</p>}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="mt-8 space-y-3 pb-6">

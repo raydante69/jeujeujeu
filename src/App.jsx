@@ -1,28 +1,35 @@
 import React, { useEffect } from 'react'
 import { useGameStore } from './store/gameStore.js'
-import { loadPokemonData } from './data/pokemon.js'
-import TitleScreen from './screens/TitleScreen.jsx'
+import { useRunStore } from './store/runStore.js'
+import { loadPokemonData, ensureUidAbove } from './data/pokemon.js'
+import HomeScreen from './screens/HomeScreen.jsx'
 import ShopScreen from './screens/ShopScreen.jsx'
 import PackOpeningScreen from './screens/PackOpeningScreen.jsx'
 import CollectionScreen from './screens/CollectionScreen.jsx'
-import TeamBuilderScreen from './screens/TeamBuilderScreen.jsx'
-import MapScreen from './screens/MapScreen.jsx'
-import CombatScreen from './screens/CombatScreen.jsx'
-import RewardsScreen from './screens/RewardsScreen.jsx'
+import RunSetupScreen from './screens/RunSetupScreen.jsx'
+import RunScreen from './screens/RunScreen.jsx'
+import BattleScreen from './screens/BattleScreen.jsx'
+import RewardScreen from './screens/RewardScreen.jsx'
+import RunShopScreen from './screens/RunShopScreen.jsx'
+import RunEndScreen from './screens/RunEndScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 const SCREENS = {
-  title:      TitleScreen,
+  title:      HomeScreen,
+  home:       HomeScreen,
   shop:       ShopScreen,
   opening:    PackOpeningScreen,
   collection: CollectionScreen,
-  team:       TeamBuilderScreen,
-  map:        MapScreen,
-  combat:     CombatScreen,
-  rewards:    RewardsScreen,
+  runsetup:   RunSetupScreen,
+  run:        RunScreen,
+  battle:     BattleScreen,
+  reward:     RewardScreen,
+  runshop:    RunShopScreen,
+  runend:     RunEndScreen,
 }
 
-const NO_NAV = ['title', 'opening', 'combat', 'rewards']
+// Only the meta hub screens show the bottom navigation.
+const NAV_SCREENS = ['title', 'home', 'shop', 'collection']
 
 export default function App() {
   const { currentScreen } = useGameStore()
@@ -31,7 +38,16 @@ export default function App() {
 
   useEffect(() => {
     loadPokemonData()
-      .then(() => setDataLoaded(true))
+      .then(() => {
+        // Avoid UID collisions after a reload: instance UIDs restart at 1,
+        // but persisted collection/run team hold higher ones.
+        const uids = [
+          ...useGameStore.getState().collection.map(c => c.uid),
+          ...useRunStore.getState().team.map(m => m.uid),
+        ].filter(Boolean)
+        if (uids.length) ensureUidAbove(Math.max(...uids))
+        setDataLoaded(true)
+      })
       .catch(e => setLoadError(e.message))
   }, [])
 
@@ -57,8 +73,8 @@ export default function App() {
     )
   }
 
-  const Screen = SCREENS[currentScreen] || TitleScreen
-  const showNav = !NO_NAV.includes(currentScreen)
+  const Screen = SCREENS[currentScreen] || HomeScreen
+  const showNav = NAV_SCREENS.includes(currentScreen)
 
   return (
     <div className="min-h-screen bg-game-bg text-white">

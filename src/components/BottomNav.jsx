@@ -2,10 +2,9 @@ import React from 'react'
 import { useGameStore } from '../store/gameStore.js'
 
 const TABS = [
-  { id: 'shop',       label: 'Shop',       icon: '🛍️' },
-  { id: 'collection', label: 'Pokédex',    icon: '📦' },
-  { id: 'team',       label: 'Équipe',     icon: '⚔️' },
-  { id: 'map',        label: 'Carte',      icon: '🗺️' },
+  { id: 'home',       label: 'Accueil',  icon: '🏠' },
+  { id: 'shop',       label: 'Boosters', icon: '🛍️' },
+  { id: 'collection', label: 'Pokédex',  icon: '📕' },
 ]
 
 export default function BottomNav() {

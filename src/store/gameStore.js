@@ -8,7 +8,7 @@ export const useGameStore = create(
   persist(
     (set, get) => ({
       // --- Navigation ---
-      currentScreen: 'title',
+      currentScreen: 'home',
       navigate: (screen) => set({ currentScreen: screen }),
 
       // --- Economy ---

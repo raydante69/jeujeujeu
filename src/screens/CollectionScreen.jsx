@@ -81,7 +81,7 @@ export default function CollectionScreen() {
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-2">
             <div><h2 className="font-game text-sm text-white">Pokédex</h2><p className="text-xs text-gray-500">{ownedCount} / {species.length} capturés</p></div>
-            <button onClick={()=>navigate('team')} className="px-3 py-1.5 bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold rounded-lg">⚔️ Équipe</button>
+            <button onClick={()=>navigate('runsetup')} className="px-3 py-1.5 bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold rounded-lg">⚔️ Expédition</button>
           </div>
           <div className="h-1.5 bg-gray-900 rounded-full overflow-hidden mb-3">
             <div className="h-full rounded-full transition-all duration-700" style={{width:`${(ownedCount/Math.max(species.length,1))*100}%`,background:'linear-gradient(90deg,#dc2626,#f97316)'}} />
@@ -106,7 +106,7 @@ export default function CollectionScreen() {
       </div>
       {ownedCount > 0 && (
         <div className="sticky bottom-16 pointer-events-none px-4 pb-3">
-          <button onClick={()=>navigate('team')} className="pointer-events-auto w-full max-w-lg mx-auto flex py-3.5 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold rounded-xl transition-all items-center justify-center gap-2 shadow-lg shadow-red-900/50">⚔️ Construire mon équipe</button>
+          <button onClick={()=>navigate('runsetup')} className="pointer-events-auto w-full max-w-lg mx-auto flex py-3.5 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold rounded-xl transition-all items-center justify-center gap-2 shadow-lg shadow-red-900/50">⚔️ Lancer une expédition</button>
         </div>
       )}
     </div>
