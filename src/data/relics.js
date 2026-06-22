@@ -1,27 +1,28 @@
-// Relics — Balatro-style passive "jokers" that reshape a run.
-// Each relic declares a `kind` + `value`; aggregateRelics() folds a set
-// of owned relic ids into a single effects object the battle reads.
+// Held items — equippable passives (Pokélike-style) that reshape a run.
+// Each declares a `kind` + `value`; aggregateRelics() folds a set of owned
+// item ids into a single effects object the battle reads. `slug` points to
+// the authentic PokeAPI item sprite.
 
 export const RELICS = [
-  { id: 'ember-core',     name: 'Cœur de Braise',   emoji: '🔥', rarity: 'common', kind: 'type_boost', type: 'fire',     value: 0.6, desc: '+60% de puissance aux bursts contenant un type Feu.' },
-  { id: 'tidal-gem',      name: 'Gemme des Marées', emoji: '🌊', rarity: 'common', kind: 'type_boost', type: 'water',    value: 0.6, desc: '+60% de puissance aux bursts contenant un type Eau.' },
-  { id: 'leaf-charm',     name: 'Charme Foliaire',  emoji: '🌿', rarity: 'common', kind: 'type_boost', type: 'grass',    value: 0.6, desc: '+60% de puissance aux bursts contenant un type Plante.' },
-  { id: 'static-coil',    name: 'Bobine Statique',  emoji: '⚡', rarity: 'common', kind: 'type_boost', type: 'electric', value: 0.6, desc: '+60% de puissance aux bursts contenant un type Électrik.' },
-  { id: 'mind-orb',       name: 'Orbe Mentale',     emoji: '🔮', rarity: 'common', kind: 'type_boost', type: 'psychic',  value: 0.6, desc: '+60% de puissance aux bursts contenant un type Psy.' },
+  { id: 'ember-core',     name: 'Charbon',          emoji: '🔥', slug: 'charcoal',     rarity: 'common', kind: 'type_boost', type: 'fire',     value: 0.6, desc: '+60% de puissance aux bursts contenant un type Feu.' },
+  { id: 'tidal-gem',      name: 'Eau Mystérieuse',  emoji: '🌊', slug: 'mystic-water', rarity: 'common', kind: 'type_boost', type: 'water',    value: 0.6, desc: '+60% de puissance aux bursts contenant un type Eau.' },
+  { id: 'leaf-charm',     name: 'Herbe Mystique',   emoji: '🌿', slug: 'miracle-seed', rarity: 'common', kind: 'type_boost', type: 'grass',    value: 0.6, desc: '+60% de puissance aux bursts contenant un type Plante.' },
+  { id: 'static-coil',    name: 'Aimant',           emoji: '⚡', slug: 'magnet',       rarity: 'common', kind: 'type_boost', type: 'electric', value: 0.6, desc: '+60% de puissance aux bursts contenant un type Électrik.' },
+  { id: 'mind-orb',       name: 'Cuillère Tordue',  emoji: '🔮', slug: 'twisted-spoon',rarity: 'common', kind: 'type_boost', type: 'psychic',  value: 0.6, desc: '+60% de puissance aux bursts contenant un type Psy.' },
 
-  { id: 'power-band',     name: 'Bandeau Force',    emoji: '💪', rarity: 'common', kind: 'dmg_flat',   value: 18,  desc: '+18 dégâts bruts à chaque burst.' },
-  { id: 'combo-lens',     name: 'Lentille Combo',   emoji: '🔍', rarity: 'rare',   kind: 'mult_add',   value: 0.5, desc: '+0.5 au multiplicateur de chaque burst.' },
-  { id: 'lucky-egg',      name: 'Œuf Chance',       emoji: '🥚', rarity: 'rare',   kind: 'xp_mult',    value: 0.6, desc: 'Gain d\'XP ×1.6 — montez en niveau plus vite.' },
-  { id: 'leftovers',      name: 'Restes',           emoji: '🍎', rarity: 'common', kind: 'heal_wave',  value: 14,  desc: 'Soigne toute l\'équipe de 14% au début de chaque vague.' },
-  { id: 'vampire-fang',   name: 'Croc Vampire',     emoji: '🦇', rarity: 'rare',   kind: 'lifesteal',  value: 30,  desc: 'Soigne le Pokémon le plus blessé de 30% des dégâts infligés.' },
-  { id: 'scope-lens',     name: 'Viseur',           emoji: '🎯', rarity: 'rare',   kind: 'crit',       value: 0.22, desc: '22% de chance qu\'un burst soit CRITIQUE (×2).' },
-  { id: 'lone-wolf',      name: 'Loup Solitaire',   emoji: '🐺', rarity: 'rare',   kind: 'solo_mult',  value: 1.2, desc: 'Jouer 1 seul Pokémon : +1.2 au multiplicateur.' },
-  { id: 'team-spirit',    name: 'Esprit d\'Équipe', emoji: '🤝', rarity: 'rare',   kind: 'full_team',  value: 1.0, desc: 'Jouer 3 Pokémon : +1.0 au multiplicateur.' },
-  { id: 'golden-token',   name: 'Jeton Doré',       emoji: '🪙', rarity: 'common', kind: 'gold_win',   value: 18,  desc: '+18 or à chaque victoire.' },
-  { id: 'phoenix-feather',name: 'Plume Phénix',     emoji: '🪶', rarity: 'epic',   kind: 'revive',     value: 50,  desc: 'Une fois par combat, ranime un allié K.O. à 50% PV.' },
-  { id: 'master-charm',   name: 'Charme Master',    emoji: '🎱', rarity: 'epic',   kind: 'catch',      value: 0.35, desc: '+35% de chance de capture.' },
-  { id: 'dragon-soul',    name: 'Âme du Dragon',    emoji: '🐉', rarity: 'epic',   kind: 'legendary',  value: 1.5, desc: '+1.5 au multiplicateur si un Légendaire participe au burst.' },
-  { id: 'glass-cannon',   name: 'Canon de Verre',   emoji: '💎', rarity: 'epic',   kind: 'glass',      value: 0.8, desc: '+0.8 multiplicateur, mais l\'équipe a 15% PV max en moins.' },
+  { id: 'power-band',     name: 'Bandeau Muscle',   emoji: '💪', slug: 'muscle-band',  rarity: 'common', kind: 'dmg_flat',   value: 18,  desc: '+18 dégâts bruts à chaque burst.' },
+  { id: 'combo-lens',     name: 'Loupe',            emoji: '🔍', slug: 'wide-lens',    rarity: 'rare',   kind: 'mult_add',   value: 0.5, desc: '+0.5 au multiplicateur de chaque burst.' },
+  { id: 'lucky-egg',      name: 'Œuf Chance',       emoji: '🥚', slug: 'lucky-egg',    rarity: 'rare',   kind: 'xp_mult',    value: 0.6, desc: 'Gain d\'XP ×1.6 — montez en niveau plus vite.' },
+  { id: 'leftovers',      name: 'Restes',           emoji: '🍎', slug: 'leftovers',    rarity: 'common', kind: 'heal_wave',  value: 14,  desc: 'Soigne toute l\'équipe de 14% au début de chaque vague.' },
+  { id: 'vampire-fang',   name: 'Grelot Coque',     emoji: '🦇', slug: 'shell-bell',   rarity: 'rare',   kind: 'lifesteal',  value: 30,  desc: 'Soigne le Pokémon le plus blessé de 30% des dégâts infligés.' },
+  { id: 'scope-lens',     name: 'Lentille Spéciale',emoji: '🎯', slug: 'scope-lens',   rarity: 'rare',   kind: 'crit',       value: 0.22, desc: '22% de chance qu\'un burst soit CRITIQUE (×2).' },
+  { id: 'lone-wolf',      name: 'Ceinture Pro',     emoji: '🐺', slug: 'expert-belt',  rarity: 'rare',   kind: 'solo_mult',  value: 1.2, desc: 'Jouer 1 seul Pokémon : +1.2 au multiplicateur.' },
+  { id: 'team-spirit',    name: 'Mur Lumière',      emoji: '🤝', slug: 'light-clay',   rarity: 'rare',   kind: 'full_team',  value: 1.0, desc: 'Jouer 3 Pokémon : +1.0 au multiplicateur.' },
+  { id: 'golden-token',   name: 'Pièce Rune',       emoji: '🪙', slug: 'amulet-coin',  rarity: 'common', kind: 'gold_win',   value: 18,  desc: '+18 or à chaque victoire.' },
+  { id: 'phoenix-feather',name: 'Cendres Sacrées',  emoji: '🪶', slug: 'sacred-ash',   rarity: 'epic',   kind: 'revive',     value: 50,  desc: 'Une fois par combat, ranime un allié K.O. à 50% PV.' },
+  { id: 'master-charm',   name: 'Grelot Zen',       emoji: '🎱', slug: 'soothe-bell',  rarity: 'epic',   kind: 'catch',      value: 0.35, desc: '+35% de chance de capture.' },
+  { id: 'dragon-soul',    name: 'Croc Dragon',      emoji: '🐉', slug: 'dragon-fang',  rarity: 'epic',   kind: 'legendary',  value: 1.5, desc: '+1.5 au multiplicateur si un Légendaire participe au burst.' },
+  { id: 'glass-cannon',   name: 'Orbe Vie',         emoji: '💎', slug: 'life-orb',     rarity: 'epic',   kind: 'glass',      value: 0.8, desc: '+0.8 multiplicateur, mais l\'équipe a 15% PV max en moins.' },
 ]
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map(r => [r.id, r]))

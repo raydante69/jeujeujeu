@@ -2,26 +2,38 @@ import React, { useMemo, useState } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { rollRelics, RELIC_RARITY_COLOR } from '../data/relics.js'
-import { gainXp, xpToNext } from '../engine/runEngine.js'
+import { BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
+import ItemSprite from '../components/ItemSprite.jsx'
 
 export default function RewardScreen() {
   const { navigate } = useGameStore()
   const run = useRunStore()
   const [chosen, setChosen] = useState(false)
 
-  // Build 3 distinct reward options: always 1 relic + 2 utility picks.
+  // 3 options: always 1 held item + 2 utility picks (granted into the bag).
   const options = useMemo(() => {
     const relic = rollRelics(1, run.relics)[0]
     const utils = shuffle([
-      { type: 'heal',  emoji: '❤️', title: 'Soin complet', desc: 'Restaure tous les PV de l\'équipe.' },
-      { type: 'gold',  emoji: '💰', title: '+50 Or',        desc: 'De quoi acheter au prochain marché.', amount: 50 },
-      { type: 'balls', emoji: '🔴', title: '+3 Balls',      desc: 'Capture plus de Pokémon sauvages.', amount: 3 },
-      { type: 'candy', emoji: '🍬', title: 'Super Bonbon',  desc: 'Fait gagner ~2 niveaux au plus faible.' },
-      { type: 'revive',emoji: '🪽', title: 'Rappel',         desc: 'Ranime les K.O. à 50% PV.' },
-    ]).slice(0, 2)
+      { type: 'item', itemId: 'super-potion' },
+      { type: 'item', itemId: 'rare-candy' },
+      { type: 'item', itemId: 'revive' },
+      { type: 'ball', ballId: 'great-ball', n: 3 },
+      { type: 'ball', ballId: 'ultra-ball', n: 2 },
+      { type: 'gold', amount: 60 },
+    ]).slice(0, 2).map(u => {
+      if (u.type === 'item') {
+        const c = CONSUMABLE_BY_ID[u.itemId]
+        return { ...u, slug: c.slug, emoji: c.emoji, ring: c.color, title: `${c.name} ×1`, desc: c.desc }
+      }
+      if (u.type === 'ball') {
+        const b = BALL_BY_ID[u.ballId]
+        return { ...u, slug: b.slug, emoji: b.emoji, ring: b.color, title: `${b.name} ×${u.n}`, desc: b.desc }
+      }
+      return { ...u, emoji: '💰', ring: '#fbbf24', title: `+${u.amount} Or`, desc: 'À dépenser au prochain marché.' }
+    })
 
     const opts = []
-    if (relic) opts.push({ type: 'relic', relic, emoji: relic.emoji, title: relic.name, desc: relic.desc, rarity: relic.rarity })
+    if (relic) opts.push({ type: 'relic', relic, slug: relic.slug, emoji: relic.emoji, title: relic.name, desc: relic.desc, rarity: relic.rarity, ring: RELIC_RARITY_COLOR[relic.rarity] || '#c084fc' })
     return [...opts, ...utils]
   }, []) // eslint-disable-line
 
@@ -31,28 +43,13 @@ export default function RewardScreen() {
     switch (opt.type) {
       case 'relic':
         run.addRelic(opt.relic.id)
-        if (opt.relic.id === 'glass-cannon') run.healTeam(-15) // glass cost
+        if (opt.relic.id === 'glass-cannon') run.healTeam(-15)
         break
-      case 'heal':   run.fullHeal(); break
-      case 'gold':   run.addGold(opt.amount); break
-      case 'balls':  run.addBall(opt.amount); break
-      case 'revive': run.reviveAll(); break
-      case 'candy': {
-        const team = run.team
-        const target = team.filter(m => m.hp > 0).sort((a, b) => a.level - b.level)[0] || team[0]
-        if (target) {
-          const updated = team.map(m => {
-            if (m.uid !== target.uid) return { ...m }
-            const copy = { ...m }
-            gainXp(copy, xpToNext(copy.level) + xpToNext(copy.level + 1))
-            return copy
-          })
-          run.commitTeam(updated)
-        }
-        break
-      }
+      case 'item': run.addItem(opt.itemId, 1); break
+      case 'ball': run.addBall(opt.ballId, opt.n); break
+      case 'gold': run.addGold(opt.amount); break
     }
-    setTimeout(() => navigate('run'), 550)
+    setTimeout(() => navigate('run'), 500)
   }
 
   return (
@@ -65,23 +62,22 @@ export default function RewardScreen() {
         </div>
 
         <div className="space-y-3">
-          {options.map((opt, i) => {
-            const ring = opt.type === 'relic' ? (RELIC_RARITY_COLOR[opt.rarity] || '#c084fc') : '#334155'
-            return (
-              <button key={i} onClick={() => pick(opt)} disabled={chosen}
-                className={`w-full flex items-center gap-3 rounded-2xl p-4 border-2 text-left transition-all ${chosen ? 'opacity-40' : 'hover:scale-[1.02] active:scale-95'}`}
-                style={{ background: `linear-gradient(110deg, ${ring}1a, #0f172a)`, borderColor: ring + '88' }}>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: ring + '22' }}>{opt.emoji}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-white text-sm">{opt.title}</p>
-                    {opt.type === 'relic' && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded" style={{ background: ring + '33', color: ring }}>Relique {opt.rarity}</span>}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{opt.desc}</p>
+          {options.map((opt, i) => (
+            <button key={i} onClick={() => pick(opt)} disabled={chosen}
+              className={`w-full flex items-center gap-3 rounded-2xl p-4 border-2 text-left transition-all ${chosen ? 'opacity-40' : 'hover:scale-[1.02] active:scale-95'}`}
+              style={{ background: `linear-gradient(110deg, ${opt.ring}1a, #0f172a)`, borderColor: opt.ring + '88' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: opt.ring + '22' }}>
+                <ItemSprite slug={opt.slug} emoji={opt.emoji} size={32} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-white text-sm">{opt.title}</p>
+                  {opt.type === 'relic' && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded" style={{ background: opt.ring + '33', color: opt.ring }}>Objet {opt.rarity}</span>}
                 </div>
-              </button>
-            )
-          })}
+                <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{opt.desc}</p>
+              </div>
+            </button>
+          ))}
         </div>
 
         {!chosen && (

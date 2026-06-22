@@ -147,6 +147,15 @@ export const useGameStore = create(
     }),
     {
       name: 'pokebooster-save-v1',
+      version: 2,
+      // v2: reset every caught/collected Pokémon (fresh Pokédex), keep economy.
+      migrate: (state, version) => {
+        if (!state) return state
+        if (version < 2) {
+          return { ...state, collection: [], team: [], newCardUids: [] }
+        }
+        return state
+      },
       partialize: (s) => ({
         money: s.money,
         crystals: s.crystals,

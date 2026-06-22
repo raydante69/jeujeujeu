@@ -8,8 +8,10 @@ import {
 import { aggregateRelics } from '../data/relics.js'
 import { getWeakTypes } from '../engine/comboBurst.js'
 import { TYPE_COLORS } from '../data/types.js'
+import { BALLS, BALL_BY_ID } from '../data/items.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
+import ItemSprite from '../components/ItemSprite.jsx'
 
 // Energy cost based on level
 function energyCost(mon) {
@@ -334,13 +336,27 @@ export default function BattleScreen() {
   }
 
   // ── Catch ───────────────────────────────────────────────────────
-  function tryCatch() {
-    if (enemy.isBoss || run.balls <= 0 || caught) return
-    if (!run.useBall()) return
+  function ballCatchChance(ballId) {
+    const b = BALL_BY_ID[ballId]
+    if (!b) return 0
+    if (b.mult === Infinity) return 1 // master ball always succeeds
     const hpFrac = enemyHp / Math.max(1, enemyMax)
-    const chance = catchChance(enemy, hpFrac, relicAgg)
+    const base = catchChance(enemy, hpFrac, relicAgg)
+    if (base <= 0) return 0 // bosses / un-catchable with normal balls
+    return Math.min(0.99, base * b.mult)
+  }
+
+  function tryCatch(ballId = 'poke-ball') {
+    if (caught) return
+    const b = BALL_BY_ID[ballId]
+    if (!b) return
+    // Only the Master Ball can catch a boss.
+    if (enemy.isBoss && b.mult !== Infinity) return
+    if ((run.balls?.[ballId] || 0) <= 0) return
+    if (!run.useBall(ballId)) return
+    const chance = ballCatchChance(ballId)
     if (Math.random() < chance) {
-      const res = run.catchEnemy(enemy)
+      const res = run.catchEnemy(enemy, ballId)
       setCaught({ ok: true, ...res })
     } else {
       setCaught({ ok: false, name: enemy.name })
@@ -581,21 +597,44 @@ export default function BattleScreen() {
                 ))}
               </div>
             )}
-            {!enemy.isBoss && (
-              <div className="mt-3">
-                {caught ? (
-                  <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
-                    {caught.ok
-                      ? (caught.benched ? `🎉 ${caught.name} capturé (Pokédex) !` : `🎉 ${caught.name} rejoint l'équipe !`)
-                      : `💨 ${caught.name} s'est échappé…`}
+            <div className="mt-3">
+              {caught ? (
+                <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
+                  {caught.ok
+                    ? (caught.benched ? `🎉 ${caught.name} capturé (Pokédex) !` : `🎉 ${caught.name} rejoint l'équipe !`)
+                    : `💨 ${caught.name} s'est échappé…`}
+                </p>
+              ) : (
+                <>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">
+                    {enemy.isBoss ? 'Master Ball uniquement' : 'Tente une capture'}
                   </p>
-                ) : run.balls > 0 ? (
-                  <button onClick={tryCatch} className="text-xs font-bold text-white bg-red-600/80 hover:bg-red-500 rounded-lg px-4 py-2 transition-all active:scale-95">
-                    🔴 Lancer une Ball ({Math.round(catchChance(enemy, enemyHp / Math.max(1, enemyMax), relicAgg) * 100)}%) · {run.balls} restantes
-                  </button>
-                ) : <p className="text-[10px] text-gray-600">Plus de Balls</p>}
-              </div>
-            )}
+                  <div className="flex justify-center gap-2 flex-wrap">
+                    {BALLS.map(b => {
+                      const owned = run.balls?.[b.id] || 0
+                      const usable = owned > 0 && (!enemy.isBoss || b.mult === Infinity)
+                      const pct = Math.round(ballCatchChance(b.id) * 100)
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() => tryCatch(b.id)}
+                          disabled={!usable}
+                          title={`${b.name} — ${b.desc}`}
+                          className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
+                          style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}
+                        >
+                          <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
+                          <span className="text-[9px] font-bold text-white">×{owned}</span>
+                          <span className="text-[8px] font-bold" style={{ color: b.color }}>
+                            {b.mult === Infinity ? '100%' : `${pct}%`}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
