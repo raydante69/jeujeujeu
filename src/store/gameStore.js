@@ -119,6 +119,13 @@ export const useGameStore = create(
       setPendingBoosters: (boosters) => set({ pendingBoosters: boosters }),
       clearPendingBoosters: () => set({ pendingBoosters: [] }),
 
+      // --- Session booster purchases (in-memory, NOT persisted) ---
+      // Drives progressive pricing: each repeat buy of the same format costs more.
+      sessionBuys: {},
+      recordBoosterBuy: (boosterId) => set(s => ({
+        sessionBuys: { ...s.sessionBuys, [boosterId]: (s.sessionBuys[boosterId] || 0) + 1 },
+      })),
+
       // --- Last combat ---
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
@@ -143,6 +150,7 @@ export const useGameStore = create(
         newCardUids: [],
         routeNodeIndex: 0,
         combatContext: null,
+        sessionBuys: {},
       }),
     }),
     {

@@ -1,39 +1,64 @@
 import React, { useState } from 'react'
 import { useGameStore } from '../store/gameStore.js'
-import { openBooster, openMultiBooster, BOOSTER_PRICES } from '../engine/boosterAcquisition.js'
+import { openBooster, BOOSTER_TYPES, boosterPrice, RARITIES } from '../engine/boosterAcquisition.js'
 import { GEN_UNLOCKS } from '../data/genUnlocks.js'
 import FreeBoosterTimer from '../components/FreeBoosterTimer.jsx'
 
+// Visual identity per generation pack.
+const GEN_THEME = {
+  1: { emoji: '🔴', tint: '#ef4444', region: 'Kanto' },
+  2: { emoji: '🟡', tint: '#eab308', region: 'Johto' },
+  3: { emoji: '🟢', tint: '#22c55e', region: 'Hoenn' },
+  4: { emoji: '🔵', tint: '#3b82f6', region: 'Sinnoh' },
+  5: { emoji: '⚫', tint: '#64748b', region: 'Unova' },
+  6: { emoji: '🟣', tint: '#a855f7', region: 'Kalos' },
+  7: { emoji: '🟠', tint: '#f97316', region: 'Alola' },
+  8: { emoji: '🔶', tint: '#f43f5e', region: 'Galar' },
+  9: { emoji: '🟪', tint: '#8b5cf6', region: 'Paldea' },
+}
+
+// Odds shown to the player (per guarantee slot of a Booster, the standard pull).
+const ODDS = [
+  ['rare',      RARITIES.rare.color,      '60%'],
+  ['holo_rare', RARITIES.holo_rare.color, '20%'],
+  ['ex',        RARITIES.ex.color,        '10%'],
+  ['full_art',  RARITIES.full_art.color,  '5%'],
+  ['vmax',      RARITIES.vmax.color,      '3%'],
+  ['alt_art',   RARITIES.alt_art.color,   '1.5%'],
+  ['rainbow',   RARITIES.rainbow.color,   '0.4%'],
+  ['gold',      RARITIES.gold.color,      '0.1%'],
+]
+
 export default function ShopScreen() {
-  const { money, spendMoney, unlockedGens, setPendingBoosters, navigate, freeBoosterQueue, claimFreeBooster, activeGenForFreeBooster } = useGameStore()
+  const {
+    money, crystals, spendMoney, unlockedGens, setPendingBoosters, navigate,
+    claimFreeBooster, activeGenForFreeBooster, sessionBuys, recordBoosterBuy,
+  } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
 
-  const price1 = BOOSTER_PRICES[selectedGen] || 100
-  const price10 = Math.floor(price1 * 10 * 0.80)
+  const theme = GEN_THEME[selectedGen] || GEN_THEME[1]
 
   function showMsg(msg, type = 'ok') {
     setBuyMsg({ msg, type })
-    setTimeout(() => setBuyMsg(null), 2000)
+    setTimeout(() => setBuyMsg(null), 1800)
   }
 
-  function handleBuy(count) {
-    const total = count === 1 ? price1 : price10
-    if (!spendMoney(total)) {
+  function handleBuy(boosterId) {
+    const buys = sessionBuys?.[boosterId] || 0
+    const price = boosterPrice(boosterId, selectedGen, buys)
+    if (!spendMoney(price)) {
       showMsg('Pas assez de ₽ !', 'error')
       return
     }
-    const cards = count === 1
-      ? openBooster(selectedGen)
-      : openMultiBooster(selectedGen, 10)
-    setPendingBoosters(cards)
+    recordBoosterBuy(boosterId)
+    setPendingBoosters(openBooster(selectedGen, boosterId))
     navigate('opening')
   }
 
   function handleFree() {
     if (!claimFreeBooster()) return
-    const cards = openBooster(activeGenForFreeBooster)
-    setPendingBoosters(cards)
+    setPendingBoosters(openBooster(activeGenForFreeBooster, 'sachet'))
     navigate('opening')
   }
 
@@ -42,10 +67,16 @@ export default function ShopScreen() {
       {/* Header */}
       <div className="bg-game-surface border-b border-game-border px-4 pt-10 pb-4 sticky top-0 z-10">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <h2 className="font-game text-sm text-white">Shop</h2>
-          <div className="flex items-center gap-2 bg-game-card rounded-lg px-3 py-1.5">
-            <span className="text-yellow-400 text-base">💰</span>
-            <span className="text-white font-bold text-sm">{money.toLocaleString('fr')} ₽</span>
+          <h2 className="font-game text-sm text-white">Boutique</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-game-card rounded-lg px-2.5 py-1.5">
+              <span className="text-yellow-400 text-sm">💰</span>
+              <span className="text-white font-bold text-xs tabular-nums">{money.toLocaleString('fr')}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-game-card rounded-lg px-2.5 py-1.5">
+              <span className="text-cyan-300 text-sm">💎</span>
+              <span className="text-white font-bold text-xs tabular-nums">{crystals.toLocaleString('fr')}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -63,90 +94,125 @@ export default function ShopScreen() {
               const id = Number(genId)
               const unlocked = unlockedGens.includes(id)
               const active = selectedGen === id
+              const t = GEN_THEME[id] || GEN_THEME[1]
               return (
                 <button
                   key={id}
                   onClick={() => unlocked && setSelectedGen(id)}
                   disabled={!unlocked}
-                  className={`
-                    flex-shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-all
-                    ${active ? 'bg-red-600 text-white' : unlocked ? 'bg-game-card text-gray-300 hover:bg-game-border' : 'bg-game-card text-gray-600 cursor-not-allowed'}
-                  `}
+                  className="flex-shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-all"
+                  style={{
+                    background: active ? t.tint : '#0f172a',
+                    color: active ? '#fff' : unlocked ? '#cbd5e1' : '#475569',
+                    border: `1.5px solid ${active ? t.tint : '#1e293b'}`,
+                    opacity: unlocked ? 1 : 0.55,
+                  }}
                 >
-                  {!unlocked ? '🔒' : ''} Gen {id}
+                  {unlocked ? t.emoji : '🔒'} Gen {id}
                 </button>
               )
             })}
           </div>
-          <p className="text-xs text-gray-500 mt-1">{GEN_UNLOCKS[selectedGen]?.name}</p>
-        </div>
-
-        {/* Booster visuel */}
-        <div className="bg-game-card rounded-2xl p-5 border border-game-border text-center">
-          <div className="text-5xl mb-3 animate-float">📦</div>
-          <p className="font-bold text-white text-base">Booster Gen {selectedGen}</p>
-          <p className="text-gray-400 text-xs mt-1">5 cartes — au moins 1 peu commune</p>
-          <div className="flex justify-center gap-2 mt-4">
-            {['C', 'C', 'UC', 'R?', '★?'].map((label, i) => (
-              <div key={i} className="w-8 h-12 rounded-md bg-gray-800 border border-gray-700 flex items-end justify-center pb-1">
-                <span className="text-[8px] text-gray-500 font-bold">{label}</span>
-              </div>
-            ))}
-          </div>
+          <p className="text-xs mt-1.5" style={{ color: theme.tint }}>
+            {GEN_UNLOCKS[selectedGen]?.name}
+          </p>
         </div>
 
         {/* Message feedback */}
         {buyMsg && (
-          <div className={`rounded-xl px-4 py-3 text-sm font-bold text-center ${buyMsg.type === 'error' ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}`}>
+          <div className={`rounded-xl px-4 py-2.5 text-sm font-bold text-center ${buyMsg.type === 'error' ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}`}>
             {buyMsg.msg}
           </div>
         )}
 
-        {/* Buy buttons */}
+        {/* Booster formats */}
         <div className="space-y-3">
-          <button
-            onClick={() => handleBuy(1)}
-            className="w-full py-4 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold rounded-xl transition-all flex items-center justify-between px-5"
-          >
-            <span>1 Booster</span>
-            <span className="bg-blue-900/50 rounded-lg px-3 py-1 text-sm">{price1} ₽</span>
-          </button>
+          {BOOSTER_TYPES.map(b => {
+            const buys = sessionBuys?.[b.id] || 0
+            const price = boosterPrice(b.id, selectedGen, buys)
+            const afford = money >= price
+            const ramped = buys > 0
+            return (
+              <div
+                key={b.id}
+                className="rounded-2xl p-4 border relative overflow-hidden"
+                style={{ background: `linear-gradient(135deg, ${b.color}1f, #0f172a)`, borderColor: b.color + '55' }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-14 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 animate-float"
+                    style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}
+                  >
+                    {b.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-white text-base">{b.name}</p>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: b.color + '33', color: b.color }}>
+                        {b.cards} carte{b.cards > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{b.tagline}</p>
+                    {/* Mini card slots preview */}
+                    <div className="flex gap-1 mt-2">
+                      {b.slots.map((slot, i) => (
+                        <div
+                          key={i}
+                          className="w-6 h-8 rounded-[4px] border flex items-end justify-center pb-0.5"
+                          style={{
+                            background: slot === 'guarantee' ? b.color + '33' : '#1e293b',
+                            borderColor: slot === 'guarantee' ? b.color : '#334155',
+                          }}
+                        >
+                          <span className="text-[7px] font-black" style={{ color: slot === 'guarantee' ? b.color : '#64748b' }}>
+                            {slot === 'guarantee' ? '★' : slot === 'rare' ? 'R' : '·'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-          <button
-            onClick={() => handleBuy(10)}
-            className="w-full py-4 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-bold rounded-xl transition-all flex items-center justify-between px-5 relative overflow-hidden"
-          >
-            <div className="text-left">
-              <p>×10 Boosters</p>
-              <p className="text-xs font-normal text-purple-300 mt-0.5">−20% · 1 Rare garantie</p>
-            </div>
-            <span className="bg-purple-900/50 rounded-lg px-3 py-1 text-sm">{price10} ₽</span>
-            <div className="absolute top-1.5 right-16 bg-yellow-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded">
-              −20%
-            </div>
-          </button>
+                <button
+                  onClick={() => handleBuy(b.id)}
+                  disabled={!afford}
+                  className={`w-full mt-3 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 ${afford ? 'active:scale-95 text-white' : 'bg-gray-900 text-gray-600'}`}
+                  style={afford ? { background: b.color } : {}}
+                >
+                  <span>Ouvrir</span>
+                  <span className="bg-black/30 rounded-lg px-2.5 py-1 text-xs tabular-nums">{price.toLocaleString('fr')} ₽</span>
+                </button>
+
+                {ramped && (
+                  <p className="text-[9px] text-amber-400/80 mt-1.5 text-center">
+                    ↑ Prix +{Math.round((Math.pow(1.18, buys) - 1) * 100)}% — acheté {buys}× cette session
+                  </p>
+                )}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Rarities legend */}
+        {/* Pull rates */}
         <div className="bg-game-card rounded-xl p-4 border border-game-border">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Raretés</p>
-          <div className="space-y-1.5">
-            {[
-              ['Commune',      '#9ca3af', '40%'],
-              ['Peu commune',  '#4ade80', '30%'],
-              ['Rare',         '#60a5fa', '20%'],
-              ['Holographique','#c084fc',  '8%'],
-              ['Ultra Rare',   '#fb923c',  '2%'],
-            ].map(([label, color, pct]) => (
-              <div key={label} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-xs text-gray-300">{label}</span>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+            Taux du slot garanti (Booster)
+          </p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {ODDS.map(([key, color, pct]) => (
+              <div key={key} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-[11px] text-gray-300 truncate">{RARITIES[key].label}</span>
                 </div>
-                <span className="text-xs text-gray-500">{pct}</span>
+                <span className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">{pct}</span>
               </div>
             ))}
           </div>
+          <p className="text-[10px] text-gray-600 mt-3 leading-relaxed">
+            Les Pokémon rares sont volontairement difficiles à obtenir. Les prix augmentent
+            à chaque achat répété — gère ton budget.
+          </p>
         </div>
       </div>
     </div>

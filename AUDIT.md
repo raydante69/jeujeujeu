@@ -2,6 +2,12 @@
 
 > Dernière mise à jour : juin 2026
 
+> ## ✅ Déjà implémenté (cette itération)
+> - **Nouveau combat « Draft de Coups »** : remplace le TypeBurst. Chaque tour tu piochent une main aléatoire de coups issus des movesets de ton équipe, tu dépenses une énergie pour en jouer, et l'ennemi **télégraphie sa prochaine attaque** (style Into the Breach). Boucliers, soins, drains, statuts (brûlure/poison/paralysie/gel) et buffs créent de vrais dilemmes. Le système de cartes/collection/capture reste intact.
+> - **Refonte des boosters** : formats **1 / 2 / 3 cartes** (Sachet / Booster / Pack Premium) avec garanties de rareté croissantes, **prix par génération** (plus la gen est haute, plus c'est cher) et **prix progressifs** (chaque rachat du même format en session coûte +18%). Obtenir les bons Pokémon est volontairement plus dur.
+
+---
+
 ---
 
 ## 🔴 CE QUI NE FONCTIONNE PAS (blockers critiques)
@@ -84,23 +90,23 @@ Tous les boosters sont identiques (5 cartes, même pool), l'accès est trop faci
 
 Chaque génération a ses propres visuels de pack, son ambiance musicale, et ses pools de raretés indépendants — les full art et rainbow sont propres à chaque gen.
 
-### 2. Formats de boosters (1, 3, 5, 8 Pokémons)
+### 2. Formats de boosters (1, 2, 3 Pokémons) — ✅ implémenté
 
-| Format | Pokémons | Prix de base | Garantie rareté |
-|--------|----------|-------------|----------------|
-| **Sachet** | 1 | 30₽ | Uncommon minimum |
-| **Booster Standard** | 3 | 80₽ | 1 Rare+ garantie |
-| **Pack Premium** | 5 | 180₽ | 1 Holo+ garantie |
-| **Pack Légendaire** | 8 | 400₽ | 1 EX ou Full Art garantie |
+| Format | Cartes | Prix de base (Gen 1) | Garantie rareté |
+|--------|--------|----------------------|-----------------|
+| **Sachet** | 1 | 90₽ | Peu Commune minimum |
+| **Booster** | 2 | 220₽ | 1 Rare+ garantie |
+| **Pack Premium** | 3 | 520₽ | 1 Holo+ garantie (slot médian Rare+) |
 
-Les Sachets sont idéaux pour finir une collection (cibler une rareté précise à peu de frais). Les Packs Légendaires sont l'achat du gros événement — rare, cher, satisfaisant.
+Moins de cartes par pack + prix élevés = les bons Pokémon sont rares et mérités. Le Sachet sert à compléter la collection à moindre coût ; le Pack Premium est l'achat « événement ».
 
 ### 3. Économie de l'accès — rendre les boosters méritants
 
-**Prix progressif (comme les cartes dans Slay the Spire) :**
+**Prix progressif (comme les cartes dans Slay the Spire) — ✅ implémenté :**
 - Le premier booster d'une session coûte le prix de base.
-- Chaque achat du même format dans la même session augmente le prix de 15%.
-- Reset au début d'une nouvelle session/run.
+- Chaque achat du même format dans la même session augmente le prix de **+18%**.
+- Les générations plus hautes coûtent **+15% par gen**.
+- Reset au rechargement (le compteur de session n'est pas persisté).
 
 **Cooldown entre achats :**
 - Après l'achat d'un booster, 30 minutes avant de pouvoir racheter le même format (optionnel, activable).
@@ -198,8 +204,8 @@ Enchaîner des runs sans perdre → multiplicateur de cristaux et XP. Perdu ? St
 
 | Phase | Feature | Addiction | Difficulté |
 |-------|---------|-----------|------------|
-| **Immédiat** | Système Draft de coups (combat) | 🔥🔥🔥 | Moyen |
-| **Immédiat** | Boosters par gen + formats 1/3/5/8 | 🔥🔥🔥 | Moyen |
+| ✅ **Fait** | Système Draft de coups (combat) | 🔥🔥🔥 | Moyen |
+| ✅ **Fait** | Boosters par gen + formats 1/2/3 + prix progressifs | 🔥🔥🔥 | Moyen |
 | **Immédiat** | Collection → vivier de run | 🔥🔥🔥 | Facile |
 | **Immédiat** | Pokédex vivant (silhouettes ???) | 🔥🔥 | Facile |
 | **Court terme** | Économie progressive (prix montant) | 🔥🔥 | Facile |
