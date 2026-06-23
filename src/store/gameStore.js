@@ -14,6 +14,8 @@ export const useGameStore = create(
       // --- Economy ---
       money: 500,
       crystals: 0,
+      diamonds: 0,
+      rubies: 0,
 
       addMoney: (n) => set(s => ({ money: s.money + n })),
       spendMoney: (n) => {
@@ -29,6 +31,8 @@ export const useGameStore = create(
         set({ crystals: s.crystals - n, crystalsSpent: s.crystalsSpent + n })
         return true
       },
+      addDiamonds: (n) => set(s => ({ diamonds: s.diamonds + n })),
+      addRubies: (n) => set(s => ({ rubies: s.rubies + n })),
 
       // --- Collection ---
       collection: [],
@@ -53,6 +57,16 @@ export const useGameStore = create(
         return { team: [...s.team, card] }
       }),
       removeFromTeam: (uid) => set(s => ({ team: s.team.filter(c => c.uid !== uid) })),
+
+      // --- Inventory ---
+      inventory: [],
+      addToInventory: (item) => set(s => ({ inventory: [...s.inventory, { ...item, uid: Date.now() + Math.random() }] })),
+
+      // --- Combat stats ---
+      combatWins: 0,
+      handSize: 5,
+      addCombatWin: () => set(s => ({ combatWins: s.combatWins + 1 })),
+      upgradeHandSize: () => set(s => ({ handSize: Math.min(10, s.handSize + 1) })),
 
       // --- Progression ---
       badgesEarned: [],
@@ -111,40 +125,28 @@ export const useGameStore = create(
 
       // --- Reset ---
       resetGame: () => set({
-        money: 500,
-        crystals: 0,
-        collection: [],
-        team: [],
-        badgesEarned: [],
-        currentGymId: 1,
-        elite4Defeated: 0,
-        isChampion: false,
-        freeBoosterQueue: 1,
-        lastFreeBoosterClaimed: null,
-        pendingBoosters: [],
-        lastBattleResult: null,
-        unlockedGens: [1],
-        crystalsSpent: 0,
-        moneySpentOnUnlocks: 0,
+        money: 500, crystals: 0, diamonds: 0, rubies: 0,
+        collection: [], team: [], inventory: [],
+        badgesEarned: [], currentGymId: 1,
+        elite4Defeated: 0, isChampion: false,
+        freeBoosterQueue: 1, lastFreeBoosterClaimed: null,
+        pendingBoosters: [], lastBattleResult: null,
+        unlockedGens: [1], crystalsSpent: 0, moneySpentOnUnlocks: 0,
+        combatWins: 0, handSize: 5,
       }),
     }),
     {
       name: 'pokebooster-save-v1',
       partialize: (s) => ({
-        money: s.money,
-        crystals: s.crystals,
-        collection: s.collection,
-        team: s.team,
-        badgesEarned: s.badgesEarned,
-        currentGymId: s.currentGymId,
-        elite4Defeated: s.elite4Defeated,
-        isChampion: s.isChampion,
-        freeBoosterQueue: s.freeBoosterQueue,
-        lastFreeBoosterClaimed: s.lastFreeBoosterClaimed,
+        money: s.money, crystals: s.crystals, diamonds: s.diamonds, rubies: s.rubies,
+        collection: s.collection, team: s.team, inventory: s.inventory,
+        badgesEarned: s.badgesEarned, currentGymId: s.currentGymId,
+        elite4Defeated: s.elite4Defeated, isChampion: s.isChampion,
+        freeBoosterQueue: s.freeBoosterQueue, lastFreeBoosterClaimed: s.lastFreeBoosterClaimed,
         activeGenForFreeBooster: s.activeGenForFreeBooster,
-        unlockedGens: s.unlockedGens,
-        crystalsSpent: s.crystalsSpent,
+        unlockedGens: s.unlockedGens, crystalsSpent: s.crystalsSpent,
         moneySpentOnUnlocks: s.moneySpentOnUnlocks,
+        combatWins: s.combatWins, handSize: s.handSize,
       }),
     }
   )

@@ -3,12 +3,17 @@ import { useGameStore } from '../store/gameStore.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 
 const RARITY_STYLES = {
-  common:   { color: '#9ca3af', bg: 'from-gray-700 to-gray-900', label: 'Commune',       particle: '·' },
-  uncommon: { color: '#4ade80', bg: 'from-green-800 to-gray-900', label: 'Peu commune',  particle: '✦' },
-  rare:     { color: '#60a5fa', bg: 'from-blue-800 to-gray-900',  label: 'Rare',         particle: '★' },
-  holo:     { color: '#c084fc', bg: 'from-purple-800 to-gray-900', label: 'Holo',        particle: '✨' },
-  ultra:    { color: '#fb923c', bg: 'from-orange-800 to-gray-900', label: 'Ultra',       particle: '💥' },
-  secret:   { color: '#fde047', bg: 'from-yellow-700 to-gray-900', label: 'Secret',      particle: '🌟' },
+  commune:       { color: '#9ca3af', bg: 'from-gray-700 to-gray-900',    label: 'Commune',     particle: '·',  shimmer: false },
+  'peu-commune': { color: '#4ade80', bg: 'from-green-800 to-gray-900',   label: 'Peu commune', particle: '✦',  shimmer: false },
+  rare:          { color: '#60a5fa', bg: 'from-blue-800 to-gray-900',    label: 'Rare',        particle: '★',  shimmer: false },
+  'tres-rare':   { color: '#a78bfa', bg: 'from-violet-800 to-gray-900',  label: 'Très rare',   particle: '💫', shimmer: true  },
+  epique:        { color: '#f472b6', bg: 'from-pink-800 to-purple-900',  label: 'Épique',      particle: '✨', shimmer: true  },
+  legendaire:    { color: '#fbbf24', bg: 'from-yellow-700 to-orange-900',label: 'Légendaire',  particle: '🌟', shimmer: true  },
+  // legacy keys kept for safety
+  common:        { color: '#9ca3af', bg: 'from-gray-700 to-gray-900',    label: 'Commune',     particle: '·',  shimmer: false },
+  uncommon:      { color: '#4ade80', bg: 'from-green-800 to-gray-900',   label: 'Peu commune', particle: '✦',  shimmer: false },
+  holo:          { color: '#c084fc', bg: 'from-purple-800 to-gray-900',  label: 'Holo',        particle: '✨', shimmer: true  },
+  ultra:         { color: '#fb923c', bg: 'from-orange-800 to-gray-900',  label: 'Ultra',       particle: '💥', shimmer: true  },
 }
 
 function CardReveal({ pokemon, delay, onReveal }) {
@@ -44,6 +49,11 @@ function CardReveal({ pokemon, delay, onReveal }) {
           <div className="text-xs font-bold uppercase tracking-widest" style={{ color: style.color }}>
             {style.particle} {style.label} {style.particle}
           </div>
+          {(pokemon.shiny || pokemon.holo) && (
+            <div className="text-[10px] font-bold tracking-widest" style={{ color: pokemon.shiny ? '#fde68a' : '#c084fc' }}>
+              {pokemon.shiny ? '✨ SHINY' : '🌈 HOLO'}
+            </div>
+          )}
           <img
             src={spriteUrl}
             alt={pokemon.name}
@@ -56,12 +66,30 @@ function CardReveal({ pokemon, delay, onReveal }) {
           <div className="flex gap-1 flex-wrap justify-center">
             {pokemon.types?.map(t => <TypeBadge key={t} type={t} size="xs" />)}
           </div>
-          {/* Holo shimmer */}
-          {['holo', 'ultra', 'secret'].includes(rarity) && (
+          {/* Shimmer overlay for rare+ */}
+          {style.shimmer && (
             <div
               className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%)', backgroundSize: '200% 200%', animation: 'shimmer 2s linear infinite' }}
+              style={{
+                background: 'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)',
+                backgroundSize: '200% 200%',
+                animation: 'shimmer 2s linear infinite',
+              }}
             />
+          )}
+          {/* Holo rainbow tint for holo flag */}
+          {pokemon.holo && (
+            <div
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,0,128,0.08), rgba(0,128,255,0.08), rgba(128,255,0,0.08))',
+                animation: 'shimmer 3s ease-in-out infinite alternate',
+              }}
+            />
+          )}
+          {/* Shiny sparkle */}
+          {pokemon.shiny && (
+            <div className="absolute top-1 right-1 text-xs">✨</div>
           )}
         </div>
 

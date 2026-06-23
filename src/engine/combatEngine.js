@@ -73,9 +73,9 @@ const ULTIMATE_NAMES = {
 
 // Number of attacks per Pokémon based on rarity.
 export function attackCountForMon(mon) {
-  const r = mon.rarity || 'common'
-  if (r === 'legendary' || r === 'epic') return 4
-  if (r === 'rare' || r === 'uncommon') return 3
+  const r = mon.rarity || 'commune'
+  if (r === 'legendaire' || r === 'epique') return 4
+  if (r === 'tres-rare' || r === 'rare') return 3
   return 2
 }
 

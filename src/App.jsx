@@ -8,6 +8,7 @@ import CollectionScreen from './screens/CollectionScreen.jsx'
 import TeamBuilderScreen from './screens/TeamBuilderScreen.jsx'
 import CombatScreen from './screens/CombatScreen.jsx'
 import RewardsScreen from './screens/RewardsScreen.jsx'
+import MilestoneRewardScreen from './screens/MilestoneRewardScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 const SCREENS = {
@@ -18,9 +19,10 @@ const SCREENS = {
   team:       TeamBuilderScreen,
   combat:     CombatScreen,
   rewards:    RewardsScreen,
+  milestone:  MilestoneRewardScreen,
 }
 
-const NO_NAV = ['title', 'opening', 'combat', 'rewards']
+const NO_NAV = ['title', 'opening', 'combat', 'rewards', 'milestone']
 
 export default function App() {
   const { currentScreen } = useGameStore()
