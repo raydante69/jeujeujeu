@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useGameStore } from '../store/gameStore.js'
+import { useGameStore, pointsUpgradeCost, MAX_POINTS } from '../store/gameStore.js'
 import { openBooster, BOOSTER_TYPES, boosterPrice, RARITIES } from '../engine/boosterAcquisition.js'
 import { GEN_UNLOCKS } from '../data/genUnlocks.js'
 import FreeBoosterTimer from '../components/FreeBoosterTimer.jsx'
@@ -17,23 +17,18 @@ const GEN_THEME = {
   9: { emoji: '🟪', tint: '#8b5cf6', region: 'Paldea' },
 }
 
-// Odds shown to the player (per guarantee slot of a Booster, the standard pull).
+// Pull odds shown to the player (the guaranteed Rare+ slot of a Booster).
 const ODDS = [
-  ['rare',      RARITIES.rare.color,      '60%'],
-  ['holo_rare', RARITIES.holo_rare.color, '20%'],
-  ['ex',        RARITIES.ex.color,        '10%'],
-  ['full_art',  RARITIES.full_art.color,  '5%'],
-  ['vmax',      RARITIES.vmax.color,      '3%'],
-  ['alt_art',   RARITIES.alt_art.color,   '1.5%'],
-  ['rainbow',   RARITIES.rainbow.color,   '0.4%'],
-  ['gold',      RARITIES.gold.color,      '0.1%'],
+  ['rare',      RARITIES.rare.color,      '74%'],
+  ['epic',      RARITIES.epic.color,      '22%'],
+  ['legendary', RARITIES.legendary.color, '3.5%'],
 ]
 
 export default function ShopScreen() {
   const {
     money, crystals, spendMoney, unlockedGens, setPendingBoosters, navigate,
     claimFreeBooster, activeGenForFreeBooster, sessionBuys, recordBoosterBuy,
-    recordStat, reportQuest,
+    recordStat, reportQuest, starterPoints, buyStarterPoints,
   } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
@@ -198,25 +193,50 @@ export default function ShopScreen() {
           })}
         </div>
 
+        {/* Team point capacity (Pokérogue-style starter budget) */}
+        <div className="rounded-2xl p-4 border" style={{ background: 'linear-gradient(135deg, #10b98122, #0f172a)', borderColor: '#10b98155' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: '#10b98122', border: '1px solid #10b98166' }}>💠</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white text-sm">Capacité d'équipe</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Plus de points = équipe de départ plus grande/forte.</p>
+              <p className="text-[11px] mt-1"><span className="text-emerald-300 font-black">{starterPoints}</span><span className="text-gray-500"> / {MAX_POINTS} points</span></p>
+            </div>
+          </div>
+          {starterPoints >= MAX_POINTS ? (
+            <div className="w-full mt-3 py-2.5 rounded-xl text-center text-xs font-black bg-emerald-900/40 text-emerald-400">Capacité maximale atteinte ✓</div>
+          ) : (
+            <button
+              onClick={() => {
+                const spent = buyStarterPoints()
+                showMsg(spent === false ? 'Pas assez de 💎 cristaux !' : '+2 points d\'équipe !', spent === false ? 'error' : 'ok')
+              }}
+              className="w-full mt-3 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 bg-emerald-500 text-black active:scale-95"
+            >
+              <span>+2 points</span>
+              <span className="bg-black/20 rounded-lg px-2.5 py-1 text-xs tabular-nums">{pointsUpgradeCost(starterPoints)} 💎</span>
+            </button>
+          )}
+        </div>
+
         {/* Pull rates */}
         <div className="bg-game-card rounded-xl p-4 border border-game-border">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
             Taux du slot garanti (Booster)
           </p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          <div className="grid grid-cols-3 gap-x-3 gap-y-1.5">
             {ODDS.map(([key, color, pct]) => (
               <div key={key} className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                  <span className="text-[11px] text-gray-300 truncate">{RARITIES[key].label}</span>
+                  <span className="text-[10px] text-gray-300 truncate">{RARITIES[key].label}</span>
                 </div>
-                <span className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">{pct}</span>
+                <span className="text-[10px] text-gray-500 tabular-nums flex-shrink-0">{pct}</span>
               </div>
             ))}
           </div>
           <p className="text-[10px] text-gray-600 mt-3 leading-relaxed">
-            Les Pokémon rares sont volontairement difficiles à obtenir. Les prix augmentent
-            à chaque achat répété — gère ton budget.
+            La rareté reflète la puissance du Pokémon. Shiny ~1/30 · Holo (légendaires &amp; évolutions finales) ~1/6 — boostés en Pack Premium.
           </p>
         </div>
       </div>

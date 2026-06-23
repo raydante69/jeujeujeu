@@ -1,18 +1,20 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { makeInstance } from '../data/pokemon.js'
+import { makeInstance, speciesById } from '../data/pokemon.js'
+import { isHoloEligible } from '../data/cardModel.js'
 import { generateDailyQuests, todayKey } from '../data/quests.js'
 
 let _uidCounter = 1000
 export function nextUid() { return _uidCounter++ }
 
-// Fusion ladder: three identical cards combine into one of the next tier.
-const FUSION_NEXT = {
-  common: 'uncommon', uncommon: 'rare', rare: 'holo_rare', reverse_holo: 'holo_rare',
-  holo_rare: 'ex', ex: 'full_art', full_art: 'vmax', vmax: 'alt_art', alt_art: 'rainbow',
-  rainbow: 'gold', holo: 'ex', ultra: 'full_art', secret: 'gold',
+// Pokérogue-style team budget: you build a starter team within a point cap.
+export const START_POINTS = 4        // affords ~2 starter Pokémon at the very start
+export const POINTS_PER_UPGRADE = 2
+export const MAX_POINTS = 20
+// Crystal cost of buying +2 capacity grows with current capacity.
+export function pointsUpgradeCost(currentMax) {
+  return 80 + Math.max(0, (currentMax - START_POINTS) / POINTS_PER_UPGRADE) * 60
 }
-export function fusionNext(rarity) { return FUSION_NEXT[rarity] || null }
 
 // Permanent training cost grows with how trained a species already is.
 export function trainCost(currentBonus) { return 30 + currentBonus * 25 }
@@ -154,20 +156,31 @@ export const useGameStore = create(
         return cost
       },
 
-      // --- Card fusion ---
-      fuseSpecies: (speciesId, rarity) => {
+      // --- Team point capacity (Pokérogue-style) ---
+      starterPoints: START_POINTS,
+      buyStarterPoints: () => {
         const s = get()
-        const matching = s.collection.filter(c => c.id === speciesId && c.rarity === rarity)
-        const next = fusionNext(rarity)
-        if (matching.length < 3 || !next) return false
-        const consumed = new Set(matching.slice(0, 3).map(c => c.uid))
-        const lvl = Math.max(...matching.slice(0, 3).map(c => c.level || 5))
-        const fused = makeInstance(speciesId, lvl, { rarity: next })
+        if (s.starterPoints >= MAX_POINTS) return false
+        const cost = pointsUpgradeCost(s.starterPoints)
+        if (!s.spendCrystals(cost)) return false
+        set({ starterPoints: Math.min(MAX_POINTS, s.starterPoints + POINTS_PER_UPGRADE) })
+        return cost
+      },
+
+      // --- Card fusion: 3 plain copies → 1 Shiny (Holo too if eligible) ---
+      fuseSpecies: (speciesId) => {
+        const s = get()
+        const plain = s.collection.filter(c => c.id === speciesId && !c.shiny)
+        if (plain.length < 3) return false
+        const consumed = new Set(plain.slice(0, 3).map(c => c.uid))
+        const sp = speciesById(speciesId)
+        const holo = sp ? isHoloEligible(sp) : false
+        const fused = makeInstance(speciesId, 5, { rarity: plain[0].rarity, shiny: true, holo })
         set({
           collection: [...s.collection.filter(c => !consumed.has(c.uid)), fused],
           newCardUids: [...(s.newCardUids || []), fused.uid],
         })
-        return next
+        return holo ? 'shiny+holo' : 'shiny'
       },
 
       // --- Daily quests ---
@@ -226,6 +239,7 @@ export const useGameStore = create(
         stats: { catches: 0, boostersOpened: 0, battlesWon: 0 },
         trainerLevels: {},
         daily: { date: null, quests: [] },
+        starterPoints: START_POINTS,
       }),
     }),
     {
@@ -260,6 +274,7 @@ export const useGameStore = create(
         stats: s.stats,
         trainerLevels: s.trainerLevels,
         daily: s.daily,
+        starterPoints: s.starterPoints,
       }),
     }
   )

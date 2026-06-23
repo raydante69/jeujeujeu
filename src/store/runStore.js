@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { makeRunMon, gainXp, xpToNext } from '../engine/runEngine.js'
-import { makeInstance } from '../data/pokemon.js'
+import { makeInstance, speciesById } from '../data/pokemon.js'
+import { speciesRarity } from '../data/cardModel.js'
 import { aggregateRelics } from '../data/relics.js'
 import { DEFAULT_BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
 import { useGameStore } from './gameStore.js'
@@ -159,7 +160,7 @@ export const useRunStore = create(
         const s = get()
         const lvl = Math.max(5, Math.round((enemy.level || 5) * 0.85))
         const caught = makeRunMon(enemy.id, lvl)
-        const card = makeInstance(enemy.id, lvl, { rarity: 'rare' })
+        const card = makeInstance(enemy.id, lvl, { rarity: speciesRarity(speciesById(enemy.id)) })
         useGameStore.getState().addToCollection([card])
         if (s.team.length < MAX_TEAM) {
           set({ team: [...s.team, caught] })

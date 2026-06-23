@@ -7,6 +7,14 @@
 > - **Nouveau combat « Draft de Coups »** : remplace le TypeBurst. Chaque tour tu piochent une main aléatoire de coups issus des movesets de ton équipe, tu dépenses une énergie pour en jouer, et l'ennemi **télégraphie sa prochaine attaque** (style Into the Breach). Boucliers, soins, drains, statuts (brûlure/poison/paralysie/gel) et buffs créent de vrais dilemmes. Le système de cartes/collection/capture reste intact.
 > - **Refonte des boosters** : formats **1 / 2 / 3 cartes** (Sachet / Booster / Pack Premium) avec garanties de rareté croissantes, **prix par génération** et **prix progressifs** (+18% par rachat en session). Obtenir les bons Pokémon est volontairement plus dur.
 >
+> **Itération 3 — modèle de carte type Pokélike/Pokérogue**
+> - **Cartes définies par leurs vraies stats de base** (PV/Atq/Déf/AtqS/DéfS/Vit + total) au lieu d'un niveau, dans le Pokédex et à l'ouverture des boosters.
+> - **Variantes Shiny & Holographique** par carte. L'holo est réservé aux cartes importantes (légendaires + évolutions finales fortes).
+> - **Raretés refaites par puissance** (Commune → Légendaire, basées sur le BST et le rôle) au lieu d'un tirage aléatoire.
+> - **Coût en points par Pokémon** (style Pokérogue) et **sélection de départ par budget de points** (panneau de stats + grille avec coûts), plus de limite au nombre de Pokémon.
+> - **Capacité d'équipe achetable** dans la boutique du hub (cristaux) pour augmenter le budget de points.
+> - **Fusion** repensée : 3 copies normales → 1 version Shiny (Holo si éligible).
+>
 > **Itération 2 — boucle de rétention complète**
 > - **Collection → Run** : ton vivier d'expédition affiche TOUTE ta collection. Le niveau de départ d'un Pokémon monte avec ses **doublons** (+2/copie), sa **meilleure rareté** (+tier), son **dressage** et son **trait**. Appui long = détail du calcul.
 > - **Traits uniques par Pokémon** : chaque espèce a une identité de combat (signatures pour les ~18 iconiques, affinité de type pour les autres) qui modifie dégâts / boucliers / soins / statuts.

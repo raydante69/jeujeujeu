@@ -60,6 +60,7 @@ export function makeInstance(id, level, opts = {}) {
     types: sp.types.slice(),
     level,
     shiny: !!opts.shiny,
+    holo: !!opts.holo,
     rarity: opts.rarity || 'common',
     move: makeMove(sp.types[0]),
   }
