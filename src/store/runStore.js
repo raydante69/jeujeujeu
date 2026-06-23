@@ -15,6 +15,7 @@ export const useRunStore = create(
       bestWave: 0,
       totalRuns: 0,
       relicCodex: [],
+      lastStarters: [],   // [{ id, level }] used for "replay same team"
 
       // --- Active run ---
       active: false,
@@ -33,13 +34,19 @@ export const useRunStore = create(
       totalBalls: () => Object.values(get().balls || {}).reduce((s, n) => s + n, 0),
 
       // --- Run lifecycle ---
-      startRun: (starterIds) => {
-        const team = starterIds.slice(0, 3).map(id => makeRunMon(id, 5))
+      // Accepts either [id, ...] or [{ id, level }, ...]. Levels let the
+      // collection (duplicates / rarity / training) feed a stronger start.
+      startRun: (starters) => {
+        const norm = (starters || []).slice(0, 3).map(s =>
+          typeof s === 'number' ? { id: s, level: 5 } : { id: s.id, level: s.level || 5 }
+        )
+        const team = norm.map(s => makeRunMon(s.id, s.level))
         set({
           active: true, wave: 1, gold: 0,
           balls: { ...DEFAULT_BALLS },
           items: { 'potion': 1, 'rare-candy': 1 },
           team, relics: [], pendingEnemy: null, lastOutcome: null,
+          lastStarters: norm,
         })
       },
 
@@ -184,6 +191,7 @@ export const useRunStore = create(
         bestWave: s.bestWave,
         totalRuns: s.totalRuns,
         relicCodex: s.relicCodex,
+        lastStarters: s.lastStarters,
         active: s.active,
         wave: s.wave,
         gold: s.gold,

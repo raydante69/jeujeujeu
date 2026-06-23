@@ -5,7 +5,7 @@ import { biomeForWave } from '../data/biomes.js'
 
 export default function RunEndScreen() {
   const { navigate } = useGameStore()
-  const { lastSummary, bestWave, team } = useRunStore()
+  const { lastSummary, bestWave, team, lastStarters, startRun } = useRunStore()
   const reached = lastSummary?.reached ?? 0
   const crystals = lastSummary?.crystals ?? 0
   const money = lastSummary?.money ?? 0
@@ -41,10 +41,15 @@ export default function RunEndScreen() {
         </div>
 
         <div className="space-y-3">
-          <button onClick={() => navigate('runsetup')} className="w-full py-4 bg-gradient-to-r from-purple-600 to-red-600 text-white font-black rounded-xl text-base active:scale-95 transition-all">
-            ⚔️ Nouvelle expédition
+          {lastStarters?.length > 0 && (
+            <button onClick={() => { startRun(lastStarters); navigate('run') }} className="w-full py-4 bg-gradient-to-r from-purple-600 to-red-600 text-white font-black rounded-xl text-base active:scale-95 transition-all">
+              🔄 Rejouer (même équipe)
+            </button>
+          )}
+          <button onClick={() => navigate('runsetup')} className="w-full py-3 bg-gray-900 text-gray-300 font-bold rounded-xl text-sm border border-gray-800 active:scale-95 transition-all">
+            ⚔️ Nouvelle équipe
           </button>
-          <button onClick={() => navigate('home')} className="w-full py-3 bg-gray-900 text-gray-400 font-bold rounded-xl text-sm border border-gray-800 active:scale-95 transition-all">
+          <button onClick={() => navigate('home')} className="w-full py-2.5 text-gray-500 font-bold rounded-xl text-sm active:scale-95 transition-all">
             🏠 Accueil
           </button>
         </div>

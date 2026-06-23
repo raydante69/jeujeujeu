@@ -9,6 +9,8 @@ import {
 } from '../engine/combatEngine.js'
 import { aggregateRelics } from '../data/relics.js'
 import { getWeakTypes } from '../engine/comboBurst.js'
+import { biomeForWave } from '../data/biomes.js'
+import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { BALLS, BALL_BY_ID } from '../data/items.js'
 import TypeBadge from '../components/TypeBadge.jsx'
@@ -26,6 +28,7 @@ export default function BattleScreen() {
   const { team, relics, wave, pendingEnemy } = run
   const relicAgg = useMemo(() => aggregateRelics(relics), [relics])
   const kind = waveKind(wave)
+  const biome = useMemo(() => biomeForWave(wave), [wave])
   const maxEnergy = Math.min(8, 5 + Math.floor(wave / 6))
 
   // ── State ───────────────────────────────────────────────────────
@@ -141,14 +144,17 @@ export default function BattleScreen() {
 
     } else if (card.kind === 'status') {
       const def = STATUS_DEF[card.status]
+      const trait = getTrait(caster.id, caster.types)
+      const turns = def.turns + (trait.statusTurns || 0)
       setEStatus(prev => {
-        if (prev && prev.type === card.status) return { ...prev, turns: def.turns }
-        return { type: card.status, turns: def.turns, stacks: card.status === 'poison' ? 1 : 0 }
+        if (prev && prev.type === card.status) return { ...prev, turns }
+        return { type: card.status, turns, stacks: card.status === 'poison' ? 1 : 0 }
       })
       addLog(`${card.emoji} ${caster.name} · ${card.name} → ${enemy.name} ${def.label} !`)
 
     } else if (card.kind === 'buff') {
-      setBuff(card.bonus || 0.7)
+      const trait = getTrait(caster.id, caster.types)
+      setBuff((card.bonus || 0.7) + (trait.buffPlus || 0))
       addLog(`${card.emoji} ${caster.name} · ${card.name} → prochaine attaque renforcée !`)
     }
   }
@@ -250,6 +256,8 @@ export default function BattleScreen() {
     })
     const goldGain = goldForWin(wave) + (relicAgg.goldWin || 0)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
+    const g = useGameStore.getState()
+    g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
     setWinSummary({ xpEach, events, goldGain })
     setPhase('win')
     addLog(`✅ ${enemy.name} vaincu !`)
@@ -278,8 +286,11 @@ export default function BattleScreen() {
     if (enemy.isBoss && b.mult !== Infinity) return
     if ((run.balls?.[ballId] || 0) <= 0) return
     if (!run.useBall(ballId)) return
-    if (Math.random() < ballCatchChance(ballId)) setCaught({ ok: true, ...run.catchEnemy(enemy, ballId) })
-    else setCaught({ ok: false, name: enemy.name })
+    if (Math.random() < ballCatchChance(ballId)) {
+      setCaught({ ok: true, ...run.catchEnemy(enemy, ballId) })
+      const g = useGameStore.getState()
+      g.recordStat('catches'); g.reportQuest('catch', 1)
+    } else setCaught({ ok: false, name: enemy.name })
   }
 
   function continueAfterWin() { run.advanceWave(); navigate(enemy.isBoss ? 'runshop' : 'reward') }
@@ -293,9 +304,9 @@ export default function BattleScreen() {
   const intentTarget = intent ? team.find(m => m.uid === intent.targetUid) : null
 
   return (
-    <div className="min-h-screen bg-game-bg flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: biome.bg }}>
       {/* Header */}
-      <div className="px-4 pt-10 pb-2 border-b border-game-border bg-game-surface">
+      <div className="px-4 pt-10 pb-2 border-b border-white/5" style={{ background: 'rgba(10,10,20,0.55)' }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
             <p className="text-[11px] text-gray-500 font-bold uppercase">Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'trainer' ? '🧢 Dresseur' : '🌿 Sauvage'}</p>
@@ -419,8 +430,13 @@ export default function BattleScreen() {
 
         {/* Win panel */}
         {phase === 'win' && winSummary && (
-          <div className="rounded-2xl p-4 border border-green-700/50 bg-green-900/15 text-center">
-            <p className="text-3xl mb-1">{enemy.isBoss ? '🏆' : '✅'}</p>
+          <div className="rounded-2xl p-4 border border-green-700/50 bg-green-900/15 text-center relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none">
+              {['10%','30%','55%','75%','90%'].map((left, i) => (
+                <span key={i} className="absolute text-sm animate-sparkle-float" style={{ left, top: '60%', animationDelay: `${i * 0.18}s` }}>✨</span>
+              ))}
+            </div>
+            <p className="text-3xl mb-1 animate-burst-in">{enemy.isBoss ? '🏆' : '✅'}</p>
             <p className="font-game text-sm text-green-400">Victoire !</p>
             <div className="flex justify-center gap-4 mt-2 text-xs">
               <span className="text-yellow-300">+{winSummary.goldGain} 💰</span>

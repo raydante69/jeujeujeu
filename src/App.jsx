@@ -12,6 +12,7 @@ import BattleScreen from './screens/BattleScreen.jsx'
 import RewardScreen from './screens/RewardScreen.jsx'
 import RunShopScreen from './screens/RunShopScreen.jsx'
 import RunEndScreen from './screens/RunEndScreen.jsx'
+import TrainingScreen from './screens/TrainingScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 const SCREENS = {
@@ -20,6 +21,7 @@ const SCREENS = {
   shop:       ShopScreen,
   opening:    PackOpeningScreen,
   collection: CollectionScreen,
+  training:   TrainingScreen,
   runsetup:   RunSetupScreen,
   run:        RunScreen,
   battle:     BattleScreen,
@@ -29,7 +31,7 @@ const SCREENS = {
 }
 
 // Only the meta hub screens show the bottom navigation.
-const NAV_SCREENS = ['title', 'home', 'shop', 'collection']
+const NAV_SCREENS = ['title', 'home', 'shop', 'collection', 'training']
 
 export default function App() {
   const { currentScreen } = useGameStore()

@@ -1,4 +1,5 @@
 import { effectiveness } from '../data/types.js'
+import { getTrait, traitDamageMult } from './../data/signatureTraits.js'
 
 // ─────────────────────────────────────────────────────────────────────────
 //  DRAFT-DE-COUPS COMBAT ENGINE
@@ -111,6 +112,8 @@ export function moveDamage(move, caster, enemy, relicAgg = {}) {
   const atk = caster.stats?.atk || lvl * 2
   const eff = effectiveness(move.type, enemy.types || ['normal'])
   let dmg = (lvl * 2.2 + atk * 0.35) * (move.power || 1) * Math.max(eff, 0.25)
+  const trait = getTrait(caster.id, caster.types)
+  dmg *= traitDamageMult(trait, move.type)
   const typeBoost = (relicAgg.typeBoost && relicAgg.typeBoost[move.type]) || 0
   dmg = dmg * (1 + typeBoost + (relicAgg.multAdd || 0)) + (relicAgg.dmgFlat || 0)
   return { dmg: Math.max(1, Math.round(dmg)), eff }
@@ -118,14 +121,18 @@ export function moveDamage(move, caster, enemy, relicAgg = {}) {
 
 // Flat guard (damage-absorbing shield) granted by a guard move.
 export function guardValue(move, caster) {
-  return Math.max(1, Math.round((caster.level || 5) * 2.6 * (move.guard || 1)))
+  const trait = getTrait(caster.id, caster.types)
+  const mult = 1 + (trait.guardMult || 0)
+  return Math.max(1, Math.round((caster.level || 5) * 2.6 * (move.guard || 1) * mult))
 }
 
 // Heal amount (flat HP) for a heal/drain move, per team member.
 export function healValue(move, caster) {
   const lvl = caster.level || 5
   const pct = move.heal || 0
-  return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6)))
+  const trait = getTrait(caster.id, caster.types)
+  const mult = 1 + (trait.healMult || 0)
+  return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6) * mult))
 }
 
 function weakest(alive, hps) {

@@ -2,9 +2,20 @@
 
 > Dernière mise à jour : juin 2026
 
-> ## ✅ Déjà implémenté (cette itération)
+> ## ✅ Déjà implémenté
+> **Itération 1 — combat & boosters**
 > - **Nouveau combat « Draft de Coups »** : remplace le TypeBurst. Chaque tour tu piochent une main aléatoire de coups issus des movesets de ton équipe, tu dépenses une énergie pour en jouer, et l'ennemi **télégraphie sa prochaine attaque** (style Into the Breach). Boucliers, soins, drains, statuts (brûlure/poison/paralysie/gel) et buffs créent de vrais dilemmes. Le système de cartes/collection/capture reste intact.
-> - **Refonte des boosters** : formats **1 / 2 / 3 cartes** (Sachet / Booster / Pack Premium) avec garanties de rareté croissantes, **prix par génération** (plus la gen est haute, plus c'est cher) et **prix progressifs** (chaque rachat du même format en session coûte +18%). Obtenir les bons Pokémon est volontairement plus dur.
+> - **Refonte des boosters** : formats **1 / 2 / 3 cartes** (Sachet / Booster / Pack Premium) avec garanties de rareté croissantes, **prix par génération** et **prix progressifs** (+18% par rachat en session). Obtenir les bons Pokémon est volontairement plus dur.
+>
+> **Itération 2 — boucle de rétention complète**
+> - **Collection → Run** : ton vivier d'expédition affiche TOUTE ta collection. Le niveau de départ d'un Pokémon monte avec ses **doublons** (+2/copie), sa **meilleure rareté** (+tier), son **dressage** et son **trait**. Appui long = détail du calcul.
+> - **Traits uniques par Pokémon** : chaque espèce a une identité de combat (signatures pour les ~18 iconiques, affinité de type pour les autres) qui modifie dégâts / boucliers / soins / statuts.
+> - **Méta-progression (Salle de dressage)** : dépense des cristaux pour augmenter **définitivement** le niveau de départ d'une espèce dans tous les futurs runs.
+> - **Quêtes journalières** : 3 quêtes/jour (capture, boosters, victoires, vague) → récompenses en cristaux/argent.
+> - **Fusion de cartes** : 3 cartes identiques de même rareté → 1 carte de rareté supérieure.
+> - **Pokédex** : silhouettes « ??? » pour les non-vus, support des 11 raretés (codes EX/FA/VMAX/RR/GOLD), foil animé.
+> - **Stats joueur** + **onboarding** premier lancement + **Rejouer même équipe** en fin de run.
+> - **Feel** : theming de combat par biome, flash rouge des barres de PV, étincelles de victoire.
 
 ---
 
@@ -206,17 +217,17 @@ Enchaîner des runs sans perdre → multiplicateur de cristaux et XP. Perdu ? St
 |-------|---------|-----------|------------|
 | ✅ **Fait** | Système Draft de coups (combat) | 🔥🔥🔥 | Moyen |
 | ✅ **Fait** | Boosters par gen + formats 1/2/3 + prix progressifs | 🔥🔥🔥 | Moyen |
-| **Immédiat** | Collection → vivier de run | 🔥🔥🔥 | Facile |
-| **Immédiat** | Pokédex vivant (silhouettes ???) | 🔥🔥 | Facile |
-| **Court terme** | Économie progressive (prix montant) | 🔥🔥 | Facile |
-| **Court terme** | Quêtes journalières | 🔥🔥🔥 | Moyen |
-| **Court terme** | Méta-progression (Salle de dressage) | 🔥🔥🔥 | Moyen |
-| **Court terme** | Animations victoire + XP volant | 🔥🔥 | Facile |
-| **Moyen terme** | Traits uniques par Pokémon (moves) | 🔥🔥🔥 | Long |
-| **Moyen terme** | Mode Arènes + boss légendaires | 🔥🔥 | Moyen |
-| **Moyen terme** | Annonce du coup ennemi (Into the Breach) | 🔥🔥 | Moyen |
-| **Long terme** | Fusion de cartes | 🔥🔥 | Moyen |
-| **Long terme** | Mode Tournoi / Leaderboard | 🔥🔥🔥 | Long |
+| ✅ **Fait** | Collection → vivier de run | 🔥🔥🔥 | Facile |
+| ✅ **Fait** | Pokédex vivant (silhouettes ???) + 11 raretés | 🔥🔥 | Facile |
+| ✅ **Fait** | Économie progressive (prix montant) | 🔥🔥 | Facile |
+| ✅ **Fait** | Quêtes journalières | 🔥🔥🔥 | Moyen |
+| ✅ **Fait** | Méta-progression (Salle de dressage) | 🔥🔥🔥 | Moyen |
+| ✅ **Fait** | Animations victoire + feel (flash PV, étincelles) | 🔥🔥 | Facile |
+| ✅ **Fait** | Traits uniques par Pokémon | 🔥🔥🔥 | Long |
+| ✅ **Fait** | Annonce du coup ennemi (Into the Breach) | 🔥🔥 | Moyen |
+| ✅ **Fait** | Fusion de cartes | 🔥🔥 | Moyen |
+| **Reste** | Mode Arènes + boss légendaires dédiés | 🔥🔥 | Moyen |
+| **Reste** | Mode Tournoi / Leaderboard (besoin d'un backend) | 🔥🔥🔥 | Long |
 
 ---
 

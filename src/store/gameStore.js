@@ -1,8 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { makeInstance } from '../data/pokemon.js'
+import { generateDailyQuests, todayKey } from '../data/quests.js'
 
 let _uidCounter = 1000
 export function nextUid() { return _uidCounter++ }
+
+// Fusion ladder: three identical cards combine into one of the next tier.
+const FUSION_NEXT = {
+  common: 'uncommon', uncommon: 'rare', rare: 'holo_rare', reverse_holo: 'holo_rare',
+  holo_rare: 'ex', ex: 'full_art', full_art: 'vmax', vmax: 'alt_art', alt_art: 'rainbow',
+  rainbow: 'gold', holo: 'ex', ultra: 'full_art', secret: 'gold',
+}
+export function fusionNext(rarity) { return FUSION_NEXT[rarity] || null }
+
+// Permanent training cost grows with how trained a species already is.
+export function trainCost(currentBonus) { return 30 + currentBonus * 25 }
 
 export const useGameStore = create(
   persist(
@@ -126,6 +139,65 @@ export const useGameStore = create(
         sessionBuys: { ...s.sessionBuys, [boosterId]: (s.sessionBuys[boosterId] || 0) + 1 },
       })),
 
+      // --- Lifetime stats ---
+      stats: { catches: 0, boostersOpened: 0, battlesWon: 0 },
+      recordStat: (key, n = 1) => set(s => ({ stats: { ...s.stats, [key]: (s.stats[key] || 0) + n } })),
+
+      // --- Permanent training (Salle de dressage) ---
+      trainerLevels: {},   // { [speciesId]: bonusLevels }
+      trainSpecies: (speciesId) => {
+        const s = get()
+        const cur = s.trainerLevels[speciesId] || 0
+        const cost = trainCost(cur)
+        if (!s.spendCrystals(cost)) return false
+        set(st => ({ trainerLevels: { ...st.trainerLevels, [speciesId]: (st.trainerLevels[speciesId] || 0) + 1 } }))
+        return cost
+      },
+
+      // --- Card fusion ---
+      fuseSpecies: (speciesId, rarity) => {
+        const s = get()
+        const matching = s.collection.filter(c => c.id === speciesId && c.rarity === rarity)
+        const next = fusionNext(rarity)
+        if (matching.length < 3 || !next) return false
+        const consumed = new Set(matching.slice(0, 3).map(c => c.uid))
+        const lvl = Math.max(...matching.slice(0, 3).map(c => c.level || 5))
+        const fused = makeInstance(speciesId, lvl, { rarity: next })
+        set({
+          collection: [...s.collection.filter(c => !consumed.has(c.uid)), fused],
+          newCardUids: [...(s.newCardUids || []), fused.uid],
+        })
+        return next
+      },
+
+      // --- Daily quests ---
+      daily: { date: null, quests: [] },
+      ensureDaily: () => {
+        const d = todayKey()
+        if (get().daily?.date === d) return
+        set({ daily: { date: d, quests: generateDailyQuests(d) } })
+      },
+      reportQuest: (type, value = 1) => set(s => {
+        if (!s.daily?.quests?.length) return s
+        const quests = s.daily.quests.map(q => {
+          if (q.type !== type || q.claimed) return q
+          const progress = q.mode === 'max'
+            ? Math.min(q.target, Math.max(q.progress, value))
+            : Math.min(q.target, q.progress + value)
+          return { ...q, progress }
+        })
+        return { daily: { ...s.daily, quests } }
+      }),
+      claimQuest: (id) => {
+        const s = get()
+        const q = s.daily?.quests?.find(x => x.id === id)
+        if (!q || q.claimed || q.progress < q.target) return false
+        if (q.reward.crystals) s.addCrystals(q.reward.crystals)
+        if (q.reward.money) s.addMoney(q.reward.money)
+        set(st => ({ daily: { ...st.daily, quests: st.daily.quests.map(x => x.id === id ? { ...x, claimed: true } : x) } }))
+        return true
+      },
+
       // --- Last combat ---
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
@@ -151,12 +223,16 @@ export const useGameStore = create(
         routeNodeIndex: 0,
         combatContext: null,
         sessionBuys: {},
+        stats: { catches: 0, boostersOpened: 0, battlesWon: 0 },
+        trainerLevels: {},
+        daily: { date: null, quests: [] },
       }),
     }),
     {
       name: 'pokebooster-save-v1',
-      version: 2,
+      version: 3,
       // v2: reset every caught/collected Pokémon (fresh Pokédex), keep economy.
+      // v3: introduces training/quests/stats — new fields default in naturally.
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {
@@ -181,6 +257,9 @@ export const useGameStore = create(
         moneySpentOnUnlocks: s.moneySpentOnUnlocks,
         newCardUids: s.newCardUids,
         routeNodeIndex: s.routeNodeIndex,
+        stats: s.stats,
+        trainerLevels: s.trainerLevels,
+        daily: s.daily,
       }),
     }
   )

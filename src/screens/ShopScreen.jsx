@@ -33,6 +33,7 @@ export default function ShopScreen() {
   const {
     money, crystals, spendMoney, unlockedGens, setPendingBoosters, navigate,
     claimFreeBooster, activeGenForFreeBooster, sessionBuys, recordBoosterBuy,
+    recordStat, reportQuest,
   } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
@@ -52,12 +53,16 @@ export default function ShopScreen() {
       return
     }
     recordBoosterBuy(boosterId)
+    recordStat('boostersOpened')
+    reportQuest('open', 1)
     setPendingBoosters(openBooster(selectedGen, boosterId))
     navigate('opening')
   }
 
   function handleFree() {
     if (!claimFreeBooster()) return
+    recordStat('boostersOpened')
+    reportQuest('open', 1)
     setPendingBoosters(openBooster(activeGenForFreeBooster, 'sachet'))
     navigate('opening')
   }
