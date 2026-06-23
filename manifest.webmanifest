@@ -1,14 +1,14 @@
 {
-  "name": "Pokelike — Pokémon Roguelike",
-  "short_name": "Pokelike",
-  "description": "A fan-made Pokémon roguelike. Explore Kanto, battle gym leaders and the Elite Four.",
+  "name": "PokéRift — Pokémon Roguelite",
+  "short_name": "PokéRift",
+  "description": "Un roguelite Pokémon par vagues : franchis le Rift, capture, fusionne et compose ton équipe.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0e0e0e",
   "theme_color": "#0e0e0e",
-  "lang": "en",
+  "lang": "fr",
   "categories": ["games", "entertainment"],
   "icons": [
     { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
