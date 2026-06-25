@@ -14,6 +14,7 @@ export const useRunStore = create(
     (set, get) => ({
       // --- Meta (persisted across runs) ---
       bestWave: 0,
+      bestFlawlessWave: 0,   // highest wave reached without ever losing a mon
       totalRuns: 0,
       relicCodex: [],
       lastStarters: [],   // [{ id, level }] used for "replay same team"
@@ -30,6 +31,7 @@ export const useRunStore = create(
       lastOutcome: null,
       lastSummary: null,
       winsThisRun: 0,
+      flawless: true,   // becomes false the moment any mon faints this run
 
       // --- Derived ---
       relicAgg: () => aggregateRelics(get().relics),
@@ -55,7 +57,7 @@ export const useRunStore = create(
           balls: { ...DEFAULT_BALLS },
           items: { 'potion': 1, 'rare-candy': 1 },
           team, relics: [], pendingEnemy: null, lastOutcome: null,
-          lastStarters: norm, winsThisRun: 0,
+          lastStarters: norm, winsThisRun: 0, flawless: true,
         })
       },
 
@@ -84,7 +86,15 @@ export const useRunStore = create(
       // --- Wave flow ---
       setPendingEnemy: (enemy) => set({ pendingEnemy: enemy }),
       advanceWave: () => set(s => ({ wave: s.wave + 1, pendingEnemy: null })),
-      commitTeam: (team) => set({ team: team.map(m => ({ ...m })) }),
+      commitTeam: (team) => set(s => {
+        const stillFlawless = s.flawless && team.every(m => (m.hp ?? 0) > 0)
+        return {
+          team: team.map(m => ({ ...m })),
+          flawless: stillFlawless,
+          // s.wave is the wave just cleared (advanceWave runs afterwards).
+          bestFlawlessWave: stillFlawless ? Math.max(s.bestFlawlessWave, s.wave) : s.bestFlawlessWave,
+        }
+      }),
       setOutcome: (o) => set({ lastOutcome: o }),
       recordRunWin: () => {
         set(s => ({ winsThisRun: (s.winsThisRun || 0) + 1 }))
@@ -184,8 +194,9 @@ export const useRunStore = create(
     }),
     {
       name: 'pokebooster-run-v1',
-      version: 2,
+      version: 3,
       // v2: reset any active run + caught team (fresh ball/item economy).
+      // v3: adds bestFlawlessWave + flawless — new fields default in naturally.
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {
@@ -203,6 +214,7 @@ export const useRunStore = create(
       },
       partialize: (s) => ({
         bestWave: s.bestWave,
+        bestFlawlessWave: s.bestFlawlessWave,
         totalRuns: s.totalRuns,
         relicCodex: s.relicCodex,
         lastStarters: s.lastStarters,
@@ -215,6 +227,7 @@ export const useRunStore = create(
         relics: s.relics,
         pendingEnemy: s.pendingEnemy,
         winsThisRun: s.winsThisRun,
+        flawless: s.flawless,
       }),
     }
   )

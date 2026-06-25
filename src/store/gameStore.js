@@ -3,9 +3,20 @@ import { persist } from 'zustand/middleware'
 import { makeInstance, speciesById } from '../data/pokemon.js'
 import { isHoloEligible } from '../data/cardModel.js'
 import { generateDailyQuests, todayKey } from '../data/quests.js'
+import { ACHIEVEMENT_BY_ID } from '../data/achievements.js'
 
 let _uidCounter = 1000
 export function nextUid() { return _uidCounter++ }
+
+// Daily streak milestone rewards (granted once each, tracked in streakClaimed).
+export const STREAK_REWARDS = [
+  { day: 3,  reward: { crystals: 15 } },
+  { day: 7,  reward: { crystals: 40 } },
+  { day: 14, reward: { crystals: 80, money: 200 } },
+  { day: 30, reward: { crystals: 200, money: 500 } },
+]
+
+const dayKey = (d) => d.toISOString().slice(0, 10)
 
 // Pokérogue-style team budget: you build a starter team within a point cap.
 export const START_POINTS = 4        // affords ~2 starter Pokémon at the very start
@@ -250,6 +261,45 @@ export const useGameStore = create(
         return true
       },
 
+      // --- Achievements / Trophées ---
+      achievementsClaimed: [],
+      // The screen passes the computed progress (derived from both stores) so the
+      // store stays authoritative without importing runStore (avoids a cycle).
+      claimAchievement: (id, progress) => {
+        const s = get()
+        const ach = ACHIEVEMENT_BY_ID[id]
+        if (!ach) return false
+        if (s.achievementsClaimed.includes(id)) return false
+        if ((progress ?? 0) < ach.target) return false
+        if (ach.reward?.crystals) s.addCrystals(ach.reward.crystals)
+        if (ach.reward?.money) s.addMoney(ach.reward.money)
+        set(st => ({ achievementsClaimed: [...st.achievementsClaimed, id] }))
+        return true
+      },
+
+      // --- Daily streak ---
+      dailyStreak: 0,
+      lastPlayedDate: null,
+      streakClaimed: [],   // milestone days already rewarded
+      // Call once when the home screen mounts. Advances/keeps/resets the streak
+      // and auto-grants any newly reached milestone reward.
+      tickDailyStreak: () => {
+        const s = get()
+        const today = todayKey()
+        if (s.lastPlayedDate === today) return
+        const yesterday = dayKey(new Date(Date.now() - 86400000))
+        const nextStreak = s.lastPlayedDate === yesterday ? (s.dailyStreak || 0) + 1 : 1
+        set({ dailyStreak: nextStreak, lastPlayedDate: today })
+        // Grant any milestone now satisfied and not yet claimed.
+        for (const m of STREAK_REWARDS) {
+          if (nextStreak >= m.day && !get().streakClaimed.includes(m.day)) {
+            if (m.reward.crystals) get().addCrystals(m.reward.crystals)
+            if (m.reward.money) get().addMoney(m.reward.money)
+            set(st => ({ streakClaimed: [...st.streakClaimed, m.day] }))
+          }
+        }
+      },
+
       // --- Last combat ---
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
@@ -309,6 +359,10 @@ export const useGameStore = create(
         trainerLevels: {},
         cardLevels: {},
         daily: { date: null, quests: [] },
+        achievementsClaimed: [],
+        dailyStreak: 0,
+        lastPlayedDate: null,
+        streakClaimed: [],
         starterPoints: START_POINTS,
         cardsPerSlot: 1,
         ctInventory: [],
@@ -319,9 +373,10 @@ export const useGameStore = create(
     }),
     {
       name: 'pokebooster-save-v1',
-      version: 3,
+      version: 4,
       // v2: reset every caught/collected Pokémon (fresh Pokédex), keep economy.
       // v3: introduces training/quests/stats — new fields default in naturally.
+      // v4: adds achievements + daily streak — new fields default in naturally.
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {
@@ -352,6 +407,10 @@ export const useGameStore = create(
         trainerLevels: s.trainerLevels,
         cardLevels: s.cardLevels,
         daily: s.daily,
+        achievementsClaimed: s.achievementsClaimed,
+        dailyStreak: s.dailyStreak,
+        lastPlayedDate: s.lastPlayedDate,
+        streakClaimed: s.streakClaimed,
         starterPoints: s.starterPoints,
         ctInventory: s.ctInventory,
         attachedCTs: s.attachedCTs,

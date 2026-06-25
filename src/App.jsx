@@ -17,6 +17,7 @@ import RunEndScreen from './screens/RunEndScreen.jsx'
 import TrainingScreen from './screens/TrainingScreen.jsx'
 import MilestoneRewardScreen from './screens/MilestoneRewardScreen.jsx'
 import EncounterScreen from './screens/EncounterScreen.jsx'
+import AchievementsScreen from './screens/AchievementsScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 const SCREENS = {
@@ -32,6 +33,7 @@ const SCREENS = {
   reward:     RewardScreen,
   milestone:  MilestoneRewardScreen,
   encounter:  EncounterScreen,
+  achievements: AchievementsScreen,
   runshop:    RunShopScreen,
   runend:     RunEndScreen,
 }

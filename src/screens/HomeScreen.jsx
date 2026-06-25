@@ -1,21 +1,41 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { useAuthStore } from '../store/authStore.js'
 import { biomeForWave } from '../data/biomes.js'
+import { computeRank } from '../data/ranks.js'
+import { ACHIEVEMENTS, achievementProgress } from '../data/achievements.js'
 import { FIREBASE_ENABLED } from '../firebase.js'
 
 export default function HomeScreen() {
-  const { navigate, crystals, money, collection, daily, ensureDaily, claimQuest, stats } = useGameStore()
-  const { bestWave, totalRuns, active, wave, abandonRun } = useRunStore()
+  const {
+    navigate, crystals, money, collection, daily, ensureDaily, claimQuest, stats,
+    tickDailyStreak, dailyStreak, achievementsClaimed, badgesEarned, isChampion,
+  } = useGameStore()
+  const { bestWave, bestFlawlessWave, totalRuns, active, wave, abandonRun } = useRunStore()
   const { user, guestMode, logout, saveToCloud, syncStatus } = useAuthStore()
   const ownedSpecies = new Set(collection.map(c => c.id)).size
   const isNew = ownedSpecies === 0 && totalRuns === 0
 
-  useEffect(() => { ensureDaily() }, []) // eslint-disable-line
+  useEffect(() => { ensureDaily(); tickDailyStreak() }, []) // eslint-disable-line
 
   const quests = daily?.quests || []
   const claimable = quests.filter(q => q.progress >= q.target && !q.claimed).length
+
+  const rank = computeRank({ bestWave, isChampion })
+
+  // Count achievements ready to claim (for the 🏆 button badge).
+  const claimableAch = useMemo(() => {
+    const ctx = {
+      stats,
+      pokedexCount: ownedSpecies,
+      shinyCount: new Set((collection || []).filter(c => c.shiny).map(c => c.id)).size,
+      bestWave, bestFlawlessWave,
+      badges: (badgesEarned || []).length,
+      champion: isChampion, dailyStreak,
+    }
+    return ACHIEVEMENTS.filter(a => !achievementsClaimed.includes(a.id) && achievementProgress(a, ctx) >= a.target).length
+  }, [stats, collection, ownedSpecies, bestWave, bestFlawlessWave, badgesEarned, isChampion, dailyStreak, achievementsClaimed])
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'radial-gradient(ellipse at top, #1a1030 0%, #0a0a14 70%)' }}>
@@ -76,10 +96,39 @@ export default function HomeScreen() {
           )}
 
           {/* Best wave banner */}
-          <div className="w-full rounded-2xl p-5 text-center border border-purple-800/40" style={{ background: 'linear-gradient(160deg, rgba(168,85,247,0.12), rgba(0,0,0,0.2))' }}>
+          <div className="w-full rounded-2xl p-5 text-center border border-purple-800/40 relative" style={{ background: 'linear-gradient(160deg, rgba(168,85,247,0.12), rgba(0,0,0,0.2))' }}>
+            {/* Rank badge */}
+            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full border" style={{ borderColor: rank.color + '66', background: rank.color + '1a' }}>
+              <span className="text-sm">{rank.icon}</span>
+              <span className="text-[10px] font-black" style={{ color: rank.color }}>{rank.name}</span>
+            </div>
             <p className="text-[10px] text-purple-300/70 uppercase tracking-widest font-bold">Record</p>
             <p className="font-game text-3xl text-white mt-1">Vague {bestWave}</p>
             <p className="text-xs text-gray-500 mt-1">{totalRuns} expédition{totalRuns > 1 ? 's' : ''} · biome {biomeForWave(bestWave || 1).emoji}</p>
+            {rank.toNext != null && rank.next && (
+              <p className="text-[9px] text-gray-600 mt-1">Plus que {rank.toNext} vague{rank.toNext > 1 ? 's' : ''} avant {rank.next.icon} {rank.next.name}</p>
+            )}
+          </div>
+
+          {/* Daily streak + Trophies row */}
+          <div className="w-full grid grid-cols-2 gap-3">
+            <div className="rounded-2xl p-3 border border-orange-700/40 bg-orange-900/10 flex items-center gap-2.5">
+              <span className="text-2xl">🔥</span>
+              <div className="min-w-0">
+                <p className="text-base font-black text-orange-300 leading-none tabular-nums">{dailyStreak} <span className="text-[10px] text-orange-400/70 font-bold">j</span></p>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Série</p>
+              </div>
+            </div>
+            <button onClick={() => navigate('achievements')} className="relative rounded-2xl p-3 border border-yellow-700/40 bg-yellow-900/10 flex items-center gap-2.5 active:scale-95 transition-all hover:bg-yellow-900/20">
+              <span className="text-2xl">🏆</span>
+              <div className="min-w-0 text-left">
+                <p className="text-base font-black text-yellow-300 leading-none tabular-nums">{achievementsClaimed.length}<span className="text-[10px] text-yellow-400/70 font-bold">/{ACHIEVEMENTS.length}</span></p>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Trophées</p>
+              </div>
+              {claimableAch > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black w-5 h-5 rounded-full bg-green-500 text-black flex items-center justify-center animate-pulse">{claimableAch}</span>
+              )}
+            </button>
           </div>
 
           {/* CTA */}
