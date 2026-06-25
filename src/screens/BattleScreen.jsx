@@ -236,6 +236,12 @@ export default function BattleScreen() {
   const [enemyShield, setEnemyShield] = useState(0) // boss 'shield' ability: reduces next player burst
   const [intent, setIntent]       = useState(null)
   const [enraged, setEnraged]     = useState(false)
+  // ── Double battle (event 'double'): a second, simpler enemy fought at the same time
+  const [enemy2, setEnemy2]       = useState(null)
+  const [e2Hp, setE2Hp]           = useState(0)
+  const [e2Max, setE2Max]         = useState(1)
+  const [e2Intent, setE2Intent]   = useState(null)
+  const [target, setTarget]       = useState(1)  // which enemy the player's attack hits (1 | 2)
   const [phase, setPhase]         = useState('init')
   const [turn, setTurn]           = useState(1)
   const [floatDmg, setFloatDmg]   = useState(null)
@@ -254,7 +260,10 @@ export default function BattleScreen() {
   const eventRef = useRef({ goldMult: 1, dmgMult: 1, forceDrop: false })
 
   const live = useRef({})
-  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield, benchedUid }
+  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield, benchedUid, enemy2, e2Hp, e2Intent, target }
+
+  // True while both enemies (in a double battle) are down — or the single enemy is.
+  const allEnemiesDead = (e1Hp, e2HpVal) => e1Hp <= 0 && (!live.current.enemy2 || e2HpVal <= 0)
 
   // Auto-scroll the combat log to bottom on each new entry (Lot 8)
   useEffect(() => {
@@ -289,6 +298,16 @@ export default function BattleScreen() {
       dmgMult:  ev?.id === 'frenzy' ? 1.3 : 1,
       forceDrop: ev?.id === 'treasure',
     }
+    // Event 'double': spawn a second, simpler enemy. Both are weakened so two
+    // foes at once stay fair.
+    let e2 = null
+    if (ev?.id === 'double') {
+      e2 = buildEnemy(wave, Math.random, asc)
+      e2.event = null; e2.modifiers = []; e2.ability = null; e2.isBoss = false
+      e.maxHp = Math.round(e.maxHp * 0.7); e.hp = e.maxHp
+      e2.maxHp = Math.round(e2.maxHp * 0.7); e2.hp = e2.maxHp
+    }
+    live.current.enemy2 = e2
     const startHp = {}
     team.forEach(m => {
       let h = m.hp
@@ -316,6 +335,15 @@ export default function BattleScreen() {
     setTeamStatus({})
     reviveUsed.current = false
     useGameStore.getState().markSpeciesSeen(e.id)   // Battle Pokédex tracking
+    // Second enemy state (double battle)
+    setEnemy2(e2); setTarget(1)
+    if (e2) {
+      setE2Hp(e2.hp); setE2Max(e2.maxHp)
+      setE2Intent(computeIntent(e2, team, startHp, asc))
+      useGameStore.getState().markSpeciesSeen(e2.id)
+      live.current.e2Hp = e2.hp
+      addLog(`⚔️ Deux ennemis : ${e.name} & ${e2.name} !`)
+    }
     // Apply shield_start modifier
     const shieldMod = e.modifiers?.find(m => m.id === 'shield_start')
     setEnemyShield(shieldMod ? Math.round((e.level || 5) * 4) : 0)
@@ -413,11 +441,13 @@ export default function BattleScreen() {
     setEnemyHp(localEHp); setEStatus(status); setHp(localHp)
     logs.forEach(addLog)
 
-    if (localEHp <= 0) { setTeamStatus(nextTeamStatus); setTimeout(() => win(localHp), 650); return }
+    // Win only when ALL enemies are down (primary may die to a DoT here).
+    if (allEnemiesDead(localEHp, live.current.e2Hp)) { setTeamStatus(nextTeamStatus); setTimeout(() => win(localHp), 650); return }
 
     setTimeout(() => {
       let remainingGuard = currentGuard  // tracks shield left after absorption (persists to next turn)
-      if (!skipEnemy) {
+      // The primary enemy only attacks if it's still alive.
+      if (!skipEnemy && localEHp > 0) {
         // Enemy may strike one OR several Pokémon this turn.
         const fallback = intent0?.targets?.length
           ? intent0.targets
@@ -479,6 +509,38 @@ export default function BattleScreen() {
           }
         }
       }
+
+      // ── Second enemy (double battle) attacks too, with its own intent ──
+      const foe2 = live.current.enemy2
+      if (foe2 && live.current.e2Hp > 0) {
+        const i2 = live.current.e2Intent || computeIntent(foe2, team, localHp, asc)
+        const hits2 = i2?.targets?.length ? i2.targets : (i2 ? [{ targetUid: i2.targetUid, targetName: i2.targetName, damage: i2.damage }] : [])
+        for (const hit of hits2) {
+          let targetUid = hit.targetUid
+          if (!targetUid || (localHp[targetUid] || 0) <= 0) {
+            const alive = team.filter(m => (localHp[m.uid] || 0) > 0)
+            if (!alive.length) break
+            targetUid = alive[Math.floor(Math.random() * alive.length)].uid
+          }
+          let dmg = hit.damage ?? 1
+          if (eventRef.current.dmgMult !== 1) dmg = Math.round(dmg * eventRef.current.dmgMult)
+          const absorbed = Math.min(remainingGuard, dmg)
+          remainingGuard -= absorbed
+          dmg = Math.max(0, dmg - absorbed)
+          const tname = team.find(m => m.uid === targetUid)?.name
+          localHp = { ...localHp, [targetUid]: Math.max(0, (localHp[targetUid] || 0) - dmg) }
+          doShake(targetUid)
+          if (absorbed > 0) addLog(`🛡️ Bouclier absorbe ${absorbed}`)
+          addLog(`💥 ${foe2.name} inflige ${dmg} à ${tname}`)
+          if ((localHp[targetUid] || 0) <= 0 && relicAgg.revive && !reviveUsed.current) {
+            const m = team.find(t => t.uid === targetUid)
+            localHp[targetUid] = Math.round(m.maxHp * relicAgg.revive / 100)
+            reviveUsed.current = true
+            addLog(`🪶 La Plume Phénix ranime ${tname} !`)
+          }
+        }
+      }
+
       setHp(localHp)
       setTeamStatus(nextTeamStatus)
       const anyAlive = team.some(m => (localHp[m.uid] || 0) > 0)
@@ -496,7 +558,14 @@ export default function BattleScreen() {
         setGuard(remainingGuard)   // shield persists between turns (reset only in resetBattleState)
         setLastCardKind(null)      // allow guard again after one non-guard turn
         setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
-        setIntent(computeIntent(enemy, team, localHp, asc))
+        setIntent(localEHp > 0 ? computeIntent(enemy, team, localHp, asc) : null)
+        if (live.current.enemy2 && live.current.e2Hp > 0) {
+          const ni2 = computeIntent(live.current.enemy2, team, localHp, asc)
+          setE2Intent(ni2); live.current.e2Intent = ni2
+        } else { setE2Intent(null) }
+        // If the player's current target is dead, switch to the surviving enemy.
+        if (live.current.target === 1 && localEHp <= 0) setTarget(2)
+        if (live.current.target === 2 && live.current.e2Hp <= 0) setTarget(1)
         setPhase('player')
       }, 480)
     }, 720)
@@ -523,6 +592,39 @@ export default function BattleScreen() {
     let finalHp = hp0
     let finalEHp = eHp0
     let finalGuard = guard0
+
+    // ── Double battle: route the attack to enemy 2 when it's the chosen target
+    //    (or when the primary enemy is already down). Simpler resolution: the
+    //    companion has no shield/rage/abilities.
+    const e2Alive0 = live.current.enemy2 && live.current.e2Hp > 0
+    const e1Alive0 = eHp0 > 0
+    const hitE2 = (card.kind === 'attack' || card.kind === 'drain') && e2Alive0 && (live.current.target === 2 || !e1Alive0)
+    if (hitE2) {
+      const foe = live.current.enemy2
+      let { dmg, eff } = moveDamage(card, caster, foe, relicAgg)
+      if (caster.shiny) dmg = Math.round(dmg * 1.15)
+      if (caster.holo)  dmg = Math.round(dmg * 1.20)
+      let crit = false
+      if (buff0 > 0) { dmg = Math.round(dmg * (1 + buff0)); setBuff(0) }
+      if (Math.random() < (relicAgg.critChance || 0)) { dmg = Math.round(dmg * 2); crit = true }
+      const newE2 = Math.max(0, live.current.e2Hp - dmg)
+      setE2Hp(newE2); live.current.e2Hp = newE2
+      setFloatDmg({ dmg, crit, color: TYPE_COLORS[card.type] || '#fff', eff, slot: 2 })
+      doShake('enemy2')
+      setTimeout(() => setFloatDmg(null), 900)
+      addLog(`${card.emoji} ${caster.name} · ${card.name} → ${foe.name} ${dmg}${crit ? ' CRIT!' : ''}`)
+      if (card.kind === 'drain') {
+        const lifesteal = Math.max(1, Math.round(dmg * 0.5 * (caster.holo ? 1.20 : 1)))
+        finalHp = { ...hp0, [caster.uid]: Math.min(caster.maxHp, (hp0[caster.uid] || 0) + lifesteal) }
+        cleanseStatus(caster.uid); addLog(`🌿 ${caster.name} draine ${lifesteal} PV`)
+      }
+      if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
+      if (finalHp !== hp0) setHp(finalHp)
+      if (newE2 <= 0) addLog(`✅ ${foe.name} vaincu !`)
+      if (allEnemiesDead(eHp0, newE2)) { setTimeout(() => win(finalHp), 650); return }
+      setTimeout(() => runEnemyTurn(finalHp, eHp0, finalGuard), 300)
+      return
+    }
 
     if (card.kind === 'attack' || card.kind === 'drain') {
       let { dmg, eff } = moveDamage(card, caster, enemy, relicAgg)
@@ -567,7 +669,8 @@ export default function BattleScreen() {
       if (enemy.isBoss && newE <= enemyMax * 0.5 && !live.current.enraged) {
         setEnraged(true); addLog(`😡 ${enemy.name} entre en RAGE !`)
       }
-      if (newE <= 0) { setTimeout(() => win(finalHp), 650); return }
+      if (newE <= 0 && live.current.enemy2) addLog(`✅ ${enemy.name} vaincu !`)
+      if (allEnemiesDead(newE, live.current.e2Hp)) { setTimeout(() => win(finalHp), 650); return }
 
     } else if (card.kind === 'guard') {
       const g = guardValue(card, caster, relicAgg)
@@ -612,7 +715,8 @@ export default function BattleScreen() {
 
   // ── Win / Lose ──────────────────────────────────────────────────────
   function win(finalHp) {
-    const xpMult = (relicAgg.xpMult || 1) * (enemy.modifiers?.some(m => m.id === 'xp_gift') ? 1.5 : 1)
+    const doubleBonus = live.current.enemy2 ? 1.5 : 1   // two foes → more rewards
+    const xpMult = (relicAgg.xpMult || 1) * (enemy.modifiers?.some(m => m.id === 'xp_gift') ? 1.5 : 1) * doubleBonus
     const xpEach = Math.round(xpForWin(enemy, wave) * xpMult)
     const events = []
     const xpRows = []   // per-mon XP animation data for the win panel
@@ -652,6 +756,7 @@ export default function BattleScreen() {
     let goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
     if (enemy.modifiers?.some(m => m.id === 'gold_gift')) goldGain = Math.round(goldGain * 1.5)
     if (eventRef.current.goldMult !== 1) goldGain = Math.round(goldGain * eventRef.current.goldMult)
+    if (doubleBonus !== 1) goldGain = Math.round(goldGain * doubleBonus)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
@@ -691,6 +796,7 @@ export default function BattleScreen() {
 
     // Track species seen/defeated for the Battle Pokédex (Progression).
     g.markSpeciesDefeated(enemy.id)
+    if (live.current.enemy2) g.markSpeciesDefeated(live.current.enemy2.id)
 
     setWinSummary({ xpEach, events, goldGain, drops, xpRows })
     setPhase('win')
@@ -744,6 +850,8 @@ export default function BattleScreen() {
     setTeamStatus({})
     setRerolls(MAX_REROLLS)
     setBenchedUid(null); live.current.benchedUid = null
+    setEnemy2(null); setE2Hp(0); setE2Intent(null); setTarget(1)
+    live.current.enemy2 = null; live.current.e2Hp = 0; live.current.e2Intent = null
     eventRef.current = { goldMult: 1, dmgMult: 1, forceDrop: false }
     reviveUsed.current = false
     const currentHp = live.current.hp
@@ -819,7 +927,39 @@ export default function BattleScreen() {
 
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-3 py-3 flex flex-col gap-3 pb-72">
 
-        {/* Enemy — clickable for detail */}
+        {/* Double battle: two enemy panels, tap to choose the attack target */}
+        {enemy2 && (
+          <div className="grid grid-cols-2 gap-2">
+            {[{ slot: 1, foe: enemy, hpV: enemyHp, maxV: enemyMax }, { slot: 2, foe: enemy2, hpV: e2Hp, maxV: e2Max }].map(({ slot, foe, hpV, maxV }) => {
+              const dead = hpV <= 0
+              const isTarget = target === slot && !dead
+              const tcol = TYPE_COLORS[foe.types?.[0]] || '#1e293b'
+              const shakeKey = slot === 1 ? 'enemy' : 'enemy2'
+              return (
+                <button key={slot} onClick={() => !dead && setTarget(slot)}
+                  className={`relative rounded-2xl p-3 border flex flex-col items-center transition-all ${shake === shakeKey ? 'animate-shake' : ''}`}
+                  style={{ background: `linear-gradient(160deg, ${tcol}33, #0f172a)`, borderColor: isTarget ? '#fbbf24' : tcol + '55', opacity: dead ? 0.4 : 1, boxShadow: isTarget ? '0 0 12px #fbbf2466' : 'none' }}>
+                  {isTarget && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[8px] font-black px-2 py-0.5 rounded-full">🎯 CIBLE</div>}
+                  <div className="relative">
+                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${foe.id}.png`}
+                      alt={foe.name} className={`w-16 h-16 object-contain ${dead ? 'grayscale' : ''}`}
+                      onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${foe.id}.png` }} />
+                    {floatDmg && (floatDmg.slot === slot || (!floatDmg.slot && slot === 1)) && (
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 font-black text-lg pointer-events-none animate-bounce" style={{ color: floatDmg.color }}>-{floatDmg.dmg}{floatDmg.crit ? '!' : ''}</div>
+                    )}
+                  </div>
+                  <p className="text-white font-bold text-[11px] truncate w-full text-center">{foe.name}</p>
+                  <p className="text-[8px] text-gray-500">Niv.{foe.level}</p>
+                  <div className="flex gap-1 my-1 flex-wrap justify-center">{(foe.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}</div>
+                  <div className="w-full"><HPBar hp={hpV} maxHp={maxV} showNumbers size="sm" /></div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Single enemy panel (hidden during double battles) — clickable for detail */}
+        {!enemy2 && (
         <div className={`rounded-2xl p-4 border relative cursor-pointer active:scale-[0.99] transition-transform ${shake === 'enemy' ? 'animate-shake' : ''} ${enraged ? 'animate-pulse' : ''}`}
           style={{ background: `linear-gradient(160deg, ${typeColor}33, #0f172a)`, borderColor: enraged ? '#ef4444aa' : typeColor + '55' }}
           onClick={() => setSelectedMon({ kind: 'enemy' })}>
@@ -873,6 +1013,7 @@ export default function BattleScreen() {
             </div>
           )}
         </div>
+        )}
 
         {/* Intent */}
         {phase !== 'win' && phase !== 'lose' && intent && (
@@ -898,6 +1039,20 @@ export default function BattleScreen() {
               </p>
               {guard > 0 && <p className="text-[9px] text-cyan-300">🛡️ {guard} absorbé</p>}
             </div>
+          </div>
+        )}
+
+        {/* Second enemy intent (double battle) */}
+        {phase !== 'win' && phase !== 'lose' && enemy2 && e2Hp > 0 && e2Intent && (
+          <div className="rounded-xl px-3 py-2 border flex items-center justify-between gap-2"
+            style={{ background: (TYPE_COLORS[e2Intent.type] || '#64748b') + '12', borderColor: (TYPE_COLORS[e2Intent.type] || '#64748b') + '44' }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base">⚔️</span>
+              <p className="text-[11px] text-white font-bold truncate">
+                {enemy2.name} → {(e2Intent.targets || []).map(t => t.targetName).join(', ')}
+              </p>
+            </div>
+            <p className="font-black text-sm text-gray-200">-{(e2Intent.targets || []).reduce((s, t) => s + t.damage, 0)}</p>
           </div>
         )}
 
@@ -1119,7 +1274,9 @@ export default function BattleScreen() {
                 {hand.map(card => {
                   const owner = team.find(m => m.uid === card.ownerUid)
                   if (!owner) return null
-                  return <AttackCard key={card.uid} card={card} caster={owner} enemy={enemy} relicAgg={relicAgg} onClick={() => playCard(card)} />
+                  // In a double battle, preview damage against the currently selected target.
+                  const previewFoe = (enemy2 && target === 2 && e2Hp > 0) ? enemy2 : enemy
+                  return <AttackCard key={card.uid} card={card} caster={owner} enemy={previewFoe} relicAgg={relicAgg} onClick={() => playCard(card)} />
                 })}
               </div>
             </>
