@@ -111,34 +111,47 @@ export default function PackOpeningScreen() {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [done, setDone] = useState(false)  // all cards shown
   const [ownedAtOpen] = useState(() => new Set(collection.map(c => c.id)))
 
-  const cards = pendingBoosters
-  const bestCard = cards.reduce((best, c) => (cardTier(c) > (best ? cardTier(best) : -1) ? c : best), null)
+  const cards = pendingBoosters || []
   const newCount = cards.filter(c => !ownedAtOpen.has(c.id)).length
 
   useEffect(() => { if (!cards.length) navigate('shop') }, []) // eslint-disable-line
 
+  const triggerFlash = (c) => {
+    if (cardTier(c) >= 3 || c.holo || c.shiny) { setFlash(styleFor(c).color); setTimeout(() => setFlash(null), 900) }
+  }
+
   const handlePackTap = () => {
     if (phase !== 'pack') return
     setPhase('shaking')
-    setTimeout(() => { setPhase('ripping'); setTimeout(() => setPhase('reveal'), 580) }, 720)
+    setTimeout(() => {
+      setPhase('ripping')
+      setTimeout(() => {
+        setPhase('reveal')
+        // First card auto-reveals immediately
+        triggerFlash(cards[0])
+        setRevealed(true)
+      }, 580)
+    }, 720)
   }
+
   const revealCurrent = () => {
     if (revealed) return
-    const c = cards[index]
-    if (cardTier(c) >= 3 || c.holo || c.shiny) { setFlash(styleFor(c).color); setTimeout(() => setFlash(null), 900) }
+    triggerFlash(cards[index])
     setRevealed(true)
   }
+
   const nextCard = () => {
-    if (index + 1 >= cards.length) { setPhase('summary'); return }
-    setIndex(i => i + 1); setRevealed(false)
+    const next = index + 1
+    if (next >= cards.length) { setDone(true); return }
+    setIndex(next)
+    setRevealed(false)  // next card starts face-down
   }
-  const revealAll = () => setPhase('summary')
+
   const handleViewPokedex = () => { addToCollection(cards); clearPendingBoosters(); setScrollToNew(true); navigate('collection') }
   const handleGoHome = () => { addToCollection(cards); clearPendingBoosters(); navigate('home') }
-
-  const bestStyle = bestCard ? styleFor(bestCard) : null
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'radial-gradient(ellipse at top, #1a0a2e 0%, #0a0a14 70%)' }}>
@@ -147,8 +160,8 @@ export default function PackOpeningScreen() {
       <div className="border-b border-game-border px-4 pt-10 pb-4 sticky top-0 z-10" style={{ background: 'rgba(15,15,25,0.9)', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <h2 className="font-game text-sm text-white">Booster</h2>
-          {(phase === 'reveal' || phase === 'summary') && (
-            <span className="text-xs text-gray-400">{phase === 'summary' ? cards.length : Math.min(index + (revealed ? 1 : 0), cards.length)}/{cards.length}</span>
+          {phase === 'reveal' && (
+            <span className="text-xs text-gray-400">{Math.min(index + (revealed ? 1 : 0), cards.length)}/{cards.length}</span>
           )}
         </div>
       </div>
@@ -171,7 +184,7 @@ export default function PackOpeningScreen() {
           </div>
         )}
 
-        {phase === 'reveal' && cards[index] && (
+        {phase === 'reveal' && !done && cards[index] && (
           <div className="flex flex-col items-center gap-5 pt-2">
             <div className="flex gap-1.5 flex-wrap justify-center max-w-[280px]">
               {cards.map((c, i) => (
@@ -184,58 +197,25 @@ export default function PackOpeningScreen() {
             <div className="w-full max-w-[280px] space-y-2.5">
               {revealed ? (
                 <button onClick={nextCard} className="w-full py-3.5 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black rounded-xl transition-all">
-                  {index + 1 >= cards.length ? 'Voir le récap →' : 'Carte suivante →'}
+                  {index + 1 >= cards.length ? 'Terminer →' : 'Carte suivante →'}
                 </button>
               ) : (
                 <p className="text-center text-xs text-gray-500 animate-pulse">👆 Appuie sur la carte pour la révéler</p>
               )}
-              <button onClick={revealAll} className="w-full py-2 text-gray-600 hover:text-gray-400 text-xs font-bold transition-all">Tout révéler</button>
             </div>
           </div>
         )}
 
-        {phase === 'summary' && (
-          <>
-            <div className="flex flex-wrap justify-center gap-2.5">
-              {cards.map(card => {
-                const st = styleFor(card)
-                const isNew = !ownedAtOpen.has(card.id)
-                return (
-                  <div key={card.uid} className={`relative rounded-xl bg-gradient-to-b ${st.bg} border flex flex-col items-center justify-center p-1.5`}
-                    style={{ width: 90, height: 124, borderColor: st.color + '88', boxShadow: st.tier >= 3 ? `0 0 14px ${st.color}55` : 'none' }}>
-                    {isNew && <div className="absolute top-1 left-1 z-10"><span className="text-sm">⭐</span></div>}
-                    <div className="absolute top-1 right-1 flex gap-0.5 z-10">
-                      {card.shiny && <span className="text-[9px]">✨</span>}
-                      {card.holo && <span className="text-[9px]">🌈</span>}
-                    </div>
-                    <img src={sprite(card.id, card.shiny)} alt={card.name} className="w-12 h-12 object-contain pixelated"
-                      onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${card.id}.png` }} />
-                    <p className="text-white text-[8px] font-bold text-center leading-tight truncate w-full">{card.name}</p>
-                    <p className="text-[7px] font-black uppercase" style={{ color: st.color }}>{st.label}</p>
-                  </div>
-                )
-              })}
-            </div>
-
-            {bestCard && bestStyle && (
-              <div className="mt-6 rounded-2xl p-4 text-center border animate-burst-in"
-                style={{ background: bestStyle.color + '14', borderColor: bestStyle.color + '55', boxShadow: bestStyle.tier >= 3 ? `0 0 32px ${bestStyle.color}33` : 'none' }}>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Meilleure carte</p>
-                <p className="font-bold text-base mt-0.5 text-shadow-glow" style={{ color: bestStyle.color }}>{bestStyle.particle} {bestCard.name} · {bestStyle.label}</p>
-                {(bestStyle.tier >= 3 || bestCard.holo) && (
-                  <p className="text-[10px] mt-1 font-bold animate-pulse" style={{ color: bestStyle.color }}>
-                    {bestStyle.tier >= 4 ? '🌟 TIRAGE LÉGENDAIRE !' : bestCard.holo ? '🌈 HOLOGRAPHIQUE !' : '✨ Super tirage !'}
-                  </p>
-                )}
-                {newCount > 0 && <p className="text-xs text-yellow-400 font-bold mt-1">✨ {newCount} nouvelle{newCount > 1 ? 's' : ''} espèce{newCount > 1 ? 's' : ''} !</p>}
-              </div>
+        {(done || (phase === 'reveal' && index >= cards.length)) && (
+          <div className="flex flex-col items-center gap-5 pt-4">
+            {newCount > 0 && (
+              <p className="text-yellow-400 font-bold text-sm text-center">✨ {newCount} nouvelle{newCount > 1 ? 's' : ''} espèce{newCount > 1 ? 's' : ''} obtenue{newCount > 1 ? 's' : ''} !</p>
             )}
-
-            <div className="mt-6 pb-8 space-y-2.5">
+            <div className="w-full max-w-[280px] space-y-2.5">
               <button onClick={handleViewPokedex} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-xl transition-all text-base">📕 Voir dans le pokédex</button>
               <button onClick={handleGoHome} className="w-full py-3 bg-white/10 hover:bg-white/15 active:scale-95 text-gray-300 font-bold rounded-xl transition-all text-sm">Retour</button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

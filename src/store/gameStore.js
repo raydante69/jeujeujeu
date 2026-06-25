@@ -249,6 +249,35 @@ export const useGameStore = create(
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
 
+      // --- CT (Technical Machines) ---
+      ctInventory: [],   // array of CT ids
+      attachedCTs: {},   // { [speciesId]: ctId }
+      addCT: (ctId) => set(s => ({ ctInventory: [...s.ctInventory, ctId] })),
+      attachCT: (speciesId, ctId) => set(s => ({
+        ctInventory: (() => { const idx = s.ctInventory.indexOf(ctId); if (idx === -1) return s.ctInventory; const a = [...s.ctInventory]; a.splice(idx, 1); return a })(),
+        attachedCTs: { ...s.attachedCTs, [speciesId]: ctId },
+      })),
+      detachCT: (speciesId) => set(s => {
+        const ctId = s.attachedCTs[speciesId]
+        const next = { ...s.attachedCTs }; delete next[speciesId]
+        return {
+          attachedCTs: next,
+          ctInventory: ctId ? [...s.ctInventory, ctId] : s.ctInventory,
+        }
+      }),
+
+      // --- Favorites & usage count ---
+      favorites: [],
+      toggleFavorite: (speciesId) => set(s => ({
+        favorites: s.favorites.includes(speciesId)
+          ? s.favorites.filter(x => x !== speciesId)
+          : [...s.favorites, speciesId],
+      })),
+      pokemonUsageCount: {},
+      recordUsage: (speciesId) => set(s => ({
+        pokemonUsageCount: { ...s.pokemonUsageCount, [speciesId]: (s.pokemonUsageCount[speciesId] || 0) + 1 },
+      })),
+
       // --- Reset ---
       resetGame: () => set({
         money: 500,
@@ -277,6 +306,10 @@ export const useGameStore = create(
         daily: { date: null, quests: [] },
         starterPoints: START_POINTS,
         cardsPerSlot: 1,
+        ctInventory: [],
+        attachedCTs: {},
+        favorites: [],
+        pokemonUsageCount: {},
       }),
     }),
     {
@@ -315,6 +348,10 @@ export const useGameStore = create(
         cardLevels: s.cardLevels,
         daily: s.daily,
         starterPoints: s.starterPoints,
+        ctInventory: s.ctInventory,
+        attachedCTs: s.attachedCTs,
+        favorites: s.favorites,
+        pokemonUsageCount: s.pokemonUsageCount,
       }),
     }
   )

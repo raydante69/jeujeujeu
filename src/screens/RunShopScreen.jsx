@@ -3,13 +3,21 @@ import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { rollRelics, RELIC_RARITY_COLOR } from '../data/relics.js'
 import { BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
+import { CT_LIST } from '../data/ct.js'
 import ItemSprite from '../components/ItemSprite.jsx'
 
+// Roll 3 random run-only CTs for the shop
+function rollRunCTs() {
+  const shuffled = [...CT_LIST].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, 3)
+}
+
 export default function RunShopScreen() {
-  const { navigate } = useGameStore()
+  const { navigate, addCT } = useGameStore()
   const run = useRunStore()
   const [bought, setBought] = useState({})
   const [msg, setMsg] = useState(null)
+  const ctOffers = useMemo(() => rollRunCTs(), []) // eslint-disable-line
 
   const relicOffers = useMemo(() => rollRelics(2, run.relics), []) // eslint-disable-line
 
@@ -36,8 +44,14 @@ export default function RunShopScreen() {
       const c = CONSUMABLE_BY_ID[o.itemId]
       return { ...o, slug: c.slug, emoji: c.emoji, ring: c.color, title: `${c.name} ×${o.n}`, desc: c.desc }
     })
-    return [...relicItems, ...ballItems, ...consumItems]
-  }, [relicOffers])
+    const ctItems = ctOffers.map((ct, i) => ({
+      key: 'ct-' + ct.id, kind: 'ct', ctId: ct.id, slug: null, emoji: ct.emoji,
+      title: `CT${ct.num} — ${ct.name}`, desc: ct.desc,
+      cost: [80, 100, 120][i] ?? 90,
+      ring: '#a78bfa', once: true,
+    }))
+    return [...relicItems, ...ctItems, ...ballItems, ...consumItems]
+  }, [relicOffers, ctOffers])
 
   function buy(o) {
     if (o.once && bought[o.key]) return
@@ -49,6 +63,8 @@ export default function RunShopScreen() {
       run.addBall(o.ballId, o.n)
     } else if (o.kind === 'item') {
       run.addItem(o.itemId, o.n)
+    } else if (o.kind === 'ct') {
+      addCT(o.ctId)
     }
     setBought(b => ({ ...b, [o.key]: (b[o.key] || 0) + 1 }))
     flash('Acheté !')

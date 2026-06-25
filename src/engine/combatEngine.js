@@ -181,9 +181,10 @@ export function computeIntent(enemy, team, hps) {
   const heavy = (enemy.isBoss || enemy.kind === 'elite') && Math.random() < 0.3
   const mult = heavy ? 1.85 : 1
   const dmg = Math.max(1, Math.round(lvl * 1.7 * role * mult * Math.max(eff, 0.5)))
+  const moveName = heavy ? (HEAVY_NAMES[t0] || 'Charge Lourde') : (STRIKE_NAMES[t0] || 'Attaque')
   return {
     kind: heavy ? 'heavy' : 'attack',
     targetUid: target.uid, targetName: target.name,
-    damage: dmg, eff, type: t0,
+    damage: dmg, eff, type: t0, moveName,
   }
 }

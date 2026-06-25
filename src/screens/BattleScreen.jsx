@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import {
-  buildEnemy, xpForWin, goldForWin, gainXp, catchChance, waveKind,
+  buildEnemy, xpForWin, goldForWin, gainXp, waveKind,
 } from '../engine/runEngine.js'
 import {
   drawPerMon, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF, movesetSize,
@@ -13,6 +13,7 @@ import { biomeForWave } from '../data/biomes.js'
 import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { BALLS, BALL_BY_ID } from '../data/items.js'
+import { rollRandomCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
 import ItemSprite from '../components/ItemSprite.jsx'
@@ -54,7 +55,7 @@ function previewCard(card, caster, enemy, relicAgg) {
 const MAX_REROLLS = 2
 
 export default function BattleScreen() {
-  const { navigate, cardsPerSlot } = useGameStore()
+  const { navigate, cardsPerSlot, addCT } = useGameStore()
   const run = useRunStore()
   const { team, relics, wave, pendingEnemy } = run
   const relicAgg = useMemo(() => aggregateRelics(relics), [relics])
@@ -81,6 +82,7 @@ export default function BattleScreen() {
   const [shake, setShake]         = useState(null)
   const [winSummary, setWinSummary] = useState(null)
   const [caught, setCaught]       = useState(null)
+  const [throwUsed, setThrowUsed] = useState(false)
   const [rerolls, setRerolls]     = useState(MAX_REROLLS)
   const reviveUsed = useRef(false)
 
@@ -305,9 +307,26 @@ export default function BattleScreen() {
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
-    setWinSummary({ xpEach, events, goldGain })
+
+    // Random combat drops: CT (3%), potion (5%), great-ball (4%)
+    const drops = []
+    const rn = Math.random()
+    if (rn < 0.03) {
+      const ct = rollRandomCT()
+      g.addCT(ct.id)
+      drops.push(`🎴 CT${ct.num} ${ct.name} obtenue !`)
+    } else if (rn < 0.08) {
+      run.addItem('super-potion', 1)
+      drops.push('🧪 Super Potion trouvée !')
+    } else if (rn < 0.12) {
+      run.addBall('great-ball', 1)
+      drops.push('🔵 Super Ball trouvée !')
+    }
+
+    setWinSummary({ xpEach, events, goldGain, drops })
     setPhase('win')
     addLog(`✅ ${enemy.name} vaincu !`)
+    drops.forEach(d => addLog(d))
   }
 
   function lose(finalHp) {
@@ -317,23 +336,15 @@ export default function BattleScreen() {
   }
 
   // ── Catch ───────────────────────────────────────────────────────────
-  function ballCatchChance(ballId) {
-    const b = BALL_BY_ID[ballId]
-    if (!b) return 0
-    if (b.mult === Infinity) return 1
-    const hpFrac = enemyHp / Math.max(1, enemyMax)
-    const base = catchChance(enemy, hpFrac, relicAgg)
-    if (base <= 0) return 0
-    return Math.min(0.99, base * b.mult)
-  }
   function tryCatch(ballId = 'poke-ball') {
-    if (caught) return
+    if (caught || throwUsed) return
     const b = BALL_BY_ID[ballId]
     if (!b) return
-    if (enemy.isBoss && b.mult !== Infinity) return
+    if (enemy.isBoss && b.rate < 1) return
     if ((run.balls?.[ballId] || 0) <= 0) return
     if (!run.useBall(ballId)) return
-    if (Math.random() < ballCatchChance(ballId)) {
+    setThrowUsed(true)
+    if (Math.random() < (b.rate ?? 0)) {
       setCaught({ ok: true, ...run.catchEnemy(enemy, ballId) })
       const g = useGameStore.getState()
       g.recordStat('catches'); g.reportQuest('catch', 1)
@@ -428,8 +439,8 @@ export default function BattleScreen() {
               <div className="min-w-0">
                 <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Prochain coup ennemi</p>
                 <p className="text-xs text-white font-bold truncate">
-                  {intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque'} sur {intentTarget?.name || intent.targetName}
-                  {intent.eff >= 2 && <span className="text-red-300"> (efficace !)</span>}
+                  {intent.moveName || (intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque')} → {intentTarget?.name || intent.targetName}
+                  {intent.eff >= 2 && <span className="text-red-300"> ⚡</span>}
                 </p>
               </div>
             </div>
@@ -512,24 +523,25 @@ export default function BattleScreen() {
               ) : (
                 <>
                   <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">
-                    {enemy.isBoss ? 'Master Ball uniquement' : 'Tente une capture'}
+                    {enemy.isBoss ? 'Master Ball uniquement' : throwUsed ? '1 lancer max utilisé' : 'Tente une capture'}
                   </p>
-                  <div className="flex justify-center gap-2 flex-wrap">
-                    {BALLS.map(b => {
-                      const owned = run.balls?.[b.id] || 0
-                      const usable = owned > 0 && (!enemy.isBoss || b.mult === Infinity)
-                      const pct = Math.round(ballCatchChance(b.id) * 100)
-                      return (
-                        <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
-                          className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
-                          style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
-                          <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
-                          <span className="text-[9px] font-bold text-white">×{owned}</span>
-                          <span className="text-[8px] font-bold" style={{ color: b.color }}>{b.mult === Infinity ? '100%' : `${pct}%`}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
+                  {!throwUsed && (
+                    <div className="flex justify-center gap-2 flex-wrap">
+                      {BALLS.map(b => {
+                        const owned = run.balls?.[b.id] || 0
+                        const usable = owned > 0 && (!enemy.isBoss || b.rate >= 1)
+                        return (
+                          <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
+                            className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
+                            style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
+                            <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
+                            <span className="text-[9px] font-bold text-white">×{owned}</span>
+                            <span className="text-[8px] font-bold" style={{ color: b.color }}>{Math.round((b.rate ?? 0) * 100)}%</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </>
               )}
             </div>

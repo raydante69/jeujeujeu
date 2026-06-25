@@ -21,7 +21,7 @@ export default function ShopScreen() {
     money, crystals, rubies, spendMoney, unlockedGens, setPendingBoosters, navigate,
     claimFreeBooster, activeGenForFreeBooster, sessionBuys, recordBoosterBuy,
     recordStat, reportQuest, starterPoints, buyStarterPoints,
-    cardsPerSlot, upgradeCardsPerSlot,
+    cardsPerSlot, upgradeCardsPerSlot, addCT,
   } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
@@ -44,7 +44,9 @@ export default function ShopScreen() {
     recordBoosterBuy(boosterId)
     recordStat('boostersOpened')
     reportQuest('open', 1)
-    setPendingBoosters(openBooster(selectedGen, boosterId))
+    const { cards, bonusCT } = openBooster(selectedGen, boosterId)
+    setPendingBoosters(cards)
+    if (bonusCT) addCT(bonusCT.id)
     navigate('opening')
   }
 
@@ -52,8 +54,9 @@ export default function ShopScreen() {
     if (!claimFreeBooster()) return
     recordStat('boostersOpened')
     reportQuest('open', 1)
-    // Free booster uses 'free' rates (lowest drop rates)
-    setPendingBoosters(openBooster(activeGenForFreeBooster, 'free'))
+    const { cards, bonusCT } = openBooster(activeGenForFreeBooster, 'free')
+    setPendingBoosters(cards)
+    if (bonusCT) addCT(bonusCT.id)
     navigate('opening')
   }
 

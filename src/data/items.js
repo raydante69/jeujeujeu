@@ -5,13 +5,13 @@
 export const ITEM_SPRITE = (slug) =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`
 
-// ───────────────────────── Poké Balls (Pokérogue-style) ─────────────────────
-// `mult` scales the base catch chance. Master ball is a guaranteed catch.
+// ───────────────────────── Poké Balls ────────────────────────────────────────
+// `rate` is the fixed capture probability (independent of enemy HP).
 export const BALLS = [
-  { id: 'poke-ball',  name: 'Poké Ball',  slug: 'poke-ball',  emoji: '🔴', color: '#ef4444', mult: 1.0,      desc: 'Capture standard.' },
-  { id: 'great-ball', name: 'Super Ball',  slug: 'great-ball', emoji: '🔵', color: '#3b82f6', mult: 1.5,      desc: '×1.5 de chance de capture.' },
-  { id: 'ultra-ball', name: 'Hyper Ball',  slug: 'ultra-ball', emoji: '🟡', color: '#eab308', mult: 2.2,      desc: '×2.2 de chance de capture.' },
-  { id: 'master-ball',name: 'Master Ball', slug: 'master-ball',emoji: '🟣', color: '#a855f7', mult: Infinity, desc: 'Capture garantie, même les boss !' },
+  { id: 'poke-ball',  name: 'Poké Ball',  slug: 'poke-ball',  emoji: '🔴', color: '#ef4444', rate: 0.25, desc: '25% de chance de capture.' },
+  { id: 'great-ball', name: 'Super Ball',  slug: 'great-ball', emoji: '🔵', color: '#3b82f6', rate: 0.40, desc: '40% de chance de capture.' },
+  { id: 'ultra-ball', name: 'Hyper Ball',  slug: 'ultra-ball', emoji: '🟡', color: '#eab308', rate: 0.60, desc: '60% de chance de capture.' },
+  { id: 'master-ball',name: 'Master Ball', slug: 'master-ball',emoji: '🟣', color: '#a855f7', rate: 1.00, desc: 'Capture garantie, même les boss !' },
 ]
 export const BALL_BY_ID = Object.fromEntries(BALLS.map(b => [b.id, b]))
 export const DEFAULT_BALLS = { 'poke-ball': 5 }

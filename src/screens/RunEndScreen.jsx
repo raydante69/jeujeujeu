@@ -43,14 +43,14 @@ export default function RunEndScreen() {
         <div className="space-y-3">
           {lastStarters?.length > 0 && (
             <button onClick={() => { startRun(lastStarters); navigate('run') }} className="w-full py-4 bg-gradient-to-r from-purple-600 to-red-600 text-white font-black rounded-xl text-base active:scale-95 transition-all">
-              🔄 Rejouer (même équipe)
+              🔄 Rejouer
             </button>
           )}
           <button onClick={() => navigate('runsetup')} className="w-full py-3 bg-gray-900 text-gray-300 font-bold rounded-xl text-sm border border-gray-800 active:scale-95 transition-all">
-            ⚔️ Nouvelle équipe
+            ⚔️ Rejouer avec d'autres pokémon
           </button>
           <button onClick={() => navigate('home')} className="w-full py-2.5 text-gray-500 font-bold rounded-xl text-sm active:scale-95 transition-all">
-            🏠 Accueil
+            Quitter
           </button>
         </div>
       </div>

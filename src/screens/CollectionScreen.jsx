@@ -4,7 +4,10 @@ import { allSpecies, speciesById } from '../data/pokemon.js'
 import { speciesRarity, rarityColor, rarityLabel, rarityTier, starterCost, isHoloEligible } from '../data/cardModel.js'
 import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS } from '../data/types.js'
+import { frName } from '../data/frenchNames.js'
+import { CT_BY_ID } from '../data/ct.js'
 import StatBars from '../components/StatBars.jsx'
+import TypeBadge from '../components/TypeBadge.jsx'
 
 const GEN_RANGES = {
   1: [1, 151], 2: [152, 251], 3: [252, 386], 4: [387, 493],
@@ -59,14 +62,14 @@ function DexSlot({ species, ownedCards, isNew, onClick, cardRef }) {
         />
         <div className="w-full text-center leading-none">
           {owned
-            ? <p className="text-white font-bold text-[8px] truncate">{species.name}</p>
+            ? <p className="text-white font-bold text-[8px] truncate">{frName(species.id, species.name)}</p>
             : <p className="text-gray-700 text-[8px] font-bold">???</p>
           }
         </div>
       </div>
       {ownedCards.length > 1 && <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[6px] font-bold px-1 rounded leading-none">×{ownedCards.length}</div>}
       {hasShiny && <div className="absolute bottom-1 left-1 text-[8px] leading-none">✨</div>}
-      {isNew && owned && <div className="absolute top-1 left-1 z-10"><span className="text-sm leading-none">⭐</span></div>}
+      {isNew && owned && <span className="absolute top-1 left-1 text-sm leading-none" style={{ zIndex: 1 }}>⭐</span>}
       {owned && hasHolo && (
         <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'linear-gradient(135deg,transparent 25%,rgba(255,255,255,0.14) 50%,transparent 75%)', backgroundSize: '300% 300%', animation: 'shimmer 3s linear infinite' }} />
       )}
@@ -74,7 +77,7 @@ function DexSlot({ species, ownedCards, isNew, onClick, cardRef }) {
   )
 }
 
-function DetailModal({ species, cards, cardLevel, onClose, onFuse, onLevelUp }) {
+function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClose, onFuse, onLevelUp, onAttachCT, onDetachCT }) {
   const rarity = speciesRarity(species)
   const rc = rarityColor(rarity)
   const typeColor = TYPE_COLORS[species.types?.[0]] || '#1e293b'
@@ -108,7 +111,7 @@ function DetailModal({ species, cards, cardLevel, onClose, onFuse, onLevelUp }) 
             <div className="min-w-0">
               <p className="text-gray-400 text-[10px]">#{String(species.id).padStart(3, '0')}</p>
               <div className="flex items-center gap-2">
-                <p className="text-white font-bold text-base leading-tight">{species.name}</p>
+                <p className="text-white font-bold text-base leading-tight">{frName(species.id, species.name)}</p>
                 <span className="text-xs font-black text-gray-300">Nv.{level}</span>
                 {canLevelUp && (
                   <button onClick={onLevelUp} className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 hover:bg-yellow-500/30 active:scale-95 transition-all">
@@ -143,6 +146,50 @@ function DetailModal({ species, cards, cardLevel, onClose, onFuse, onLevelUp }) 
             <p className="text-[9px] text-gray-400 leading-snug">{trait.desc}</p>
           </div>
 
+          {/* CT slot */}
+          <div className="mt-2.5 relative z-10">
+            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Capacité Technique</p>
+            {attachedCT ? (
+              <div className="flex items-center gap-2 rounded-lg bg-purple-900/30 border border-purple-700/40 p-2">
+                <span className="text-lg">{attachedCT.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-purple-300">CT{attachedCT.num} {attachedCT.name}</p>
+                  <p className="text-[8px] text-gray-500">{attachedCT.desc}</p>
+                </div>
+                <button onClick={onDetachCT} className="text-[9px] text-gray-500 hover:text-red-400 font-bold px-1.5 py-1 rounded active:scale-95">✕</button>
+              </div>
+            ) : (
+              <div>
+                <button
+                  onClick={() => {}}
+                  className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-gray-600 text-[10px] font-bold transition-all hover:border-purple-600/50 hover:text-purple-400 active:scale-95"
+                  disabled={!ctInventory?.length}
+                  style={{ cursor: ctInventory?.length ? 'pointer' : 'not-allowed' }}
+                >
+                  {ctInventory?.length ? '+ Attacher une CT' : 'Aucune CT dans l\'inventaire'}
+                </button>
+                {ctInventory?.length > 0 && (
+                  <div className="mt-1.5 space-y-1 max-h-28 overflow-y-auto">
+                    {ctInventory.map((ctId, i) => {
+                      const ct = CT_BY_ID[ctId]
+                      if (!ct) return null
+                      return (
+                        <button key={i} onClick={() => onAttachCT(ctId)}
+                          className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 bg-black/40 border border-gray-800 hover:border-purple-600/50 text-left active:scale-95 transition-all">
+                          <span>{ct.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-black text-white">CT{ct.num} {ct.name}</p>
+                            <p className="text-[7px] text-gray-500">{ct.desc}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button onClick={onClose} className="w-full mt-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-bold transition-all relative z-10">Fermer</button>
         </div>
 
@@ -160,7 +207,7 @@ function DetailModal({ species, cards, cardLevel, onClose, onFuse, onLevelUp }) 
 }
 
 export default function CollectionScreen() {
-  const { collection, navigate, newCardUids, clearNewCards, fuseSpecies, cardLevels, levelUpCard, scrollToNew, setScrollToNew } = useGameStore()
+  const { collection, navigate, newCardUids, clearNewCards, fuseSpecies, cardLevels, levelUpCard, scrollToNew, setScrollToNew, ctInventory, attachedCTs, attachCT, detachCT } = useGameStore()
   const [genFilter, setGenFilter] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [detailId, setDetailId] = useState(null)
@@ -189,7 +236,7 @@ export default function CollectionScreen() {
     let list = species.filter(s => s.id >= min && s.id <= max)
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase()
-      list = list.filter(s => s.name.toLowerCase().includes(q) || String(s.id).includes(q))
+      list = list.filter(s => s.name.toLowerCase().includes(q) || frName(s.id, '').toLowerCase().includes(q) || String(s.id).includes(q))
     }
     return list
   }, [species, genFilter, searchQuery])
@@ -256,9 +303,13 @@ export default function CollectionScreen() {
           species={detailSp}
           cards={detailCards}
           cardLevel={cardLevels?.[detailId] || 1}
+          attachedCT={attachedCTs?.[detailId] ? CT_BY_ID[attachedCTs[detailId]] : null}
+          ctInventory={ctInventory || []}
           onClose={() => setDetailId(null)}
           onFuse={handleFuse}
           onLevelUp={handleLevelUp}
+          onAttachCT={(ctId) => attachCT(detailId, ctId)}
+          onDetachCT={() => detachCT(detailId)}
         />
       )}
 

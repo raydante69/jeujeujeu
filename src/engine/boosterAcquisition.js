@@ -1,6 +1,7 @@
 import { allSpecies, makeInstance } from '../data/pokemon.js'
 import { CARD_RARITY, RARITY_ORDER, speciesRarity, isHoloEligible } from '../data/cardModel.js'
 import { makeRng, randomSeed } from './rng.js'
+import { rollRandomCT } from '../data/ct.js'
 
 export const RARITIES = CARD_RARITY
 
@@ -14,9 +15,9 @@ export const BOOSTER_TYPES = [
   },
   {
     id: 'pack5', name: 'Pack 5 Cartes', emoji: '📦', cards: 5, basePrice: 800,
-    color: '#a855f7', guaranteeTier: 2,
-    tagline: '5 cartes · Rare+ garantie sur la dernière',
-    slots: ['any', 'any', 'any', 'any', 'guarantee'],
+    color: '#a855f7', guaranteeTier: 0,
+    tagline: '5 cartes · même odds que le booster solo',
+    slots: ['any', 'any', 'any', 'any', 'any'],
   },
 ]
 export const BOOSTER_BY_ID = Object.fromEntries(BOOSTER_TYPES.map(b => [b.id, b]))
@@ -110,12 +111,13 @@ function pickSpeciesOfRarity(pool, rarity, rng) {
   return rng.pick(pool)
 }
 
+// Returns { cards, bonusCT } — bonusCT is null or a CT object (10% chance)
 export function openBooster(gen = 1, boosterId = 'single') {
   const tableKey = ['free', 'single', 'pack5'].includes(boosterId) ? boosterId : 'single'
   const type = boosterId === 'free' ? FREE_BOOSTER : (BOOSTER_BY_ID[boosterId] || BOOSTER_BY_ID.single)
   const rng = makeRng(randomSeed())
   const pool = speciesInGen(gen)
-  if (!pool.length) return []
+  if (!pool.length) return { cards: [], bonusCT: null }
   const shinyRate = SHINY_RATES[tableKey] ?? SHINY_RATES.single
   const holoRate  = HOLO_RATES[tableKey]  ?? HOLO_RATES.single
   const cards = []
@@ -132,5 +134,7 @@ export function openBooster(gen = 1, boosterId = 'single') {
     if (isHoloEligible(sp)) holo = rng.next() < holoRate
     cards.push(makeInstance(sp.id, 5, { rarity, shiny, holo }))
   }
-  return cards
+
+  const bonusCT = Math.random() < 0.10 ? rollRandomCT() : null
+  return { cards, bonusCT }
 }
