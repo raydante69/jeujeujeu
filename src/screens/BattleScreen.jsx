@@ -5,7 +5,7 @@ import {
   buildEnemy, xpForWin, goldForWin, gainXp, waveKind,
 } from '../engine/runEngine.js'
 import {
-  drawPerMon, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF, movesetSize,
+  drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF,
 } from '../engine/combatEngine.js'
 import { aggregateRelics } from '../data/relics.js'
 import { getWeakTypes } from '../engine/comboBurst.js'
@@ -61,15 +61,15 @@ export default function BattleScreen() {
   const relicAgg = useMemo(() => aggregateRelics(relics), [relics])
   const kind = waveKind(wave)
   const biome = useMemo(() => biomeForWave(wave), [wave])
-  const effectiveSlots = cardsPerSlot || 1
+  const handSize = cardsPerSlot || 1
 
   // ── State ───────────────────────────────────────────────────────────────
   const [enemy, setEnemy]         = useState(null)
   const [enemyHp, setEnemyHp]     = useState(0)
   const [enemyMax, setEnemyMax]   = useState(1)
   const [hp, setHp]               = useState({})
-  // slots: { [monUid]: Card[] }
-  const [slots, setSlots]         = useState({})
+  // hand: a single shared row of N cards from the whole team's combined movepool
+  const [hand, setHand]           = useState([])
   const [guard, setGuard]         = useState(0)
   const [buff, setBuff]           = useState(0)
   const [enemyStatus, setEStatus] = useState(null)
@@ -109,7 +109,7 @@ export default function BattleScreen() {
       : kind === 'trainer' ? `🧢 Dresseur envoie ${e.name} !`
       : `Un ${e.name} sauvage apparaît !`)
 
-    setSlots(drawPerMon(team, startHp, effectiveSlots))
+    setHand(drawHand(team, startHp, handSize))
     setIntent(computeIntent(e, team, startHp))
     setRerolls(MAX_REROLLS)
     setPhase('player')
@@ -117,12 +117,12 @@ export default function BattleScreen() {
 
   const weakTypes = useMemo(() => (enemy ? getWeakTypes(enemy.types || ['normal']) : []), [enemy])
 
-  // ── Reroll ──────────────────────────────────────────────────────────
-  function rerollSlots() {
+  // ── Swap hand (re-draw the shared hand from the team movepool) ───────
+  function swapHand() {
     if (phase !== 'player' || rerolls <= 0) return
     setRerolls(r => r - 1)
-    setSlots(drawPerMon(team, live.current.hp, effectiveSlots))
-    addLog(`🔄 Cartes relancées`)
+    setHand(drawHand(team, live.current.hp, handSize))
+    addLog(`🔄 Pokémon échangés`)
   }
 
   // ── Heal helpers ─────────────────────────────────────────────────────
@@ -174,17 +174,26 @@ export default function BattleScreen() {
 
     setTimeout(() => {
       if (!skipEnemy) {
-        let dmg = intent0?.damage ?? computeIntent(enemy, team, localHp)?.damage ?? 1
-        if (isRaged || enraged) dmg = Math.round(dmg * 1.3)
-        const absorbed = Math.min(currentGuard, dmg)
-        dmg = Math.max(0, dmg - currentGuard)
+        // Enemy may strike one OR several Pokémon this turn.
+        const fallback = intent0?.targets?.length
+          ? intent0.targets
+          : (intent0 ? [{ targetUid: intent0.targetUid, targetName: intent0.targetName, damage: intent0.damage }] : [])
+        const hits = fallback.length ? fallback : (computeIntent(enemy, team, localHp)?.targets || [])
+        let remainingGuard = currentGuard
 
-        let targetUid = intent0?.targetUid
-        if (!targetUid || (localHp[targetUid] || 0) <= 0) {
-          const alive = team.filter(m => (localHp[m.uid] || 0) > 0)
-          if (alive.length) targetUid = alive.reduce((a, b) => (localHp[a.uid] / a.maxHp < localHp[b.uid] / b.maxHp ? a : b)).uid
-        }
-        if (targetUid) {
+        for (const hit of hits) {
+          let targetUid = hit.targetUid
+          if (!targetUid || (localHp[targetUid] || 0) <= 0) {
+            const alive = team.filter(m => (localHp[m.uid] || 0) > 0)
+            if (!alive.length) break
+            targetUid = alive[Math.floor(Math.random() * alive.length)].uid
+          }
+          let dmg = hit.damage ?? 1
+          if (isRaged || enraged) dmg = Math.round(dmg * 1.3)
+          const absorbed = Math.min(remainingGuard, dmg)
+          remainingGuard -= absorbed
+          dmg = Math.max(0, dmg - absorbed)
+
           const tname = team.find(m => m.uid === targetUid)?.name
           localHp = { ...localHp, [targetUid]: Math.max(0, (localHp[targetUid] || 0) - dmg) }
           doShake(targetUid)
@@ -207,7 +216,7 @@ export default function BattleScreen() {
       setTimeout(() => {
         setTurn(t => t + 1)
         setGuard(0)
-        setSlots(drawPerMon(team, localHp, effectiveSlots))
+        setHand(drawHand(team, localHp, handSize))
         setIntent(computeIntent(enemy, team, localHp))
         setPhase('player')
       }, 480)
@@ -220,8 +229,8 @@ export default function BattleScreen() {
     const caster = team.find(m => m.uid === card.ownerUid)
     if (!caster || (live.current.hp[caster.uid] || 0) <= 0) return
 
-    // Clear all slots immediately (card has been played)
-    setSlots({})
+    // Clear the hand immediately (card has been played)
+    setHand([])
 
     const { enemyHp: eHp0, hp: hp0, buff: buff0, guard: guard0 } = live.current
 
@@ -368,7 +377,6 @@ export default function BattleScreen() {
   }
 
   const typeColor = TYPE_COLORS[enemy.types?.[0]] || '#1e293b'
-  const intentTarget = intent ? team.find(m => m.uid === intent.targetUid) : null
   const livingTeam = team.filter(m => (hp[m.uid] ?? 0) > 0)
 
   return (
@@ -435,18 +443,22 @@ export default function BattleScreen() {
           <div className="rounded-xl px-3 py-2.5 border flex items-center justify-between gap-2"
             style={{ background: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '14', borderColor: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '55' }}>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xl">{intent.kind === 'heavy' ? '🌋' : '⚔️'}</span>
+              <span className="text-xl">{intent.kind === 'heavy' ? '🌋' : intent.multi ? '🎯' : '⚔️'}</span>
               <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Prochain coup ennemi</p>
+                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">
+                  Prochain coup ennemi{intent.multi ? ` · ${intent.targets.length} cibles` : ''}
+                </p>
                 <p className="text-xs text-white font-bold truncate">
-                  {intent.moveName || (intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque')} → {intentTarget?.name || intent.targetName}
+                  {intent.moveName || (intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque')}
+                  {' → '}
+                  {(intent.targets || []).map(t => t.targetName).join(', ')}
                   {intent.eff >= 2 && <span className="text-red-300"> ⚡</span>}
                 </p>
               </div>
             </div>
             <div className="text-right flex-shrink-0">
               <p className="font-black text-lg" style={{ color: intent.kind === 'heavy' ? '#f87171' : '#e2e8f0' }}>
-                -{Math.max(0, intent.damage - guard)}
+                -{(intent.targets || []).reduce((s, t) => s + t.damage, 0)}
               </p>
               {guard > 0 && <p className="text-[9px] text-cyan-300">🛡️ {guard} absorbé</p>}
             </div>
@@ -564,7 +576,7 @@ export default function BattleScreen() {
         </div>
       </div>
 
-      {/* Bottom: per-Pokémon card slots */}
+      {/* Bottom: shared random hand */}
       <div className="fixed bottom-0 inset-x-0 border-t border-game-border z-20" style={{ background: 'rgba(10,10,20,0.97)', backdropFilter: 'blur(12px)' }}>
         <div className="max-w-lg mx-auto px-3 py-3">
           {phase === 'win' ? (
@@ -577,77 +589,57 @@ export default function BattleScreen() {
             </button>
           ) : phase === 'player' ? (
             <>
-              {/* Reroll + hint */}
+              {/* Swap + hint */}
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Choisis 1 attaque</p>
-                <button onClick={rerollSlots} disabled={rerolls <= 0}
+                <p className="text-[10px] text-gray-600 font-bold uppercase">Choisis 1 attaque · {hand.length} tirée{hand.length > 1 ? 's' : ''}</p>
+                <button onClick={swapHand} disabled={rerolls <= 0}
                   className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition-all ${rerolls > 0 ? 'bg-blue-900/70 hover:bg-blue-800 active:scale-95 text-blue-300 border border-blue-700/50' : 'bg-gray-900 text-gray-700'}`}>
-                  🔄 ×{rerolls}
+                  🔄 Échanger ×{rerolls}
                 </button>
               </div>
 
-              {/* Per-Pokémon slots */}
-              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
-                <div className="flex gap-2 pb-1" style={{ minWidth: `${team.length * 110}px` }}>
-                  {team.map(mon => {
-                    const h = hp[mon.uid] ?? 0
-                    const alive = h > 0
-                    const monSlots = slots[mon.uid] || []
-                    const tc0 = TYPE_COLORS[(mon.types || ['normal'])[0]] || '#64748b'
-                    const size = movesetSize(mon)
-                    return (
-                      <div key={mon.uid} className="flex flex-col items-center gap-1.5" style={{ minWidth: 100 }}>
-                        {/* Mini Pokémon header */}
-                        <div className={`w-full rounded-xl p-1.5 flex items-center gap-1.5 border ${alive ? '' : 'opacity-30'}`}
-                          style={{ background: tc0 + '18', borderColor: tc0 + '44' }}>
-                          <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.shiny ? 'shiny/' : ''}${mon.id}.png`}
-                            alt={mon.name} className={`w-8 h-8 object-contain pixelated flex-shrink-0 ${!alive ? 'grayscale' : ''}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[9px] font-black text-white truncate leading-none">{mon.name}</p>
-                            <p className="text-[7px] text-gray-500 mt-0.5">{size} att. {mon.shiny ? '✨' : ''}{mon.holo ? '🌈' : ''}</p>
-                            <div className="h-0.5 rounded-full bg-gray-800 mt-0.5">
-                              <div className="h-full rounded-full" style={{ width: `${Math.max(0, (h / (mon.maxHp || 1)) * 100)}%`, background: h / (mon.maxHp || 1) > 0.5 ? '#4ade80' : '#ef4444' }} />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Card(s) for this Pokémon */}
-                        {alive ? monSlots.map(card => {
-                          const tc = TYPE_COLORS[card.type] || '#64748b'
-                          const preview = previewCard(card, mon, enemy, relicAgg)
-                          return (
-                            <button key={card.uid} onClick={() => playCard(card)}
-                              className="w-full rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 hover:-translate-y-0.5"
-                              style={{
-                                background: `linear-gradient(160deg, ${tc}2a, #0f172a)`,
-                                border: `2px solid ${tc}cc`,
-                                boxShadow: `0 0 8px ${tc}44`,
-                              }}>
-                              <div className="flex items-center justify-between w-full">
-                                <span className="text-[10px]">{KIND_ICON[card.kind]}</span>
-                                <span className="text-[7px] font-bold rounded px-1" style={{ background: tc + '33', color: tc }}>
-                                  {card.type?.toUpperCase().slice(0, 3)}
-                                </span>
-                              </div>
-                              <p className="text-[9px] font-black text-white text-center leading-tight w-full">{card.name}</p>
-                              {preview && (
-                                <div className="flex gap-1 flex-wrap justify-center">
-                                  {preview.map((p, i) => (
-                                    <span key={i} className="text-[9px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </button>
-                          )
-                        }) : (
-                          <div className="w-full rounded-xl p-2 flex items-center justify-center h-14 border border-gray-800/50 opacity-30">
-                            <p className="text-[9px] text-gray-600">K.O.</p>
-                          </div>
-                        )}
+              {/* Shared hand: N random cards from the whole team's movepool */}
+              <div className="flex gap-2 justify-center flex-wrap">
+                {hand.length === 0 && (
+                  <p className="text-[10px] text-gray-600 py-4">Aucune attaque disponible…</p>
+                )}
+                {hand.map(card => {
+                  const owner = team.find(m => m.uid === card.ownerUid)
+                  if (!owner) return null
+                  const tc = TYPE_COLORS[card.type] || '#64748b'
+                  const preview = previewCard(card, owner, enemy, relicAgg)
+                  return (
+                    <button key={card.uid} onClick={() => playCard(card)}
+                      className="rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 hover:-translate-y-0.5"
+                      style={{
+                        width: 104,
+                        background: `linear-gradient(160deg, ${tc}2a, #0f172a)`,
+                        border: `2px solid ${tc}cc`,
+                        boxShadow: `0 0 8px ${tc}44`,
+                      }}>
+                      {/* Owner header */}
+                      <div className="flex items-center gap-1 w-full">
+                        <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${owner.shiny ? 'shiny/' : ''}${owner.id}.png`}
+                          alt={owner.name} className="w-7 h-7 object-contain pixelated flex-shrink-0" />
+                        <p className="text-[7px] text-gray-300 font-bold truncate leading-none flex-1">{owner.name}</p>
                       </div>
-                    )
-                  })}
-                </div>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[10px]">{KIND_ICON[card.kind]}</span>
+                        <span className="text-[7px] font-bold rounded px-1" style={{ background: tc + '33', color: tc }}>
+                          {card.type?.toUpperCase().slice(0, 3)}
+                        </span>
+                      </div>
+                      <p className="text-[9px] font-black text-white text-center leading-tight w-full">{card.name}</p>
+                      {preview && (
+                        <div className="flex gap-1 flex-wrap justify-center">
+                          {preview.map((p, i) => (
+                            <span key={i} className="text-[9px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </>
           ) : (

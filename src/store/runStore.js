@@ -65,7 +65,8 @@ export const useRunStore = create(
         const newBest = Math.max(s.bestWave, reached)
         const record = newBest > s.bestWave
         const crystals = 8 + reached * 3 + (record ? 25 : 0)
-        const money = 60 + reached * 12 + (record ? 100 : 0)
+        // Money is intentionally scarce — harder to accumulate now.
+        const money = 12 + reached * 4 + (record ? 40 : 0)
         useGameStore.getState().addCrystals(crystals)
         useGameStore.getState().addMoney(money)
         const summary = { reached, crystals, money, record }

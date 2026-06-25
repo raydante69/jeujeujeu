@@ -135,6 +135,23 @@ export function drawPerMon(team, hps, cardsPerSlot = 1) {
   return slots
 }
 
+// Draw a single shared hand of `handSize` cards drawn at random from the
+// COMBINED pool of every living Pokémon × every one of their moves.
+// Returns a flat Card[] (each card carries ownerUid/ownerName/ownerId).
+export function drawHand(team, hps, handSize = 1) {
+  const pool = []
+  for (const mon of team) {
+    if ((hps[mon.uid] ?? 0) <= 0) continue
+    const size = movesetSize(mon)
+    for (const move of buildMoveset(mon).slice(0, size)) pool.push(move)
+  }
+  if (!pool.length) return []
+  const shuffled = shuffle(pool)
+  return shuffled
+    .slice(0, Math.min(handSize, shuffled.length))
+    .map(m => ({ ...m, uid: `h${++_handSeq}` }))
+}
+
 // Damage of an attack/drain move from a caster against the enemy.
 export function moveDamage(move, caster, enemy, relicAgg = {}) {
   const lvl = caster.level || 5
@@ -162,29 +179,40 @@ export function healValue(move, caster) {
   return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6) * mult))
 }
 
-function weakest(alive, hps) {
-  return alive.reduce((w, p) => {
-    const r1 = (hps[p.uid] ?? 0) / (p.maxHp || 1)
-    const r2 = (hps[w.uid] ?? 0) / (w.maxHp || 1)
-    return r1 < r2 ? p : w
-  })
-}
-
 export function computeIntent(enemy, team, hps) {
   const alive = team.filter(p => (hps[p.uid] ?? 0) > 0)
   if (!alive.length) return null
-  const target = weakest(alive, hps)
   const lvl = enemy.level || 5
   const t0 = (enemy.types || ['normal'])[0]
-  const eff = effectiveness(t0, target.types || ['normal'])
   const role = enemy.isBoss ? 1.5 : enemy.kind === 'elite' ? 1.2 : 1
   const heavy = (enemy.isBoss || enemy.kind === 'elite') && Math.random() < 0.3
   const mult = heavy ? 1.85 : 1
-  const dmg = Math.max(1, Math.round(lvl * 1.7 * role * mult * Math.max(eff, 0.5)))
+
+  // Random number of targets: usually 1, sometimes several.
+  const maxTargets = Math.min(alive.length, enemy.isBoss ? 3 : 2)
+  let nTargets = 1
+  const roll = Math.random()
+  if (maxTargets >= 3 && roll < 0.12) nTargets = 3
+  else if (maxTargets >= 2 && roll < 0.35) nTargets = 2
+  const chosen = shuffle(alive).slice(0, nTargets)
+
+  // Multi-target hits deal a little less to each individual target.
+  const spread = nTargets > 1 ? 0.72 : 1
+  const targets = chosen.map(target => {
+    const eff = effectiveness(t0, target.types || ['normal'])
+    const dmg = Math.max(1, Math.round(lvl * 1.7 * role * mult * spread * Math.max(eff, 0.5)))
+    return { targetUid: target.uid, targetName: target.name, damage: dmg, eff }
+  })
   const moveName = heavy ? (HEAVY_NAMES[t0] || 'Charge Lourde') : (STRIKE_NAMES[t0] || 'Attaque')
+  // Top-level fields mirror the first target for backward compatibility.
   return {
     kind: heavy ? 'heavy' : 'attack',
-    targetUid: target.uid, targetName: target.name,
-    damage: dmg, eff, type: t0, moveName,
+    type: t0, moveName,
+    targets,
+    multi: nTargets > 1,
+    targetUid: targets[0].targetUid,
+    targetName: targets[0].targetName,
+    damage: targets[0].damage,
+    eff: targets[0].eff,
   }
 }

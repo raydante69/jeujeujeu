@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useGameStore, pointsUpgradeCost, MAX_POINTS, MAX_CARDS_PER_SLOT, CARDS_PER_SLOT_UPGRADE_COST } from '../store/gameStore.js'
+import { useGameStore, pointsUpgradeCost, MAX_POINTS, MAX_CARDS_PER_SLOT, cardsPerSlotUpgradeCost } from '../store/gameStore.js'
 import { openBooster, BOOSTER_TYPES, boosterPrice, RARITIES, BOOSTER_ODDS } from '../engine/boosterAcquisition.js'
 import { GEN_UNLOCKS } from '../data/genUnlocks.js'
 import FreeBoosterTimer from '../components/FreeBoosterTimer.jsx'
@@ -196,31 +196,31 @@ export default function ShopScreen() {
           })}
         </div>
 
-        {/* Cards per slot upgrade */}
+        {/* Hand size upgrade */}
         <div className="rounded-2xl p-4 border" style={{ background: 'linear-gradient(135deg, #7c3aed22, #0f172a)', borderColor: '#7c3aed55' }}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: '#7c3aed22', border: '1px solid #7c3aed66' }}>🃏</div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-sm">Double Carte</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Chaque Pokémon propose 2 attaques au lieu d'1 lors des combats.</p>
+              <p className="font-bold text-white text-sm">Cartes par tour</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Tire plus d'attaques aléatoires chaque tour (parmi toute ton équipe).</p>
               <p className="text-[11px] mt-1">
                 <span className="text-violet-300 font-black">{cardsPerSlot || 1}</span>
-                <span className="text-gray-500"> / {MAX_CARDS_PER_SLOT} carte{MAX_CARDS_PER_SLOT > 1 ? 's' : ''} par Pokémon</span>
+                <span className="text-gray-500"> / {MAX_CARDS_PER_SLOT} carte{MAX_CARDS_PER_SLOT > 1 ? 's' : ''} par tour</span>
               </p>
             </div>
           </div>
           {(cardsPerSlot || 1) >= MAX_CARDS_PER_SLOT ? (
-            <div className="w-full mt-3 py-2.5 rounded-xl text-center text-xs font-black bg-violet-900/40 text-violet-400">Double Carte déverrouillé ✓</div>
+            <div className="w-full mt-3 py-2.5 rounded-xl text-center text-xs font-black bg-violet-900/40 text-violet-400">Maximum atteint ✓ ({MAX_CARDS_PER_SLOT} cartes)</div>
           ) : (
             <button
               onClick={() => {
                 const spent = upgradeCardsPerSlot()
-                showMsg(spent === false ? 'Pas assez de 💎 cristaux !' : '2 cartes par Pokémon déverrouillées !', spent === false ? 'error' : 'ok')
+                showMsg(spent === false ? 'Pas assez de 💎 cristaux !' : `${(cardsPerSlot || 1) + 1} cartes par tour débloquées !`, spent === false ? 'error' : 'ok')
               }}
               className="w-full mt-3 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 bg-violet-600 text-white active:scale-95"
             >
-              <span>Déverrouiller</span>
-              <span className="bg-black/20 rounded-lg px-2.5 py-1 text-xs tabular-nums">{CARDS_PER_SLOT_UPGRADE_COST} 💎</span>
+              <span>Passer à {(cardsPerSlot || 1) + 1} cartes</span>
+              <span className="bg-black/20 rounded-lg px-2.5 py-1 text-xs tabular-nums">{cardsPerSlotUpgradeCost(cardsPerSlot || 1)} 💎</span>
             </button>
           )}
         </div>

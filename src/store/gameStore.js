@@ -16,9 +16,13 @@ export function pointsUpgradeCost(currentMax) {
   return 80 + Math.max(0, (currentMax - START_POINTS) / POINTS_PER_UPGRADE) * 60
 }
 
-// Crystal cost to unlock 2nd card slot per Pokémon (one-time upgrade).
-export const MAX_CARDS_PER_SLOT = 2
+// How many attack cards are drawn each combat turn (the shared hand size).
+// Upgradable from 1 up to 4 with crystals; each step costs more.
+export const MAX_CARDS_PER_SLOT = 4
 export const CARDS_PER_SLOT_UPGRADE_COST = 80
+export function cardsPerSlotUpgradeCost(current) {
+  return CARDS_PER_SLOT_UPGRADE_COST + Math.max(0, current - 1) * 70
+}
 
 // Permanent training cost grows with how trained a species already is.
 export function trainCost(currentBonus) { return 30 + currentBonus * 25 }
@@ -180,14 +184,15 @@ export const useGameStore = create(
         return cost
       },
 
-      // --- Cards per Pokémon slot (1 = default, 2 = upgraded) ---
+      // --- Combat hand size (how many random attack cards per turn, 1→4) ---
       cardsPerSlot: 1,
       upgradeCardsPerSlot: () => {
         const s = get()
         if (s.cardsPerSlot >= MAX_CARDS_PER_SLOT) return false
-        if (!s.spendCrystals(CARDS_PER_SLOT_UPGRADE_COST)) return false
-        set({ cardsPerSlot: MAX_CARDS_PER_SLOT })
-        return CARDS_PER_SLOT_UPGRADE_COST
+        const cost = cardsPerSlotUpgradeCost(s.cardsPerSlot)
+        if (!s.spendCrystals(cost)) return false
+        set({ cardsPerSlot: Math.min(MAX_CARDS_PER_SLOT, s.cardsPerSlot + 1) })
+        return cost
       },
 
       // --- Team point capacity (Pokérogue-style) ---

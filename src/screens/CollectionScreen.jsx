@@ -6,8 +6,12 @@ import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { frName } from '../data/frenchNames.js'
 import { CT_BY_ID } from '../data/ct.js'
+import { buildMoveset, movesetSize } from '../engine/combatEngine.js'
 import StatBars from '../components/StatBars.jsx'
 import TypeBadge from '../components/TypeBadge.jsx'
+
+const MOVE_KIND_ICON = { attack: '⚔️', guard: '🛡️', heal: '➕', drain: '🌿', status: '✨', buff: '💪' }
+const MOVE_KIND_LABEL = { attack: 'Attaque', guard: 'Bouclier', heal: 'Soin', drain: 'Drain', status: 'Statut', buff: 'Boost' }
 
 const GEN_RANGES = {
   1: [1, 151], 2: [152, 251], 3: [252, 386], 4: [387, 493],
@@ -94,6 +98,11 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
     ? Object.fromEntries(Object.keys(species.stats).map(k => [k, bonus]))
     : {}
 
+  // Full signature moveset this Pokémon can use in combat.
+  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: species.name, types: species.types, rarity, shiny: hasShiny, holo: hasHolo }
+  const moveCount = movesetSize(synthMon)
+  const moves = buildMoveset(synthMon).slice(0, moveCount)
+
   return (
     <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-5" onClick={onClose}>
       <div className="w-full max-w-xs" onClick={e => e.stopPropagation()}>
@@ -146,9 +155,32 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
             <p className="text-[9px] text-gray-400 leading-snug">{trait.desc}</p>
           </div>
 
+          {/* All combat moves this Pokémon knows */}
+          <div className="mt-2.5 relative z-10">
+            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Attaques ({moves.length})</p>
+            <div className="space-y-1">
+              {moves.map((mv, i) => {
+                const mc = TYPE_COLORS[mv.type] || '#64748b'
+                return (
+                  <div key={i} className="flex items-center gap-2 rounded-lg p-1.5 border" style={{ background: mc + '14', borderColor: mc + '44' }}>
+                    <span className="text-sm flex-shrink-0">{mv.emoji || MOVE_KIND_ICON[mv.kind]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] font-black text-white truncate">{mv.name}</p>
+                        <span className="text-[7px] font-bold rounded px-1 flex-shrink-0" style={{ background: mc + '33', color: mc }}>{mv.type?.toUpperCase().slice(0, 3)}</span>
+                      </div>
+                      <p className="text-[8px] text-gray-400 leading-snug truncate">{mv.desc}</p>
+                    </div>
+                    <span className="text-[7px] font-bold text-gray-500 flex-shrink-0">{MOVE_KIND_LABEL[mv.kind]}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
           {/* CT slot */}
           <div className="mt-2.5 relative z-10">
-            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Capacité Technique</p>
+            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Capacité Technique (CT)</p>
             {attachedCT ? (
               <div className="flex items-center gap-2 rounded-lg bg-purple-900/30 border border-purple-700/40 p-2">
                 <span className="text-lg">{attachedCT.emoji}</span>

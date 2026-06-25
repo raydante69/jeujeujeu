@@ -10,7 +10,6 @@ import { frName } from '../data/frenchNames.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import StatBars from '../components/StatBars.jsx'
 
-const FREE_STARTERS = [1, 4, 7, 25, 133, 66]
 const MAX_TEAM = 6
 const sprite = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? 'shiny/' : ''}${id}.png`
 
@@ -30,7 +29,8 @@ export default function RunSetupScreen() {
   const entries = useMemo(() => {
     const byId = {}
     collection.forEach(c => { (byId[c.id] ||= []).push(c) })
-    const ids = new Set([...Object.keys(byId).map(Number), ...FREE_STARTERS])
+    // You can only play with Pokémon you actually own (pulled from boosters).
+    const ids = new Set(Object.keys(byId).map(Number))
     return [...ids].map(id => {
       const sp = speciesById(id)
       if (!sp) return null
@@ -156,6 +156,14 @@ export default function RunSetupScreen() {
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-3 py-2 max-w-lg mx-auto w-full">
         <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-2">Choisis ton équipe ({picked.length}/{MAX_TEAM})</p>
+        {entries.length === 0 ? (
+          <div className="rounded-2xl p-6 border border-yellow-700/40 bg-yellow-900/10 text-center mt-6">
+            <p className="text-3xl mb-2">🎴</p>
+            <p className="text-yellow-300 font-bold text-sm">Aucun Pokémon disponible</p>
+            <p className="text-gray-400 text-xs mt-1">Tu dois d'abord <span className="text-white font-bold">obtenir des Pokémon en ouvrant des boosters</span> avant de pouvoir lancer une expédition.</p>
+            <button onClick={() => navigate('shop')} className="mt-4 px-5 py-2.5 bg-yellow-500 text-black text-sm font-black rounded-xl active:scale-95 transition-all">🛍️ Aller à la boutique</button>
+          </div>
+        ) : (
         <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 pb-28">
           {filtered.map(e => {
             const sel = picked.includes(e.id)
@@ -180,6 +188,7 @@ export default function RunSetupScreen() {
             )
           })}
         </div>
+        )}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 p-3 bg-game-bg border-t border-game-border z-20">
