@@ -5,6 +5,7 @@ import { isHoloEligible } from '../data/cardModel.js'
 import { generateDailyQuests, todayKey } from '../data/quests.js'
 import { ACHIEVEMENT_BY_ID } from '../data/achievements.js'
 import { MAX_ASCENSION } from '../data/ascension.js'
+import { LATEST_VERSION } from '../data/patchNotes.js'
 
 let _uidCounter = 1000
 export function nextUid() { return _uidCounter++ }
@@ -314,6 +315,22 @@ export const useGameStore = create(
         return false
       },
 
+      // --- News / patch notes ---
+      lastSeenVersion: null,
+      markNewsSeen: () => set({ lastSeenVersion: LATEST_VERSION }),
+
+      // --- Progression: species seen/defeated in combat (Battle Pokédex) ---
+      seenSpecies: [],       // species ids encountered in battle
+      defeatedSpecies: [],   // species ids defeated in battle
+      markSpeciesSeen: (id) => set(s => (
+        s.seenSpecies.includes(id) ? {} : { seenSpecies: [...s.seenSpecies, id] }
+      )),
+      markSpeciesDefeated: (id) => set(s => {
+        const seen = s.seenSpecies.includes(id) ? s.seenSpecies : [...s.seenSpecies, id]
+        const def = s.defeatedSpecies.includes(id) ? s.defeatedSpecies : [...s.defeatedSpecies, id]
+        return { seenSpecies: seen, defeatedSpecies: def }
+      }),
+
       // --- Last combat ---
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
@@ -378,6 +395,9 @@ export const useGameStore = create(
         lastPlayedDate: null,
         streakClaimed: [],
         maxAscension: 0,
+        lastSeenVersion: null,
+        seenSpecies: [],
+        defeatedSpecies: [],
         starterPoints: START_POINTS,
         cardsPerSlot: 1,
         ctInventory: [],
@@ -388,10 +408,11 @@ export const useGameStore = create(
     }),
     {
       name: 'pokebooster-save-v1',
-      version: 4,
+      version: 5,
       // v2: reset every caught/collected Pokémon (fresh Pokédex), keep economy.
       // v3: introduces training/quests/stats — new fields default in naturally.
       // v4: adds achievements + daily streak — new fields default in naturally.
+      // v5: adds news (lastSeenVersion) + battle pokédex (seen/defeatedSpecies) — defaults in.
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {
@@ -427,6 +448,9 @@ export const useGameStore = create(
         lastPlayedDate: s.lastPlayedDate,
         streakClaimed: s.streakClaimed,
         maxAscension: s.maxAscension,
+        lastSeenVersion: s.lastSeenVersion,
+        seenSpecies: s.seenSpecies,
+        defeatedSpecies: s.defeatedSpecies,
         starterPoints: s.starterPoints,
         ctInventory: s.ctInventory,
         attachedCTs: s.attachedCTs,

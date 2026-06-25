@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import {
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth'
@@ -8,6 +11,24 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db, provider, FIREBASE_ENABLED } from '../firebase.js'
 import { useGameStore } from './gameStore.js'
 import { useRunStore } from './runStore.js'
+
+// Map Firebase auth error codes to readable French messages.
+function frAuthError(e) {
+  const code = e?.code || ''
+  const map = {
+    'auth/invalid-credential': 'Identifiant ou mot de passe incorrect.',
+    'auth/invalid-email': 'Adresse email invalide.',
+    'auth/user-not-found': 'Aucun compte trouvé avec cet identifiant.',
+    'auth/wrong-password': 'Mot de passe incorrect.',
+    'auth/email-already-in-use': 'Cette adresse email est déjà utilisée.',
+    'auth/weak-password': 'Mot de passe trop faible (6 caractères minimum).',
+    'auth/too-many-requests': 'Trop de tentatives. Réessaie plus tard.',
+    'auth/network-request-failed': 'Problème de connexion réseau.',
+    'pseudo-taken': 'Ce pseudo est déjà pris.',
+    'pseudo-invalid': 'Pseudo invalide (3-16 caractères, lettres/chiffres).',
+  }
+  return map[code] || e?.message || 'Une erreur est survenue.'
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Cloud save helpers
@@ -72,17 +93,17 @@ export const useAuthStore = create((set, get) => ({
   user:        null,   // Firebase User object or null
   loading:     true,   // true while onAuthStateChanged hasn't fired yet
   syncStatus:  'idle', // 'idle' | 'saving' | 'saved' | 'error'
-  guestMode:   false,  // user explicitly chose "play without account"
 
   // Called once from App.jsx on mount.
   init() {
     if (!FIREBASE_ENABLED) {
-      set({ loading: false, guestMode: true })
+      // Dev fallback only (no Firebase env): let the game run unauthenticated.
+      set({ loading: false })
       return
     }
     onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        set({ user: firebaseUser, loading: false, guestMode: false })
+        set({ user: firebaseUser, loading: false })
         try {
           await pullFromCloud(firebaseUser.uid)
           set({ syncStatus: 'saved' })
@@ -105,26 +126,61 @@ export const useAuthStore = create((set, get) => ({
       return result.user
     } catch (e) {
       console.error('Google login failed', e)
-      throw e
+      throw new Error(frAuthError(e))
+    }
+  },
+
+  // Register with email + password. The pseudo is mapped to the email via a
+  // Firestore `usernames/{pseudoLower}` doc so the user can later log in by pseudo.
+  async registerWithEmail(pseudo, email, password) {
+    if (!FIREBASE_ENABLED) return
+    const clean = (pseudo || '').trim()
+    if (!/^[a-zA-Z0-9_]{3,16}$/.test(clean)) throw new Error(frAuthError({ code: 'pseudo-invalid' }))
+    const key = clean.toLowerCase()
+    try {
+      // Reserve the pseudo (best-effort uniqueness check).
+      const existing = await getDoc(doc(db, 'usernames', key))
+      if (existing.exists()) throw new Error(frAuthError({ code: 'pseudo-taken' }))
+
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password)
+      await updateProfile(cred.user, { displayName: clean })
+      await setDoc(doc(db, 'usernames', key), { uid: cred.user.uid, email: email.trim() })
+      // onAuthStateChanged handles the cloud pull + autosave.
+      return cred.user
+    } catch (e) {
+      if (e?.message && !e?.code) throw e // already-translated message
+      throw new Error(frAuthError(e))
+    }
+  },
+
+  // Log in with either an email (contains '@') or a pseudo (resolved via Firestore).
+  async loginWithEmail(identifier, password) {
+    if (!FIREBASE_ENABLED) return
+    const id = (identifier || '').trim()
+    try {
+      let email = id
+      if (!id.includes('@')) {
+        const snap = await getDoc(doc(db, 'usernames', id.toLowerCase()))
+        if (!snap.exists()) throw new Error(frAuthError({ code: 'auth/user-not-found' }))
+        email = snap.data().email
+      }
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      return cred.user
+    } catch (e) {
+      if (e?.message && !e?.code) throw e
+      throw new Error(frAuthError(e))
     }
   },
 
   async logout() {
-    if (!FIREBASE_ENABLED) {
-      set({ guestMode: false })
-      return
-    }
+    if (!FIREBASE_ENABLED) return
     const uid = get().user?.uid
     if (uid) {
       try { await pushToCloud(uid) } catch { /* best effort */ }
     }
     _stopAutoSave()
     await signOut(auth)
-    set({ user: null, syncStatus: 'idle', guestMode: false })
-  },
-
-  playAsGuest() {
-    set({ guestMode: true, loading: false })
+    set({ user: null, syncStatus: 'idle' })
   },
 
   async saveToCloud() {

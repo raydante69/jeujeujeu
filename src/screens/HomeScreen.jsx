@@ -5,15 +5,17 @@ import { useAuthStore } from '../store/authStore.js'
 import { biomeForWave } from '../data/biomes.js'
 import { computeRank } from '../data/ranks.js'
 import { ACHIEVEMENTS, achievementProgress } from '../data/achievements.js'
+import { LATEST_VERSION } from '../data/patchNotes.js'
 import { FIREBASE_ENABLED } from '../firebase.js'
 
 export default function HomeScreen() {
   const {
     navigate, crystals, money, collection, daily, ensureDaily, claimQuest, stats,
     tickDailyStreak, dailyStreak, achievementsClaimed, badgesEarned, isChampion, maxAscension,
+    lastSeenVersion,
   } = useGameStore()
   const { bestWave, bestFlawlessWave, totalRuns, active, wave, abandonRun } = useRunStore()
-  const { user, guestMode, logout, saveToCloud, syncStatus } = useAuthStore()
+  const { user, logout, saveToCloud, syncStatus } = useAuthStore()
   const ownedSpecies = new Set(collection.map(c => c.id)).size
   const isNew = ownedSpecies === 0 && totalRuns === 0
 
@@ -70,8 +72,6 @@ export default function HomeScreen() {
                     : <span className="text-xs">👤</span>}
                 </button>
               </div>
-            ) : guestMode ? (
-              <button onClick={() => { useAuthStore.setState({ guestMode: false }) }} className="text-[9px] text-gray-600 hover:text-gray-400 px-2 py-1 rounded-lg bg-black/30">Se connecter</button>
             ) : null
           )}
         </div>
@@ -112,6 +112,19 @@ export default function HomeScreen() {
               <p className="text-[9px] text-gray-600 mt-1">Plus que {rank.toNext} vague{rank.toNext > 1 ? 's' : ''} avant {rank.next.icon} {rank.next.name}</p>
             )}
           </div>
+
+          {/* News / actualités */}
+          <button onClick={() => navigate('news')}
+            className="relative w-full rounded-2xl p-3 border border-sky-700/40 bg-sky-900/10 flex items-center gap-2.5 active:scale-95 transition-all hover:bg-sky-900/20">
+            <span className="text-2xl">📰</span>
+            <div className="min-w-0 text-left flex-1">
+              <p className="text-sm font-black text-sky-200 leading-none">Actualités</p>
+              <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Dernières mises à jour · v{LATEST_VERSION}</p>
+            </div>
+            {lastSeenVersion !== LATEST_VERSION && (
+              <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-sky-500 text-white animate-pulse">NOUVEAU</span>
+            )}
+          </button>
 
           {/* Daily streak + Trophies row */}
           <div className="w-full grid grid-cols-2 gap-3">
