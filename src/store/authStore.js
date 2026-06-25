@@ -24,6 +24,10 @@ function frAuthError(e) {
     'auth/weak-password': 'Mot de passe trop faible (6 caractères minimum).',
     'auth/too-many-requests': 'Trop de tentatives. Réessaie plus tard.',
     'auth/network-request-failed': 'Problème de connexion réseau.',
+    'auth/unauthorized-domain': 'Ce domaine Vercel n’est pas autorisé dans Firebase Auth. Ajoute-le dans Authentication > Settings > Authorized domains.',
+    'auth/popup-blocked': 'Le navigateur a bloqué la fenêtre Google. Autorise les popups pour ce site.',
+    'auth/popup-closed-by-user': 'Connexion Google annulée.',
+    'permission-denied': 'Firestore refuse cette action. Vérifie les règles Firestore pour usernames/* et users/{uid}/*.',
     'pseudo-taken': 'Ce pseudo est déjà pris.',
     'pseudo-invalid': 'Pseudo invalide (3-16 caractères, lettres/chiffres).',
   }
@@ -125,7 +129,6 @@ export const useAuthStore = create((set, get) => ({
       // onAuthStateChanged will handle the rest
       return result.user
     } catch (e) {
-      console.error('Google login failed', e)
       throw new Error(frAuthError(e))
     }
   },
