@@ -18,6 +18,8 @@ import TrainingScreen from './screens/TrainingScreen.jsx'
 import MilestoneRewardScreen from './screens/MilestoneRewardScreen.jsx'
 import EncounterScreen from './screens/EncounterScreen.jsx'
 import AchievementsScreen from './screens/AchievementsScreen.jsx'
+import ProgressionScreen from './screens/ProgressionScreen.jsx'
+import BattleDexScreen from './screens/BattleDexScreen.jsx'
 import NewsScreen from './screens/NewsScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
@@ -35,6 +37,8 @@ const SCREENS = {
   milestone:  MilestoneRewardScreen,
   encounter:  EncounterScreen,
   achievements: AchievementsScreen,
+  progression: ProgressionScreen,
+  battledex:  BattleDexScreen,
   news:       NewsScreen,
   runshop:    RunShopScreen,
   runend:     RunEndScreen,

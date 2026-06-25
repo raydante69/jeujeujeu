@@ -135,11 +135,11 @@ export default function HomeScreen() {
                 <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Série</p>
               </div>
             </div>
-            <button onClick={() => navigate('achievements')} className="relative rounded-2xl p-3 border border-yellow-700/40 bg-yellow-900/10 flex items-center gap-2.5 active:scale-95 transition-all hover:bg-yellow-900/20">
-              <span className="text-2xl">🏆</span>
+            <button onClick={() => navigate('progression')} className="relative rounded-2xl p-3 border border-yellow-700/40 bg-yellow-900/10 flex items-center gap-2.5 active:scale-95 transition-all hover:bg-yellow-900/20">
+              <span className="text-2xl">🏅</span>
               <div className="min-w-0 text-left">
-                <p className="text-base font-black text-yellow-300 leading-none tabular-nums">{achievementsClaimed.length}<span className="text-[10px] text-yellow-400/70 font-bold">/{ACHIEVEMENTS.length}</span></p>
-                <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Trophées</p>
+                <p className="text-base font-black text-yellow-300 leading-none tabular-nums">{badgesEarned?.length || 0}<span className="text-[10px] text-yellow-400/70 font-bold">/8</span></p>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wide mt-0.5">Progression</p>
               </div>
               {claimableAch > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black w-5 h-5 rounded-full bg-green-500 text-black flex items-center justify-center animate-pulse">{claimableAch}</span>
