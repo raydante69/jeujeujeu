@@ -25,7 +25,7 @@ export default function ShopScreen() {
   } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
-  const [oddsFor, setOddsFor] = useState('booster')
+  const [oddsFor, setOddsFor] = useState('single')
 
   const theme = GEN_THEME[selectedGen] || GEN_THEME[1]
 
@@ -253,10 +253,10 @@ export default function ShopScreen() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Taux de rareté</p>
             <div className="flex gap-1">
-              {['sachet', 'booster', 'premium'].map(k => (
+              {[{ k: 'single', icon: '🎴' }, { k: 'pack5', icon: '📦' }].map(({ k, icon }) => (
                 <button key={k} onClick={() => setOddsFor(k)}
                   className={`text-[8px] font-black px-2 py-0.5 rounded-full transition-all ${oddsFor === k ? 'bg-white/20 text-white' : 'text-gray-600 hover:text-gray-400'}`}>
-                  {k === 'sachet' ? '🎴' : k === 'booster' ? '📦' : '💎'}
+                  {icon}
                 </button>
               ))}
             </div>
@@ -273,7 +273,7 @@ export default function ShopScreen() {
             ))}
           </div>
           <p className="text-[9px] text-gray-600 mt-3 leading-relaxed">
-            Shiny : 0.3% → 1.6% selon le booster. Holo : 2% → 12%. Le Pack Premium garantit Épique+.
+            Shiny : 0.3% (Solo) → 0.6% (Pack 5). Holo : 2% → 4%. Le Pack 5 garantit Rare+ sur la 5ème carte.
           </p>
         </div>
       </div>

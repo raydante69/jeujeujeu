@@ -77,7 +77,7 @@ function BigCard({ pokemon, revealed, onReveal, isNew }) {
         {/* Front */}
         <div className={`absolute inset-0 rounded-2xl bg-gradient-to-b ${style.bg} border-2 flex flex-col items-center gap-1.5 p-3 overflow-hidden`}
           style={{ backfaceVisibility: 'hidden', borderColor: style.color + 'aa', boxShadow: revealed ? `0 0 40px ${style.color}66, inset 0 0 24px ${style.color}22, 0 12px 40px rgba(0,0,0,0.7)` : 'none' }}>
-          {isNew && <div className="absolute top-2 left-2 bg-yellow-400 text-black text-[9px] font-black px-2 py-0.5 rounded leading-none z-30">NEW</div>}
+          {isNew && <div className="absolute top-2 left-2 z-30"><span className="text-xl drop-shadow">⭐</span></div>}
           <div className="absolute top-2 right-2 flex gap-1 z-30">
             {pokemon.shiny && <span className="text-sm">✨</span>}
             {pokemon.holo && <span className="text-sm animate-pulse">🌈</span>}
@@ -106,7 +106,7 @@ function BigCard({ pokemon, revealed, onReveal, isNew }) {
 }
 
 export default function PackOpeningScreen() {
-  const { pendingBoosters, clearPendingBoosters, addToCollection, navigate, collection } = useGameStore()
+  const { pendingBoosters, clearPendingBoosters, addToCollection, navigate, collection, setScrollToNew } = useGameStore()
   const [phase, setPhase] = useState('pack')
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
@@ -135,7 +135,8 @@ export default function PackOpeningScreen() {
     setIndex(i => i + 1); setRevealed(false)
   }
   const revealAll = () => setPhase('summary')
-  const handleContinue = () => { addToCollection(cards); clearPendingBoosters(); navigate('collection') }
+  const handleViewPokedex = () => { addToCollection(cards); clearPendingBoosters(); setScrollToNew(true); navigate('collection') }
+  const handleGoHome = () => { addToCollection(cards); clearPendingBoosters(); navigate('home') }
 
   const bestStyle = bestCard ? styleFor(bestCard) : null
 
@@ -202,7 +203,7 @@ export default function PackOpeningScreen() {
                 return (
                   <div key={card.uid} className={`relative rounded-xl bg-gradient-to-b ${st.bg} border flex flex-col items-center justify-center p-1.5`}
                     style={{ width: 90, height: 124, borderColor: st.color + '88', boxShadow: st.tier >= 3 ? `0 0 14px ${st.color}55` : 'none' }}>
-                    {isNew && <div className="absolute top-1 left-1 bg-yellow-400 text-black text-[6px] font-black px-1 rounded leading-none z-10">NEW</div>}
+                    {isNew && <div className="absolute top-1 left-1 z-10"><span className="text-sm">⭐</span></div>}
                     <div className="absolute top-1 right-1 flex gap-0.5 z-10">
                       {card.shiny && <span className="text-[9px]">✨</span>}
                       {card.holo && <span className="text-[9px]">🌈</span>}
@@ -230,8 +231,9 @@ export default function PackOpeningScreen() {
               </div>
             )}
 
-            <div className="mt-6 pb-8">
-              <button onClick={handleContinue} className="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-bold rounded-xl transition-all text-base">Ajouter à ma collection ✓</button>
+            <div className="mt-6 pb-8 space-y-2.5">
+              <button onClick={handleViewPokedex} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-xl transition-all text-base">📕 Voir dans le pokédex</button>
+              <button onClick={handleGoHome} className="w-full py-3 bg-white/10 hover:bg-white/15 active:scale-95 text-gray-300 font-bold rounded-xl transition-all text-sm">Retour</button>
             </div>
           </>
         )}

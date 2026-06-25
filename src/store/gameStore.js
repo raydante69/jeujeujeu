@@ -151,6 +151,24 @@ export const useGameStore = create(
       stats: { catches: 0, boostersOpened: 0, battlesWon: 0 },
       recordStat: (key, n = 1) => set(s => ({ stats: { ...s.stats, [key]: (s.stats[key] || 0) + n } })),
 
+      // --- Out-of-combat card leveling ---
+      cardLevels: {},      // { [speciesId]: number } 1-5, upgraded via duplicates
+      scrollToNew: false,  // transient: CollectionScreen scrolls to new cards when true
+      levelUpCard: (speciesId) => {
+        const s = get()
+        const currentLevel = s.cardLevels?.[speciesId] || 1
+        if (currentLevel >= 5) return false
+        const normalCards = s.collection.filter(c => c.id === speciesId && !c.shiny)
+        if (normalCards.length < 2) return false
+        const toConsume = normalCards[normalCards.length - 1]
+        set(st => ({
+          collection: st.collection.filter(c => c.uid !== toConsume.uid),
+          cardLevels: { ...(st.cardLevels || {}), [speciesId]: currentLevel + 1 },
+        }))
+        return currentLevel + 1
+      },
+      setScrollToNew: (v) => set({ scrollToNew: v }),
+
       // --- Permanent training (Salle de dressage) ---
       trainerLevels: {},   // { [speciesId]: bonusLevels }
       trainSpecies: (speciesId) => {
@@ -255,6 +273,7 @@ export const useGameStore = create(
         sessionBuys: {},
         stats: { catches: 0, boostersOpened: 0, battlesWon: 0 },
         trainerLevels: {},
+        cardLevels: {},
         daily: { date: null, quests: [] },
         starterPoints: START_POINTS,
         cardsPerSlot: 1,
@@ -293,6 +312,7 @@ export const useGameStore = create(
         routeNodeIndex: s.routeNodeIndex,
         stats: s.stats,
         trainerLevels: s.trainerLevels,
+        cardLevels: s.cardLevels,
         daily: s.daily,
         starterPoints: s.starterPoints,
       }),

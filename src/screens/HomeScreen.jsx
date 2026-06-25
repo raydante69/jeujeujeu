@@ -102,13 +102,6 @@ export default function HomeScreen() {
             </div>
           )}
 
-          {/* Quick links */}
-          <div className="grid grid-cols-3 gap-3 w-full">
-            <QuickLink icon="🛍️" label="Boosters" onClick={() => navigate('shop')} />
-            <QuickLink icon="📕" label="Pokédex" onClick={() => navigate('collection')} />
-            <QuickLink icon="🏋️" label="Dressage" onClick={() => navigate('training')} />
-          </div>
-
           {/* Stats */}
           <div className="w-full grid grid-cols-4 gap-2">
             <Stat label="Captures" value={stats?.catches || 0} />
