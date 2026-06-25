@@ -157,7 +157,7 @@ export function moveDamage(move, caster, enemy, relicAgg = {}) {
   const lvl = caster.level || 5
   const atk = caster.stats?.atk || lvl * 2
   const eff = effectiveness(move.type, enemy.types || ['normal'])
-  let dmg = (lvl * 2.2 + atk * 0.35) * (move.power || 1) * Math.max(eff, 0.25)
+  let dmg = (lvl * 1.4 + atk * 0.8) * (move.power || 1) * Math.max(eff, 0.25)
   const trait = getTrait(caster.id, caster.types)
   dmg *= traitDamageMult(trait, move.type)
   const typeBoost = (relicAgg.typeBoost && relicAgg.typeBoost[move.type]) || 0
@@ -184,23 +184,24 @@ export function computeIntent(enemy, team, hps) {
   if (!alive.length) return null
   const lvl = enemy.level || 5
   const t0 = (enemy.types || ['normal'])[0]
-  const role = enemy.isBoss ? 1.5 : enemy.kind === 'elite' ? 1.2 : 1
+  const role = enemy.isBoss ? 1.3 : enemy.kind === 'elite' ? 1.1 : 1
   const heavy = (enemy.isBoss || enemy.kind === 'elite') && Math.random() < 0.3
-  const mult = heavy ? 1.85 : 1
+  const mult = heavy ? 1.4 : 1
 
-  // Random number of targets: usually 1, sometimes several.
-  const maxTargets = Math.min(alive.length, enemy.isBoss ? 3 : 2)
+  // Random number of targets: usually 1, sometimes 2 max.
+  const maxTargets = Math.min(alive.length, 2)
   let nTargets = 1
-  const roll = Math.random()
-  if (maxTargets >= 3 && roll < 0.12) nTargets = 3
-  else if (maxTargets >= 2 && roll < 0.35) nTargets = 2
+  if (maxTargets >= 2 && Math.random() < 0.28) nTargets = 2
   const chosen = shuffle(alive).slice(0, nTargets)
 
   // Multi-target hits deal a little less to each individual target.
-  const spread = nTargets > 1 ? 0.72 : 1
+  const spread = nTargets > 1 ? 0.65 : 1
   const targets = chosen.map(target => {
     const eff = effectiveness(t0, target.types || ['normal'])
-    const dmg = Math.max(1, Math.round(lvl * 1.7 * role * mult * spread * Math.max(eff, 0.5)))
+    const rawDmg = Math.max(1, Math.round(lvl * 0.9 * role * mult * spread * Math.max(eff, 0.5)))
+    // DEF stat reduces incoming damage
+    const defStat = target.stats?.def || 5
+    const dmg = Math.max(1, Math.round(rawDmg * (100 / (100 + defStat * 0.8))))
     return { targetUid: target.uid, targetName: target.name, damage: dmg, eff }
   })
   const moveName = heavy ? (HEAVY_NAMES[t0] || 'Charge Lourde') : (STRIKE_NAMES[t0] || 'Attaque')

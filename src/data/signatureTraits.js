@@ -269,7 +269,7 @@ const ABILITIES = {
   128:{ name: 'Intimidation',      emoji: '🐂', dmgType: 'normal',   dmgMult: 0.30, statusTurns: 1,       desc: '+30% Normal, statuts +1 tour.' },
 
   // ── Magikarp line ───────────────────────────────────────────────────────────
-  129:{ name: 'Maladroit',         emoji: '🐟', dmgType: 'water',    dmgMult: 0.05,                       desc: '+5% Eau (encore un peu limité...).' },
+  129:{ name: 'Maladroit',         emoji: '🐟', dmgType: 'water',    dmgMult: 0.15,                       desc: '+15% Eau (un jour il sera fort...).' },
   130:{ name: 'Fureur',            emoji: '🌊', dmgType: '*',        dmgMult: 0.15, startLevel: 3,        desc: '+15% tous types, +3 niveaux au départ.' },
 
   // ── Lapras ──────────────────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ const ABILITIES = {
   149:{ name: 'Force Dracos',      emoji: '🐉', dmgType: 'dragon',   dmgMult: 0.35, guardMult: 0.20, startLevel: 4, desc: '+35% Dragon, boucliers +20%, +4 niveaux au départ.' },
 
   // ── Mewtwo & Mew ────────────────────────────────────────────────────────────
-  150:{ name: 'Pression Psy',      emoji: '🔮', dmgType: 'psychic',  dmgMult: 0.40, startLevel: 8, statusTurns: 1, desc: '+40% Psy, statuts +1 tour, +8 niveaux au départ.' },
+  150:{ name: 'Pression Psy',      emoji: '🔮', dmgType: 'psychic',  dmgMult: 0.30, startLevel: 5, statusTurns: 1, desc: '+30% Psy, statuts +1 tour.' },
   151:{ name: 'Métamorph+',        emoji: '✨', dmgType: '*',        dmgMult: 0.20, startLevel: 5, healMult: 0.20, desc: '+20% tous types, soins +20%, +5 niveaux au départ.' },
 }
 

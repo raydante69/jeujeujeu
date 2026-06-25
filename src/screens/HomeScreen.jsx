@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
+import { useAuthStore } from '../store/authStore.js'
 import { biomeForWave } from '../data/biomes.js'
+import { FIREBASE_ENABLED } from '../firebase.js'
 
 export default function HomeScreen() {
   const { navigate, crystals, money, collection, daily, ensureDaily, claimQuest, stats } = useGameStore()
   const { bestWave, totalRuns, active, wave, abandonRun } = useRunStore()
+  const { user, guestMode, logout, saveToCloud, syncStatus } = useAuthStore()
   const ownedSpecies = new Set(collection.map(c => c.id)).size
   const isNew = ownedSpecies === 0 && totalRuns === 0
 
@@ -25,7 +28,33 @@ export default function HomeScreen() {
           <Pill icon="💰" value={money.toLocaleString('fr')} />
           <Pill icon="💎" value={crystals} />
         </div>
-        <Pill icon="📕" value={`${ownedSpecies}/151`} />
+        <div className="flex items-center gap-2">
+          <Pill icon="📕" value={`${ownedSpecies}/151`} />
+          {FIREBASE_ENABLED && (
+            user ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={saveToCloud}
+                  title="Sauvegarder"
+                  className="w-7 h-7 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-sm active:scale-90 transition-all"
+                >
+                  {syncStatus === 'saving' ? '🔄' : syncStatus === 'error' ? '⚠️' : '☁️'}
+                </button>
+                <button
+                  onClick={logout}
+                  title={`Déconnexion (${user.displayName || user.email})`}
+                  className="w-7 h-7 rounded-full overflow-hidden border border-white/20 flex-shrink-0"
+                >
+                  {user.photoURL
+                    ? <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-xs">👤</span>}
+                </button>
+              </div>
+            ) : guestMode ? (
+              <button onClick={() => { useAuthStore.setState({ guestMode: false }) }} className="text-[9px] text-gray-600 hover:text-gray-400 px-2 py-1 rounded-lg bg-black/30">Se connecter</button>
+            ) : null
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 max-w-lg mx-auto w-full relative z-10">

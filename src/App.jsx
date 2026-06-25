@@ -2,6 +2,8 @@ import React, { useEffect } from 'react'
 import { useGameStore } from './store/gameStore.js'
 import { useRunStore } from './store/runStore.js'
 import { loadPokemonData, ensureUidAbove } from './data/pokemon.js'
+import AuthGate from './components/AuthGate.jsx'
+import { useAuthStore } from './store/authStore.js'
 import HomeScreen from './screens/HomeScreen.jsx'
 import ShopScreen from './screens/ShopScreen.jsx'
 import PackOpeningScreen from './screens/PackOpeningScreen.jsx'
@@ -83,11 +85,13 @@ export default function App() {
   const showNav = NAV_SCREENS.includes(currentScreen)
 
   return (
-    <div className="min-h-screen bg-game-bg text-white">
-      <div className={showNav ? 'pb-16' : ''}>
-        <Screen />
+    <AuthGate>
+      <div className="min-h-screen bg-game-bg text-white">
+        <div className={showNav ? 'pb-16' : ''}>
+          <Screen />
+        </div>
+        {showNav && <BottomNav />}
       </div>
-      {showNav && <BottomNav />}
-    </div>
+    </AuthGate>
   )
 }

@@ -30,12 +30,12 @@ export function buildEnemy(wave, rng = Math.random) {
   const kind = waveKind(wave)
 
   let id, level, hpFactor, name
-  const baseLevel = Math.max(3, Math.round(3 + wave * 1.5))
+  const baseLevel = Math.max(3, Math.round(2 + wave * 1.0))
 
   if (kind === 'boss') {
     id = pickFrom(biome.bosses, rng)
-    level = baseLevel + 6 + Math.round(wave * 0.4)
-    hpFactor = 2.6
+    level = baseLevel + 4 + Math.round(wave * 0.25)
+    hpFactor = 1.8
   } else if (kind === 'elite') {
     id = pickFrom(biome.pool, rng)
     level = baseLevel + 3
@@ -64,6 +64,9 @@ export function makeRunMon(speciesId, level = 5) {
   inst.xp = 0
   inst.runLevel = level
   inst.rarity = speciesRarity(sp)
+  // Player Pokémon get a HP boost so early-game is survivable
+  inst.maxHp = Math.round(inst.stats.hp * 2.5)
+  inst.hp = inst.maxHp
   return inst
 }
 

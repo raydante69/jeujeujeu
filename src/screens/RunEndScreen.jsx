@@ -1,11 +1,16 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
+import { useAuthStore } from '../store/authStore.js'
 import { biomeForWave } from '../data/biomes.js'
 
 export default function RunEndScreen() {
   const { navigate } = useGameStore()
   const { lastSummary, bestWave, team, lastStarters, startRun } = useRunStore()
+  const { saveToCloud } = useAuthStore()
+
+  // Auto-save on end of run (rewards credited)
+  useEffect(() => { saveToCloud() }, []) // eslint-disable-line
   const reached = lastSummary?.reached ?? 0
   const crystals = lastSummary?.crystals ?? 0
   const money = lastSummary?.money ?? 0
