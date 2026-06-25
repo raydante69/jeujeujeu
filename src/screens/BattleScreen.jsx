@@ -11,16 +11,16 @@ import {
 } from '../engine/combatEngine.js'
 import { aggregateRelics } from '../data/relics.js'
 import { aggregateAscension } from '../data/ascension.js'
-import { getWeakTypes } from '../engine/comboBurst.js'
 import { biomeForWave } from '../data/biomes.js'
 import { getTrait } from '../data/signatureTraits.js'
-import { TYPE_COLORS, TYPE_LABELS_FR } from '../data/types.js'
+import { TYPE_COLORS, TYPE_LABELS_FR, typeMatchups } from '../data/types.js'
 import { MODIFIER_DEF } from '../data/enemyModifiers.js'
 import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
 import { rollRandomCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
 import ItemSprite from '../components/ItemSprite.jsx'
+import StatBars from '../components/StatBars.jsx'
 
 const KIND_ICON = { attack: '⚔️', guard: '🛡️', heal: '➕', drain: '🌿', status: '✨', buff: '💪' }
 
@@ -61,6 +61,110 @@ function previewCard(card, caster, enemy, relicAgg) {
     return [{ label: `+${Math.round((card.bonus || 0.7) * 100)}%`, color: '#f97316' }]
   }
   return null
+}
+
+// Faint background glyph behind the card sprite, by move kind.
+const CARD_BG_ICON = { attack: '⚔️', drain: '⚔️', guard: '🛡️', heal: '❤️', status: '✨', buff: '💪' }
+
+// Compute what the damage row shows: base vs effective with weakness/resist coloring.
+function cardDamageInfo(card, caster, enemy, relicAgg) {
+  const sh = (caster.shiny ? 1.15 : 1) * (caster.holo ? 1.20 : 1)
+  if (card.kind === 'attack' || card.kind === 'drain') {
+    const { dmg, eff } = moveDamage(card, caster, enemy, relicAgg)
+    const factor = Math.max(eff, 0.25)
+    return {
+      kind: 'dmg',
+      eff,
+      effDmg: Math.max(1, Math.round(dmg * sh)),
+      baseDmg: Math.max(1, Math.round((dmg / factor) * sh)),
+    }
+  }
+  if (card.kind === 'guard') {
+    const g = guardValue(card, caster, relicAgg)
+    return { kind: 'guard', value: g }
+  }
+  if (card.kind === 'heal') {
+    return { kind: 'heal', value: Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1)) }
+  }
+  if (card.kind === 'status') {
+    const def = STATUS_DEF[card.status]
+    return { kind: 'status', label: def?.label || '✨', color: def?.color || '#facc15' }
+  }
+  if (card.kind === 'buff') {
+    return { kind: 'buff', label: `+${Math.round((card.bonus || 0.7) * 100)}%` }
+  }
+  return { kind: 'none' }
+}
+
+// Reusable combat card: big sprite center, faint kind glyph behind, name + damage.
+// Damage in white = neutral; on weakness the base is struck-through (left) and the
+// boosted value shows in red (right); on resistance the value shows in blue.
+function AttackCard({ card, caster, enemy, relicAgg = {}, onClick, disabled }) {
+  const tc = TYPE_COLORS[card.type] || '#64748b'
+  const info = cardDamageInfo(card, caster, enemy, relicAgg)
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className="relative rounded-xl flex flex-col items-center justify-between overflow-hidden transition-all active:scale-95 hover:-translate-y-0.5 disabled:opacity-50"
+      style={{ width: 104, height: 124, paddingTop: 6, paddingBottom: 6,
+        background: `linear-gradient(160deg, ${tc}26, #0f172a)`, border: `2px solid ${tc}cc`, boxShadow: `0 0 8px ${tc}44` }}>
+      {/* Faint background glyph (behind the sprite) */}
+      <span className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+        style={{ fontSize: 64, opacity: 0.10, lineHeight: 1 }}>{CARD_BG_ICON[card.kind] || '⚔️'}</span>
+      {/* Sprite */}
+      <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${caster.shiny ? 'shiny/' : ''}${caster.id}.png`}
+        alt={caster.name} className="relative z-10 w-14 h-14 object-contain pixelated" />
+      {/* Name */}
+      <p className="relative z-10 text-[9px] font-black text-white text-center leading-tight px-1 w-full truncate">{card.name}</p>
+      {/* Damage / value row */}
+      <div className="relative z-10 flex items-baseline justify-center gap-1 h-5">
+        {info.kind === 'dmg' && (
+          info.eff > 1 ? (
+            <>
+              <span className="text-[10px] font-bold line-through text-gray-500">{info.baseDmg}</span>
+              <span className="text-sm font-black text-red-400">{info.effDmg}</span>
+            </>
+          ) : info.eff < 1 ? (
+            <>
+              <span className="text-[10px] font-bold line-through text-gray-500">{info.baseDmg}</span>
+              <span className="text-sm font-black text-sky-400">{info.effDmg}</span>
+            </>
+          ) : (
+            <span className="text-sm font-black text-white">{info.effDmg}</span>
+          )
+        )}
+        {info.kind === 'guard'  && <span className="text-sm font-black text-sky-300">{info.value > 0 ? `🛡️ ${info.value}` : '🚫'}</span>}
+        {info.kind === 'heal'   && <span className="text-sm font-black text-green-400">+{info.value}</span>}
+        {info.kind === 'status' && <span className="text-[11px] font-black" style={{ color: info.color }}>{info.label}</span>}
+        {info.kind === 'buff'   && <span className="text-sm font-black text-orange-400">{info.label}</span>}
+      </div>
+    </button>
+  )
+}
+
+// Weaknesses / resistances / immunities of a Pokémon, shown with real type icons.
+function MatchupSection({ types }) {
+  const { weak, resist, immune } = typeMatchups(types || ['normal'])
+  const Row = ({ label, list, color }) => (
+    list.length === 0 ? null : (
+      <div className="flex items-start gap-2 mb-1.5">
+        <span className="text-[9px] font-black uppercase w-16 flex-shrink-0 pt-1" style={{ color }}>{label}</span>
+        <div className="flex flex-wrap gap-1">
+          {list.map(t => <TypeBadge key={t} type={t} size="img" />)}
+        </div>
+      </div>
+    )
+  )
+  return (
+    <div>
+      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Faiblesses & résistances</p>
+      <Row label="Faible" list={weak} color="#f87171" />
+      <Row label="Résiste" list={resist} color="#60a5fa" />
+      <Row label="Immunisé" list={immune} color="#a78bfa" />
+      {weak.length === 0 && resist.length === 0 && immune.length === 0 && (
+        <p className="text-[10px] text-gray-600 italic">Aucune affinité notable.</p>
+      )}
+    </div>
+  )
 }
 
 const MAX_REROLLS = 2
@@ -207,7 +311,6 @@ export default function BattleScreen() {
     setPhase('player')
   }, []) // eslint-disable-line
 
-  const weakTypes = useMemo(() => (enemy ? getWeakTypes(enemy.types || ['normal']) : []), [enemy])
 
   // ── Swap hand (re-draw the shared hand from the team movepool) ───────
   function swapHand() {
@@ -718,14 +821,7 @@ export default function BattleScreen() {
               <HPBar hp={enemyHp} maxHp={enemyMax} showNumbers size="md" />
             </div>
           </div>
-          {weakTypes.length > 0 && phase !== 'win' && (
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              <span className="text-[9px] text-gray-600 font-bold uppercase">Faible vs</span>
-              {weakTypes.slice(0, 8).map(t => (
-                <div key={t} className="w-3.5 h-3.5 rounded-full" style={{ background: TYPE_COLORS[t] }} title={t} />
-              ))}
-            </div>
-          )}
+          {/* Weaknesses/resistances moved to the detail modal (tap the Pokémon). */}
           {/* Modifier badges — red = buff enemy, blue = nerf enemy */}
           {enemy.modifiers?.length > 0 && (
             <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -990,39 +1086,7 @@ export default function BattleScreen() {
                 {hand.map(card => {
                   const owner = team.find(m => m.uid === card.ownerUid)
                   if (!owner) return null
-                  const tc = TYPE_COLORS[card.type] || '#64748b'
-                  const preview = previewCard(card, owner, enemy, relicAgg)
-                  return (
-                    <button key={card.uid} onClick={() => playCard(card)}
-                      className="rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 hover:-translate-y-0.5"
-                      style={{
-                        width: 104,
-                        background: `linear-gradient(160deg, ${tc}2a, #0f172a)`,
-                        border: `2px solid ${tc}cc`,
-                        boxShadow: `0 0 8px ${tc}44`,
-                      }}>
-                      {/* Owner header */}
-                      <div className="flex items-center gap-1 w-full">
-                        <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${owner.shiny ? 'shiny/' : ''}${owner.id}.png`}
-                          alt={owner.name} className="w-7 h-7 object-contain pixelated flex-shrink-0" />
-                        <p className="text-[7px] text-gray-300 font-bold truncate leading-none flex-1">{owner.name}</p>
-                      </div>
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px]">{KIND_ICON[card.kind]}</span>
-                        <span className="text-[7px] font-bold rounded px-1" style={{ background: tc + '33', color: tc }}>
-                          {card.type?.toUpperCase().slice(0, 3)}
-                        </span>
-                      </div>
-                      <p className="text-[9px] font-black text-white text-center leading-tight w-full">{card.name}</p>
-                      {preview && (
-                        <div className="flex gap-1 flex-wrap justify-center">
-                          {preview.map((p, i) => (
-                            <span key={i} className="text-[9px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                  )
+                  return <AttackCard key={card.uid} card={card} caster={owner} enemy={enemy} relicAgg={relicAgg} onClick={() => playCard(card)} />
                 })}
               </div>
             </>
@@ -1057,35 +1121,9 @@ export default function BattleScreen() {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: tc + '33', color: tc }}>Niv.{mon.level}</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {moves.map(card => {
-                      const cardTc = TYPE_COLORS[card.type] || '#64748b'
-                      const preview = previewCard(card, mon, enemy, relicAgg)
-                      return (
-                        <button key={card.uid} onClick={() => setFocusedCard({ card, mon })}
-                          className="rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 hover:-translate-y-0.5"
-                          style={{
-                            width: 104,
-                            background: `linear-gradient(160deg, ${cardTc}2a, #0f172a)`,
-                            border: `2px solid ${cardTc}cc`,
-                            boxShadow: `0 0 8px ${cardTc}44`,
-                          }}>
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[10px]">{KIND_ICON[card.kind]}</span>
-                            <span className="text-[7px] font-bold rounded px-1" style={{ background: cardTc + '33', color: cardTc }}>
-                              {card.type?.toUpperCase().slice(0, 3)}
-                            </span>
-                          </div>
-                          <p className="text-[9px] font-black text-white text-center leading-tight w-full">{card.name}</p>
-                          {preview && (
-                            <div className="flex gap-1 flex-wrap justify-center">
-                              {preview.map((p, i) => (
-                                <span key={i} className="text-[9px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
-                              ))}
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
+                    {moves.map(card => (
+                      <AttackCard key={card.uid} card={card} caster={mon} enemy={enemy} relicAgg={relicAgg} onClick={() => setFocusedCard({ card, mon })} />
+                    ))}
                   </div>
                 </div>
               )
@@ -1135,9 +1173,9 @@ export default function BattleScreen() {
         </div>
       )}
 
-      {/* ── Pokémon detail modal (ally or enemy) ──────────────────────── */}
+      {/* ── Pokémon detail modal (ally or enemy) — centered ─────────────── */}
       {selectedMon && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center pb-4 px-3"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3"
           style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSelectedMon(null)}>
           <div onClick={e => e.stopPropagation()}
@@ -1193,21 +1231,18 @@ export default function BattleScreen() {
                     </div>
                   </div>
 
-                  {/* Stats */}
-                  {m.stats && Object.keys(m.stats).length > 0 && (
-                    <>
+                  {/* Stats (bars, like the Pokédex) */}
+                  {m.stats && (
+                    <div className="mb-3">
                       <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Statistiques</p>
-                      <div className="grid grid-cols-3 gap-1.5 mb-3">
-                        {Object.entries(m.stats).map(([k, v]) => (
-                          <div key={k} className="rounded-lg px-2 py-1.5 text-center"
-                            style={{ background: tc + '18', border: `1px solid ${tc}33` }}>
-                            <p className="text-[7px] text-gray-500 uppercase font-bold">{k}</p>
-                            <p className="text-sm font-black text-white">{v}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </>
+                      <StatBars stats={m.stats} accent={tc} />
+                    </div>
                   )}
+
+                  {/* Weaknesses / resistances */}
+                  <div className="mb-3">
+                    <MatchupSection types={m.types} />
+                  </div>
 
                   {/* Moves */}
                   <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Attaques ({moves.length})</p>
@@ -1254,21 +1289,18 @@ export default function BattleScreen() {
                     </div>
                   </div>
 
-                  {/* Enemy stats */}
-                  {enemy.stats && Object.keys(enemy.stats).length > 0 && (
-                    <>
+                  {/* Enemy stats (bars) */}
+                  {enemy.stats && (
+                    <div className="mb-3">
                       <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Statistiques</p>
-                      <div className="grid grid-cols-3 gap-1.5 mb-3">
-                        {Object.entries(enemy.stats).map(([k, v]) => (
-                          <div key={k} className="rounded-lg px-2 py-1.5 text-center"
-                            style={{ background: typeColor + '18', border: `1px solid ${typeColor}33` }}>
-                            <p className="text-[7px] text-gray-500 uppercase font-bold">{k}</p>
-                            <p className="text-sm font-black text-white">{v}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </>
+                      <StatBars stats={enemy.stats} accent={typeColor} />
+                    </div>
                   )}
+
+                  {/* Weaknesses / resistances */}
+                  <div className="mb-3">
+                    <MatchupSection types={enemy.types} />
+                  </div>
 
                   {/* Boss ability */}
                   {enemy.ability && (

@@ -1,5 +1,5 @@
 import React from 'react'
-import { TYPE_COLORS, TYPE_LABELS_FR } from '../data/types.js'
+import { TYPE_COLORS, TYPE_LABELS_FR, typeIconUrl } from '../data/types.js'
 
 const TYPE_EMOJI = {
   fire: '🔥', water: '💧', grass: '🌿', electric: '⚡', psychic: '🔮',
@@ -12,6 +12,23 @@ export default function TypeBadge({ type, size = 'sm' }) {
   const color = TYPE_COLORS[type] || '#888'
   const label = TYPE_LABELS_FR[type] || type
   const emoji = TYPE_EMOJI[type] || '❓'
+
+  // Real game type banner (Sword/Shield). Falls back to the colored label pill.
+  if (size === 'img') {
+    return (
+      <img
+        src={typeIconUrl(type)}
+        alt={label}
+        title={label}
+        className="h-4 w-auto object-contain"
+        loading="lazy"
+        onError={(e) => {
+          e.target.outerHTML =
+            `<span style="background:${color}33;color:${color};border:1px solid ${color}66" class="inline-block rounded font-bold uppercase tracking-wide text-[9px] px-1.5 py-0.5">${label}</span>`
+        }}
+      />
+    )
+  }
 
   if (size === 'icon') {
     return (

@@ -38,6 +38,28 @@ export function effectiveness(atk, defTypes) {
   return defTypes.reduce((mult, dt) => mult * (row[dt] ?? 1), 1)
 }
 
+// Real Pokémon type icons (Sword/Shield banners) from the PokeAPI sprites repo,
+// the same source already used for Pokémon artwork.
+export const TYPE_ICON_ID = {
+  normal: 1, fighting: 2, flying: 3, poison: 4, ground: 5, rock: 6, bug: 7,
+  ghost: 8, steel: 9, fire: 10, water: 11, grass: 12, electric: 13,
+  psychic: 14, ice: 15, dragon: 16, dark: 17, fairy: 18,
+}
+export const typeIconUrl = (t) =>
+  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-viii/sword-shield/${TYPE_ICON_ID[t] || 1}.png`
+
+// Defender matchups: which attacking types are super-effective / resisted / nullified.
+export function typeMatchups(defTypes) {
+  const table = {}
+  for (const atk of TYPES) table[atk] = effectiveness(atk, defTypes)
+  return {
+    weak:   TYPES.filter(t => table[t] > 1).sort((a, b) => table[b] - table[a]),
+    resist: TYPES.filter(t => table[t] < 1 && table[t] > 0),
+    immune: TYPES.filter(t => table[t] === 0),
+    table,
+  }
+}
+
 export function typeColor(type) {
   return TYPE_COLORS[type] || '#888'
 }
