@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import {
-  buildEnemy, xpForWin, goldForWin, gainXp, waveKind,
+  buildEnemy, xpForWin, goldForWin, gainXp, waveKind, xpToNext,
 } from '../engine/runEngine.js'
+import { sfx } from '../lib/sfx.js'
 import { recomputeStats } from '../data/pokemon.js'
 import {
   drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF, buildMoveset, movesetSize,
@@ -63,6 +64,48 @@ function previewCard(card, caster, enemy, relicAgg) {
 }
 
 const MAX_REROLLS = 2
+
+// Animated end-of-combat XP row: fills the bar from startPct→endPct and, on a
+// level-up, plays the level-up jingle and flashes the new level in gold.
+function XpGainRow({ row }) {
+  const [pct, setPct] = useState(row.startPct)
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    const t1 = setTimeout(() => setPct(row.endPct), 60)
+    let t2
+    if (row.leveled || row.evoTo) {
+      t2 = setTimeout(() => {
+        setFlash(true)
+        sfx(row.evoTo ? 'evolve' : 'levelUp')
+        setTimeout(() => setFlash(false), 1400)
+      }, 520)
+    }
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [row])
+
+  return (
+    <div className="flex items-center gap-2">
+      <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${row.shiny ? 'shiny/' : ''}${row.id}.png`}
+        alt={row.name} className={`w-8 h-8 object-contain pixelated flex-shrink-0 ${!row.alive ? 'grayscale opacity-50' : ''}`} loading="lazy" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-[10px] font-bold text-white truncate">{row.name}</p>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {row.evoTo && <span className="text-[8px] font-black text-purple-300">✨ Évolution !</span>}
+            <span className={`text-[10px] font-black transition-all ${flash ? 'scale-125' : ''}`}
+              style={{ color: flash ? '#fde047' : '#9ca3af', textShadow: flash ? '0 0 8px #fde04788' : 'none' }}>
+              Niv.{row.levelAfter}
+            </span>
+            {row.leveled && <span className="text-[8px] font-black text-green-300">↑</span>}
+          </div>
+        </div>
+        <div className="h-1.5 rounded-full bg-black/50 mt-0.5 overflow-hidden">
+          <div className="h-full rounded-full bg-cyan-400 transition-all duration-700 ease-out" style={{ width: `${Math.round(pct * 100)}%` }} />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function BattleScreen() {
   const { navigate, cardsPerSlot, addCT } = useGameStore()
@@ -145,6 +188,7 @@ export default function BattleScreen() {
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
     setTeamStatus({})
     reviveUsed.current = false
+    useGameStore.getState().markSpeciesSeen(e.id)   // Battle Pokédex tracking
     // Apply shield_start modifier
     const shieldMod = e.modifiers?.find(m => m.id === 'shield_start')
     setEnemyShield(shieldMod ? Math.round((e.level || 5) * 4) : 0)
@@ -438,12 +482,15 @@ export default function BattleScreen() {
     const xpMult = (relicAgg.xpMult || 1) * (enemy.modifiers?.some(m => m.id === 'xp_gift') ? 1.5 : 1)
     const xpEach = Math.round(xpForWin(enemy, wave) * xpMult)
     const events = []
+    const xpRows = []   // per-mon XP animation data for the win panel
     // Level cap: Pokémon can't exceed wave + 3 to prevent easy snowballing
     const levelCap = Math.max(5, wave + 3)
     const updated = team.map(m => {
       const copy = { ...m, hp: finalHp[m.uid] ?? m.hp }
-      if (copy.hp > 0) {
-        const before = copy.level
+      const alive = copy.hp > 0
+      const lvlBefore = copy.level
+      const xpBefore = copy.xp || 0
+      if (alive) {
         const ev = gainXp(copy, xpEach)
         if (copy.level > levelCap) {
           copy.level = levelCap
@@ -451,10 +498,24 @@ export default function BattleScreen() {
           recomputeStats(copy)
           copy.hp = Math.min(copy.hp, copy.maxHp)
         }
-        if (ev.levels.length || ev.evolutions.length) events.push({ name: copy.name, from: before, to: copy.level, evo: ev.evolutions })
+        if (ev.levels.length || ev.evolutions.length) events.push({ name: copy.name, from: lvlBefore, to: copy.level, evo: ev.evolutions })
       }
+      const leveled = copy.level > lvlBefore
+      xpRows.push({
+        uid: copy.uid, name: copy.name, id: copy.id, shiny: copy.shiny, holo: copy.holo,
+        alive, gained: alive ? xpEach : 0,
+        levelBefore: lvlBefore, levelAfter: copy.level, leveled,
+        startPct: leveled ? 0 : Math.min(1, xpBefore / xpToNext(lvlBefore)),
+        endPct: Math.min(1, (copy.xp || 0) / xpToNext(copy.level)),
+      })
       return copy
     })
+    // Attach evolution names to rows.
+    for (const ev of events) {
+      if (!ev.evo?.length) continue
+      const row = xpRows.find(r => r.name === ev.evo[0].to)
+      if (row) row.evoTo = ev.evo[0].to
+    }
     let goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
     if (enemy.modifiers?.some(m => m.id === 'gold_gift')) goldGain = Math.round(goldGain * 1.5)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
@@ -494,8 +555,12 @@ export default function BattleScreen() {
       }
     }
 
-    setWinSummary({ xpEach, events, goldGain, drops })
+    // Track species seen/defeated for the Battle Pokédex (Progression).
+    g.markSpeciesDefeated(enemy.id)
+
+    setWinSummary({ xpEach, events, goldGain, drops, xpRows })
     setPhase('win')
+    sfx('win')
     addLog(`✅ ${enemy.name} vaincu !`)
     drops.forEach(d => addLog(`🎁 ${d.label}`))
   }
@@ -503,6 +568,7 @@ export default function BattleScreen() {
   function lose(finalHp) {
     run.commitTeam(team.map(m => ({ ...m, hp: finalHp[m.uid] ?? m.hp })))
     run.setOutcome('lose')
+    sfx('lose')
     setPhase('lose')
   }
 
@@ -524,6 +590,7 @@ export default function BattleScreen() {
 
   function resetBattleState(newEnemy) {
     setEnemy(newEnemy)
+    useGameStore.getState().markSpeciesSeen(newEnemy.id)
     setEnemyHp(newEnemy.maxHp)
     setEnemyMax(newEnemy.maxHp)
     setEStatus(null)
@@ -807,15 +874,25 @@ export default function BattleScreen() {
               <span className="text-yellow-300">+{winSummary.goldGain} 💰</span>
               <span className="text-cyan-300">+{winSummary.xpEach} XP</span>
             </div>
-            {winSummary.events.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {winSummary.events.map((ev, i) => (
-                  <div key={i} className="text-xs">
-                    {ev.evo.length > 0
-                      ? <p className="text-purple-300 font-bold">✨ {ev.evo[0].from} → {ev.evo[0].to} !</p>
-                      : <p className="text-cyan-300">⬆️ {ev.name} Niv.{ev.from} → {ev.to}</p>}
+
+            {/* Drops earned */}
+            {winSummary.drops?.length > 0 && (
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                {winSummary.drops.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5 rounded-lg px-2 py-1 bg-black/30 border border-white/10">
+                    {d.slug
+                      ? <ItemSprite slug={d.slug} emoji={d.emoji} size={18} />
+                      : <span className="text-sm">{d.emoji}</span>}
+                    <span className="text-[10px] font-bold text-gray-200">{d.label}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Per-Pokémon XP gain — animated bars + level-up flash */}
+            {winSummary.xpRows?.length > 0 && (
+              <div className="mt-3 space-y-1.5 text-left">
+                {winSummary.xpRows.map(row => <XpGainRow key={row.uid} row={row} />)}
               </div>
             )}
             {/* No capture during trainer/league battles — you fight the trainer, not wild mons */}
