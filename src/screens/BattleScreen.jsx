@@ -9,6 +9,7 @@ import {
   drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF,
 } from '../engine/combatEngine.js'
 import { aggregateRelics } from '../data/relics.js'
+import { aggregateAscension } from '../data/ascension.js'
 import { getWeakTypes } from '../engine/comboBurst.js'
 import { biomeForWave } from '../data/biomes.js'
 import { getTrait } from '../data/signatureTraits.js'
@@ -65,8 +66,9 @@ const MAX_REROLLS = 2
 export default function BattleScreen() {
   const { navigate, cardsPerSlot, addCT } = useGameStore()
   const run = useRunStore()
-  const { team, relics, wave, pendingEnemy } = run
+  const { team, relics, wave, pendingEnemy, ascensionLevel } = run
   const relicAgg = useMemo(() => aggregateRelics(relics), [relics])
+  const asc = useMemo(() => aggregateAscension(ascensionLevel || 0), [ascensionLevel])
   const kind = waveKind(wave)
   const biome = useMemo(() => biomeForWave(wave), [wave])
   const handSize = cardsPerSlot || 1
@@ -112,7 +114,7 @@ export default function BattleScreen() {
 
   // ── Init ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const e = pendingEnemy || buildEnemy(wave)
+    const e = pendingEnemy || buildEnemy(wave, Math.random, asc)
     const startHp = {}
     team.forEach(m => {
       let h = m.hp
@@ -124,6 +126,8 @@ export default function BattleScreen() {
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
     setTeamStatus({}); setEnemyShield(0)
     reviveUsed.current = false
+    // Ascension 'Boss Enragés' : the boss starts in a rage.
+    if (e.isBoss && asc.bossRageFromStart) { setEnraged(true); addLog(`😡 ${e.name} démarre enragé (Ascension) !`) }
     if (e.ability) addLog(`✨ Capacité du boss : ${ABILITY_LABEL[e.ability] || e.ability}`)
 
     addLog(e.isBoss ? `💀 BOSS : ${e.name} (Niv.${e.level}) surgit !`
@@ -132,7 +136,7 @@ export default function BattleScreen() {
       : `Un ${e.name} sauvage apparaît !`)
 
     setHand(drawHand(team, startHp, handSize))
-    setIntent(computeIntent(e, team, startHp))
+    setIntent(computeIntent(e, team, startHp, asc))
     setRerolls(MAX_REROLLS)
     setPhase('player')
   }, []) // eslint-disable-line
@@ -225,7 +229,7 @@ export default function BattleScreen() {
         const fallback = intent0?.targets?.length
           ? intent0.targets
           : (intent0 ? [{ targetUid: intent0.targetUid, targetName: intent0.targetName, damage: intent0.damage }] : [])
-        const hits = fallback.length ? fallback : (computeIntent(enemy, team, localHp)?.targets || [])
+        const hits = fallback.length ? fallback : (computeIntent(enemy, team, localHp, asc)?.targets || [])
         let remainingGuard = currentGuard
         let dealtTotal = 0
 
@@ -292,7 +296,7 @@ export default function BattleScreen() {
         setTurn(t => t + 1)
         setGuard(0)
         setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
-        setIntent(computeIntent(enemy, team, localHp))
+        setIntent(computeIntent(enemy, team, localHp, asc))
         setPhase('player')
       }, 480)
     }, 720)
@@ -406,7 +410,7 @@ export default function BattleScreen() {
       }
       return copy
     })
-    const goldGain = goldForWin(wave) + (relicAgg.goldWin || 0)
+    const goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
@@ -457,6 +461,8 @@ export default function BattleScreen() {
   function continueAfterWin() {
     run.advanceWave()
     if (enemy.isBoss) {
+      // Clearing a boss at the current ceiling unlocks the next Ascension tier.
+      useGameStore.getState().unlockNextAscension(ascensionLevel || 0)
       navigate('runshop')
     } else {
       const newWins = run.recordRunWin()

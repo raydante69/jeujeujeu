@@ -5,6 +5,7 @@ import { speciesById } from '../data/pokemon.js'
 import { speciesRarity, rarityColor, rarityLabel, starterCost } from '../data/cardModel.js'
 import { levelBreakdown } from '../engine/collectionPower.js'
 import { getTrait } from '../data/signatureTraits.js'
+import { ASCENSION_MODS, modsAtLevel } from '../data/ascension.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { frName } from '../data/frenchNames.js'
 import TypeBadge from '../components/TypeBadge.jsx'
@@ -20,11 +21,12 @@ const FILTERS = [
 ]
 
 export default function RunSetupScreen() {
-  const { navigate, collection, trainerLevels, starterPoints, favorites, toggleFavorite, pokemonUsageCount, recordUsage } = useGameStore()
+  const { navigate, collection, trainerLevels, starterPoints, favorites, toggleFavorite, pokemonUsageCount, recordUsage, maxAscension } = useGameStore()
   const { startRun } = useRunStore()
   const [picked, setPicked] = useState([])
   const [preview, setPreview] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [ascSel, setAscSel] = useState(0)
 
   const entries = useMemo(() => {
     const byId = {}
@@ -83,7 +85,7 @@ export default function RunSetupScreen() {
       level: byIdEntry[id]?.level || 5,
       shiny: byIdEntry[id]?.hasShiny || false,
       holo: byIdEntry[id]?.hasHolo || false,
-    })))
+    })), Math.min(ascSel, maxAscension))
     navigate('run')
   }
 
@@ -136,6 +138,36 @@ export default function RunSetupScreen() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ascension selector (only once the first tier is unlocked) */}
+      {maxAscension > 0 && (
+        <div className="max-w-lg mx-auto w-full px-3 pt-3">
+          <div className="rounded-2xl p-3 border border-red-800/40 bg-red-900/10">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-black text-red-300 uppercase tracking-wide">🔥 Ascension</p>
+                <p className="text-[9px] text-gray-500">Difficulté · récompenses de prestige</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => setAscSel(v => Math.max(0, v - 1))} disabled={ascSel <= 0}
+                  className={`w-7 h-7 rounded-lg font-black text-sm ${ascSel <= 0 ? 'bg-gray-900 text-gray-700' : 'bg-red-900/60 text-red-200 active:scale-95'}`}>−</button>
+                <span className="text-base font-black text-white tabular-nums w-6 text-center">{ascSel}</span>
+                <button onClick={() => setAscSel(v => Math.min(maxAscension, v + 1))} disabled={ascSel >= maxAscension}
+                  className={`w-7 h-7 rounded-lg font-black text-sm ${ascSel >= maxAscension ? 'bg-gray-900 text-gray-700' : 'bg-red-900/60 text-red-200 active:scale-95'}`}>+</button>
+              </div>
+            </div>
+            {ascSel > 0 ? (
+              <div className="mt-2 space-y-1">
+                {modsAtLevel(ascSel).map(m => (
+                  <p key={m.level} className="text-[10px] text-gray-400 leading-snug">{m.icon} <span className="text-gray-300 font-bold">{m.name}</span> — {m.desc}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-600 mt-2">Niveau 0 — difficulté normale. Monte d'un cran pour plus de challenge {maxAscension < ASCENSION_MODS.length ? '(débloque le palier suivant en battant le boss vague 10)' : ''}.</p>
+            )}
           </div>
         </div>
       )}

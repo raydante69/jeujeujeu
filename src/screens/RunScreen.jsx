@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { buildEnemy, waveKind, xpToNext } from '../engine/runEngine.js'
 import { biomeForWave } from '../data/biomes.js'
+import { aggregateAscension } from '../data/ascension.js'
 import { getRelic, RELIC_RARITY_COLOR } from '../data/relics.js'
 import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
 import { TYPE_COLORS } from '../data/types.js'
@@ -19,7 +20,7 @@ const KIND_META = {
 export default function RunScreen() {
   const { navigate } = useGameStore()
   const run = useRunStore()
-  const { wave, gold, balls, items, team, relics, setPendingEnemy, useItem } = run
+  const { wave, gold, balls, items, team, relics, setPendingEnemy, useItem, ascensionLevel } = run
   const biome = biomeForWave(wave)
   const [msg, setMsg] = useState(null)
 
@@ -32,7 +33,7 @@ export default function RunScreen() {
     if (waveKind(wave) === 'encounter') {
       navigate('encounter')
     } else {
-      setPendingEnemy(buildEnemy(wave))
+      setPendingEnemy(buildEnemy(wave, Math.random, aggregateAscension(ascensionLevel)))
       navigate('battle')
     }
   }
@@ -58,7 +59,10 @@ export default function RunScreen() {
           <div>
             <button onClick={() => navigate('home')} className="text-gray-400 text-[11px]">‹ Quitter</button>
             <p className="font-game text-base text-white mt-0.5">{biome.emoji} {biome.name}</p>
-            <p className="text-[11px]" style={{ color: biome.accent }}>Vague {wave} · {alive}/{team.length} en forme</p>
+            <p className="text-[11px]" style={{ color: biome.accent }}>
+              Vague {wave} · {alive}/{team.length} en forme
+              {ascensionLevel > 0 && <span className="ml-1.5 text-red-300 font-bold">🔥 Asc.{ascensionLevel}</span>}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5 items-end">
             <span className="bg-black/40 rounded-full px-3 py-1 text-xs font-bold text-yellow-300">💰 {gold}</span>

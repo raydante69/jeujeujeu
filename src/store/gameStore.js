@@ -4,6 +4,7 @@ import { makeInstance, speciesById } from '../data/pokemon.js'
 import { isHoloEligible } from '../data/cardModel.js'
 import { generateDailyQuests, todayKey } from '../data/quests.js'
 import { ACHIEVEMENT_BY_ID } from '../data/achievements.js'
+import { MAX_ASCENSION } from '../data/ascension.js'
 
 let _uidCounter = 1000
 export function nextUid() { return _uidCounter++ }
@@ -300,6 +301,19 @@ export const useGameStore = create(
         }
       },
 
+      // --- Ascension (difficulty ladder) ---
+      maxAscension: 0,
+      // Called when the wave-10 boss is cleared on a run played at the current
+      // ceiling — unlocks the next tier.
+      unlockNextAscension: (playedLevel) => {
+        const s = get()
+        if (playedLevel >= s.maxAscension && s.maxAscension < MAX_ASCENSION) {
+          set({ maxAscension: s.maxAscension + 1 })
+          return true
+        }
+        return false
+      },
+
       // --- Last combat ---
       lastBattleResult: null,
       setLastBattleResult: (result) => set({ lastBattleResult: result }),
@@ -363,6 +377,7 @@ export const useGameStore = create(
         dailyStreak: 0,
         lastPlayedDate: null,
         streakClaimed: [],
+        maxAscension: 0,
         starterPoints: START_POINTS,
         cardsPerSlot: 1,
         ctInventory: [],
@@ -411,6 +426,7 @@ export const useGameStore = create(
         dailyStreak: s.dailyStreak,
         lastPlayedDate: s.lastPlayedDate,
         streakClaimed: s.streakClaimed,
+        maxAscension: s.maxAscension,
         starterPoints: s.starterPoints,
         ctInventory: s.ctInventory,
         attachedCTs: s.attachedCTs,

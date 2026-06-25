@@ -32,6 +32,7 @@ export const useRunStore = create(
       lastSummary: null,
       winsThisRun: 0,
       flawless: true,   // becomes false the moment any mon faints this run
+      ascensionLevel: 0, // difficulty tier chosen for this run
 
       // --- Derived ---
       relicAgg: () => aggregateRelics(get().relics),
@@ -40,7 +41,7 @@ export const useRunStore = create(
       // --- Run lifecycle ---
       // Accepts either [id, ...] or [{ id, level }, ...]. Levels let the
       // collection (duplicates / rarity / training) feed a stronger start.
-      startRun: (starters) => {
+      startRun: (starters, ascensionLevel = 0) => {
         const norm = (starters || []).slice(0, 6).map(s =>
           typeof s === 'number'
             ? { id: s, level: 5, shiny: false, holo: false }
@@ -58,6 +59,7 @@ export const useRunStore = create(
           items: { 'potion': 1, 'rare-candy': 1 },
           team, relics: [], pendingEnemy: null, lastOutcome: null,
           lastStarters: norm, winsThisRun: 0, flawless: true,
+          ascensionLevel: Math.max(0, ascensionLevel | 0),
         })
       },
 
@@ -228,6 +230,7 @@ export const useRunStore = create(
         pendingEnemy: s.pendingEnemy,
         winsThisRun: s.winsThisRun,
         flawless: s.flawless,
+        ascensionLevel: s.ascensionLevel,
       }),
     }
   )

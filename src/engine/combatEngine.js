@@ -181,10 +181,11 @@ export function healValue(move, caster, relicAgg = {}) {
   return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6) * mult * cursed))
 }
 
-export function computeIntent(enemy, team, hps) {
+export function computeIntent(enemy, team, hps, asc = null) {
   const alive = team.filter(p => (hps[p.uid] ?? 0) > 0)
   if (!alive.length) return null
   const lvl = enemy.level || 5
+  const ascDmg = asc?.enemyDmgMult || 1
   const t0 = (enemy.types || ['normal'])[0]
   const role = enemy.isBoss ? 1.3 : enemy.kind === 'elite' ? 1.1 : 1
   const heavy = (enemy.isBoss || enemy.kind === 'elite') && Math.random() < 0.3
@@ -200,7 +201,7 @@ export function computeIntent(enemy, team, hps) {
   const spread = nTargets > 1 ? 0.65 : 1
   const targets = chosen.map(target => {
     const eff = effectiveness(t0, target.types || ['normal'])
-    const rawDmg = Math.max(1, Math.round(lvl * 0.9 * role * mult * spread * Math.max(eff, 0.5)))
+    const rawDmg = Math.max(1, Math.round(lvl * 0.9 * role * mult * spread * ascDmg * Math.max(eff, 0.5)))
     // DEF stat reduces incoming damage
     const defStat = target.stats?.def || 5
     const dmg = Math.max(1, Math.round(rawDmg * (100 / (100 + defStat * 0.8))))

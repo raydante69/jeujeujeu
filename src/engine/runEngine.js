@@ -25,9 +25,11 @@ export function isShopWave(wave) {
 // ---- Enemy generation --------------------------------------------------
 function pickFrom(arr, rng = Math.random) { return arr[Math.floor(rng() * arr.length)] }
 
-export function buildEnemy(wave, rng = Math.random) {
+export function buildEnemy(wave, rng = Math.random, asc = null) {
   const biome = biomeForWave(wave)
-  const kind = waveKind(wave)
+  let kind = waveKind(wave)
+  // Ascension 'Élites Partout' upgrades some wild waves to elites.
+  if (kind === 'wild' && asc?.eliteChance && rng() < asc.eliteChance) kind = 'elite'
 
   let id, level, hpFactor, name
   const baseLevel = Math.max(3, Math.round(2 + wave * 1.0))
@@ -49,7 +51,7 @@ export function buildEnemy(wave, rng = Math.random) {
   const sp = speciesById(id) || speciesById(19)
   const mon = makeInstance(sp.id, level)
   const bulk = (1.05 + wave * 0.045) * hpFactor
-  mon.maxHp = Math.round(mon.maxHp * bulk)
+  mon.maxHp = Math.round(mon.maxHp * bulk * (asc?.enemyHpMult || 1))
   mon.hp = mon.maxHp
   mon.kind = kind
   mon.isBoss = kind === 'boss'
@@ -115,13 +117,14 @@ export function xpForWin(enemy, wave) {
   return Math.round((enemy.level || 5) * 4 * k)
 }
 
-export function goldForWin(wave) {
+export function goldForWin(wave, asc = null) {
   const kind = waveKind(wave)
   const base = 12 + Math.round(wave * 1.5)
-  if (kind === 'boss') return base * 3
-  if (kind === 'elite') return Math.round(base * 1.8)
-  if (kind === 'trainer') return Math.round(base * 1.3)
-  return base
+  let g = base
+  if (kind === 'boss') g = base * 3
+  else if (kind === 'elite') g = Math.round(base * 1.8)
+  else if (kind === 'trainer') g = Math.round(base * 1.3)
+  return Math.max(1, Math.round(g * (asc?.goldMult || 1)))
 }
 
 // ---- Burst resolution with relics -------------------------------------

@@ -10,7 +10,7 @@ import { FIREBASE_ENABLED } from '../firebase.js'
 export default function HomeScreen() {
   const {
     navigate, crystals, money, collection, daily, ensureDaily, claimQuest, stats,
-    tickDailyStreak, dailyStreak, achievementsClaimed, badgesEarned, isChampion,
+    tickDailyStreak, dailyStreak, achievementsClaimed, badgesEarned, isChampion, maxAscension,
   } = useGameStore()
   const { bestWave, bestFlawlessWave, totalRuns, active, wave, abandonRun } = useRunStore()
   const { user, guestMode, logout, saveToCloud, syncStatus } = useAuthStore()
@@ -104,7 +104,10 @@ export default function HomeScreen() {
             </div>
             <p className="text-[10px] text-purple-300/70 uppercase tracking-widest font-bold">Record</p>
             <p className="font-game text-3xl text-white mt-1">Vague {bestWave}</p>
-            <p className="text-xs text-gray-500 mt-1">{totalRuns} expédition{totalRuns > 1 ? 's' : ''} · biome {biomeForWave(bestWave || 1).emoji}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {totalRuns} expédition{totalRuns > 1 ? 's' : ''} · biome {biomeForWave(bestWave || 1).emoji}
+              {maxAscension > 0 && <span className="ml-1 text-red-300/80 font-bold">· 🔥 Asc.{maxAscension} débloquée</span>}
+            </p>
             {rank.toNext != null && rank.next && (
               <p className="text-[9px] text-gray-600 mt-1">Plus que {rank.toNext} vague{rank.toNext > 1 ? 's' : ''} avant {rank.next.icon} {rank.next.name}</p>
             )}
