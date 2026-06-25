@@ -11,14 +11,24 @@ const POOL = [
   { type: 'ball', id: 'great-ball',  n: 2, weight: 18 },
   { type: 'ball', id: 'ultra-ball',  n: 1, weight: 8  },
   { type: 'ball', id: 'master-ball', n: 1, weight: 1.2},
-  // Consumables
-  { type: 'item', id: 'potion',       n: 2, weight: 26 },
+  // Consumables — soins
+  { type: 'item', id: 'potion',       n: 2, weight: 24 },
   { type: 'item', id: 'super-potion', n: 1, weight: 18 },
   { type: 'item', id: 'hyper-potion', n: 1, weight: 7  },
+  { type: 'item', id: 'full-restore', n: 1, weight: 5  },
   { type: 'item', id: 'revive',       n: 1, weight: 16 },
   { type: 'item', id: 'max-revive',   n: 1, weight: 5  },
   { type: 'item', id: 'rare-candy',   n: 1, weight: 12 },
   { type: 'item', id: 'rare-candy',   n: 2, weight: 4  },
+  // Consumables — pépites & vitamines (boosts permanents)
+  { type: 'item', id: 'nugget',       n: 1, weight: 10 },
+  { type: 'item', id: 'big-nugget',   n: 1, weight: 2  },
+  { type: 'item', id: 'hp-up',        n: 1, weight: 8  },
+  { type: 'item', id: 'protein',      n: 1, weight: 7  },
+  { type: 'item', id: 'iron',         n: 1, weight: 7  },
+  { type: 'item', id: 'calcium',      n: 1, weight: 7  },
+  { type: 'item', id: 'zinc',         n: 1, weight: 7  },
+  { type: 'item', id: 'carbos',       n: 1, weight: 7  },
   // Money
   { type: 'money', value: 200,  label: '200 ₽',  emoji: '💰', color: '#eab308', weight: 22 },
   { type: 'money', value: 500,  label: '500 ₽',  emoji: '💰', color: '#eab308', weight: 10 },

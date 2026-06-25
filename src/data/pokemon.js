@@ -44,6 +44,12 @@ export function recomputeStats(inst) {
     spd: statAtLevel(s.spd, inst.level),
     spe: statAtLevel(s.spe, inst.level),
   }
+  // Permanent vitamin bonuses (run consumables) survive level-ups.
+  if (inst.statBonus) {
+    for (const [k, v] of Object.entries(inst.statBonus)) {
+      inst.stats[k] = (inst.stats[k] || 0) + v
+    }
+  }
   // hpMult is set on run-team mons (makeRunMon) to give a player HP bonus.
   inst.maxHp = Math.round(inst.stats.hp * (inst.hpMult || 1))
   if (inst.hp > inst.maxHp) inst.hp = inst.maxHp

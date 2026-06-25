@@ -38,8 +38,18 @@ export default function RunShopScreen() {
     })
     const consumItems = [
       { key: 'buy-superpot', kind: 'item', itemId: 'super-potion', n: 1, cost: 35 },
+      { key: 'buy-hyperpot', kind: 'item', itemId: 'hyper-potion', n: 1, cost: 70 },
       { key: 'buy-revive',   kind: 'item', itemId: 'revive',       n: 1, cost: 45 },
       { key: 'buy-candy',    kind: 'item', itemId: 'rare-candy',   n: 1, cost: 60 },
+      // Vitamines — boosts de stat permanents (2 tirées au hasard)
+      ...[
+        { key: 'buy-hpup',    kind: 'item', itemId: 'hp-up',   n: 1, cost: 90 },
+        { key: 'buy-protein', kind: 'item', itemId: 'protein', n: 1, cost: 90 },
+        { key: 'buy-iron',    kind: 'item', itemId: 'iron',    n: 1, cost: 90 },
+        { key: 'buy-calcium', kind: 'item', itemId: 'calcium', n: 1, cost: 90 },
+        { key: 'buy-zinc',    kind: 'item', itemId: 'zinc',    n: 1, cost: 90 },
+        { key: 'buy-carbos',  kind: 'item', itemId: 'carbos',  n: 1, cost: 90 },
+      ].sort(() => Math.random() - 0.5).slice(0, 2),
     ].map(o => {
       const c = CONSUMABLE_BY_ID[o.itemId]
       return { ...o, slug: c.slug, emoji: c.emoji, ring: c.color, title: `${c.name} ×${o.n}`, desc: c.desc }

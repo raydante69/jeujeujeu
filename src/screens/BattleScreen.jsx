@@ -15,7 +15,7 @@ import { biomeForWave } from '../data/biomes.js'
 import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS, TYPE_LABELS_FR } from '../data/types.js'
 import { MODIFIER_DEF } from '../data/enemyModifiers.js'
-import { BALLS, BALL_BY_ID } from '../data/items.js'
+import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
 import { rollRandomCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
@@ -179,13 +179,13 @@ export default function BattleScreen() {
     setTeamStatus({})
     addLog('💧 Les soins purifient les statuts de l\'équipe')
   }
+  // Cleanse a single Pokémon's affliction (the one that was healed).
+  function cleanseStatus(uid) {
+    if (!live.current.teamStatus?.[uid]) return
+    setTeamStatus(ts => { const next = { ...ts }; delete next[uid]; return next })
+  }
 
   // ── Heal helpers ─────────────────────────────────────────────────────
-  function healAll(teamHp, amount) {
-    const next = { ...teamHp }
-    for (const m of team) if ((next[m.uid] || 0) > 0) next[m.uid] = Math.min(m.maxHp, next[m.uid] + amount)
-    return next
-  }
   function healWeakest(teamHp, amount) {
     const alive = team.filter(m => (teamHp[m.uid] || 0) > 0)
     if (!alive.length) return teamHp
@@ -378,9 +378,11 @@ export default function BattleScreen() {
       addLog(`${card.emoji} ${caster.name} · ${card.name} → ${dmg}${crit ? ' CRIT!' : ''}${eff >= 2 ? ' ⚡efficace' : eff < 1 ? ' ·peu efficace' : ''}`)
 
       if (card.kind === 'drain') {
-        const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
-        finalHp = healAll(hp0, h)
-        cleanseStatuses()  // healing washes away team afflictions
+        // Lifesteal: the CASTER recovers half the damage dealt (no team-wide heal).
+        const lifesteal = Math.max(1, Math.round(dmg * 0.5 * (caster.holo ? 1.20 : 1)))
+        finalHp = { ...hp0, [caster.uid]: Math.min(caster.maxHp, (hp0[caster.uid] || 0) + lifesteal) }
+        cleanseStatus(caster.uid)
+        addLog(`🌿 ${caster.name} draine ${lifesteal} PV`)
       }
       if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
       if (finalHp !== hp0) setHp(finalHp)
@@ -400,11 +402,16 @@ export default function BattleScreen() {
         : `🚫 ${caster.name} · ${card.name} → bouclier annulé (malédiction)`)
 
     } else if (card.kind === 'heal') {
+      // Heals the single weakest living ally (no longer the whole team).
       const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
-      finalHp = healAll(hp0, h)
+      const alive = team.filter(m => (hp0[m.uid] || 0) > 0)
+      const weakest = alive.length
+        ? alive.reduce((a, b) => (hp0[a.uid] / a.maxHp < hp0[b.uid] / b.maxHp ? a : b))
+        : caster
+      finalHp = { ...hp0, [weakest.uid]: Math.min(weakest.maxHp, (hp0[weakest.uid] || 0) + h) }
       setHp(finalHp)
-      cleanseStatuses()  // healing washes away team afflictions
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV équipe`)
+      cleanseStatus(weakest.uid)
+      addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV à ${weakest.name}`)
 
     } else if (card.kind === 'status') {
       const def = STATUS_DEF[card.status]
@@ -454,25 +461,43 @@ export default function BattleScreen() {
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
 
-    // Random combat drops: CT (3%), potion (5%), great-ball (4%)
+    // Random combat drops (~30% chance of something). Returns {itemId|ball|ct, n, label}.
     const drops = []
-    const rn = Math.random()
-    if (rn < 0.03) {
-      const ct = rollRandomCT()
-      g.addCT(ct.id)
-      drops.push(`🎴 CT${ct.num} ${ct.name} obtenue !`)
-    } else if (rn < 0.08) {
-      run.addItem('super-potion', 1)
-      drops.push('🧪 Super Potion trouvée !')
-    } else if (rn < 0.12) {
-      run.addBall('great-ball', 1)
-      drops.push('🔵 Super Ball trouvée !')
+    const dropTable = [
+      { w: 3,  ct: true },
+      { w: 8,  item: 'potion',       n: 1 },
+      { w: 5,  item: 'super-potion', n: 1 },
+      { w: 3,  item: 'revive',       n: 1 },
+      { w: 2,  item: 'nugget',       n: 1 },
+      { w: 2,  item: 'hp-up',        n: 1 },
+      { w: 2,  item: 'protein',      n: 1 },
+      { w: 2,  item: 'carbos',       n: 1 },
+      { w: 4,  ball: 'poke-ball',    n: 1 },
+      { w: 3,  ball: 'great-ball',   n: 1 },
+    ]
+    if (Math.random() < 0.30) {
+      const total = dropTable.reduce((s, d) => s + d.w, 0)
+      let roll = Math.random() * total
+      const d = dropTable.find(x => (roll -= x.w) <= 0) || dropTable[0]
+      if (d.ct) {
+        const ct = rollRandomCT()
+        g.addCT(ct.id)
+        drops.push({ slug: null, emoji: '🎴', label: `CT${ct.num} ${ct.name}` })
+      } else if (d.item) {
+        const c = CONSUMABLE_BY_ID[d.item]
+        run.addItem(d.item, d.n)
+        drops.push({ slug: c.slug, emoji: c.emoji, label: `${c.name} ×${d.n}` })
+      } else if (d.ball) {
+        const b = BALL_BY_ID[d.ball]
+        run.addBall(d.ball, d.n)
+        drops.push({ slug: b.slug, emoji: b.emoji, label: `${b.name} ×${d.n}` })
+      }
     }
 
     setWinSummary({ xpEach, events, goldGain, drops })
     setPhase('win')
     addLog(`✅ ${enemy.name} vaincu !`)
-    drops.forEach(d => addLog(d))
+    drops.forEach(d => addLog(`🎁 ${d.label}`))
   }
 
   function lose(finalHp) {

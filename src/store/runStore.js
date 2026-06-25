@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { makeRunMon, gainXp, xpToNext } from '../engine/runEngine.js'
-import { makeInstance, speciesById } from '../data/pokemon.js'
+import { makeInstance, speciesById, recomputeStats } from '../data/pokemon.js'
 import { speciesRarity } from '../data/cardModel.js'
 import { aggregateRelics } from '../data/relics.js'
 import { DEFAULT_BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
@@ -94,7 +94,7 @@ export const useRunStore = create(
         set({
           active: true, wave: 1, gold: 0,
           balls: { ...DEFAULT_BALLS },
-          items: { 'potion': 1, 'rare-candy': 1 },
+          items: {},
           team, relics: [], pendingEnemy: null, lastOutcome: null,
           lastStarters: norm, winsThisRun: 0, flawless: true,
           ascensionLevel: Math.max(0, ascensionLevel | 0),
@@ -192,6 +192,23 @@ export const useRunStore = create(
             set({ team: updated })
             msg = `${target.name} gagne un niveau !`
           }
+        } else if (eff.kind === 'fullrestore') {
+          set({ team: s.team.map(m => ({ ...m, hp: m.maxHp })) })
+          msg = `${def.name} : équipe au complet !`
+        } else if (eff.kind === 'gold') {
+          set({ gold: s.gold + eff.value })
+          msg = `${def.name} : +${eff.value} or`
+        } else if (eff.kind === 'vitamin') {
+          set({
+            team: s.team.map(m => {
+              const copy = { ...m, statBonus: { ...(m.statBonus || {}), [eff.stat]: ((m.statBonus || {})[eff.stat] || 0) + eff.value } }
+              const ratio = copy.maxHp ? copy.hp / copy.maxHp : 1
+              recomputeStats(copy)
+              if (eff.stat === 'hp') copy.hp = Math.round(copy.maxHp * ratio) // keep HP ratio when max grows
+              return copy
+            }),
+          })
+          msg = `${def.name} : toute l'équipe renforcée !`
         }
         // decrement
         set(st => ({ items: { ...st.items, [id]: st.items[id] - 1 } }))

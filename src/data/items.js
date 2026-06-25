@@ -19,12 +19,24 @@ export const DEFAULT_BALLS = { 'poke-ball': 5 }
 // ───────────────────────── Consumables (in the bag, usable) ─────────────────
 // `effect` is read by runStore.useItem().
 export const CONSUMABLES = [
+  // Soins
   { id: 'potion',       name: 'Potion',        slug: 'potion',        emoji: '🧪', color: '#f87171', effect: { kind: 'heal',   value: 30 },  desc: 'Rend 30% PV à toute l\'équipe.' },
   { id: 'super-potion', name: 'Super Potion',  slug: 'super-potion',  emoji: '🧪', color: '#fb7185', effect: { kind: 'heal',   value: 60 },  desc: 'Rend 60% PV à toute l\'équipe.' },
   { id: 'hyper-potion', name: 'Hyper Potion',  slug: 'hyper-potion',  emoji: '💉', color: '#f43f5e', effect: { kind: 'heal',   value: 100 }, desc: 'Soigne complètement l\'équipe.' },
+  { id: 'full-restore', name: 'Guérison',      slug: 'full-restore',  emoji: '✨', color: '#fda4af', effect: { kind: 'fullrestore' },        desc: 'Soigne ET ranime toute l\'équipe à fond.' },
   { id: 'revive',       name: 'Rappel',        slug: 'revive',        emoji: '🪽', color: '#a3e635', effect: { kind: 'revive', value: 50 },  desc: 'Ranime les K.O. à 50% PV.' },
   { id: 'max-revive',   name: 'Rappel Max',    slug: 'max-revive',    emoji: '🪽', color: '#84cc16', effect: { kind: 'revive', value: 100 }, desc: 'Ranime les K.O. à 100% PV.' },
   { id: 'rare-candy',   name: 'Super Bonbon',  slug: 'rare-candy',    emoji: '🍬', color: '#60a5fa', effect: { kind: 'candy',  value: 1 },   desc: 'Fait gagner 1 niveau au Pokémon le plus faible.' },
+  // Or
+  { id: 'nugget',       name: 'Pépite',        slug: 'nugget',        emoji: '🟡', color: '#facc15', effect: { kind: 'gold',   value: 300 }, desc: 'Donne 300 or.' },
+  { id: 'big-nugget',   name: 'Maxi Pépite',   slug: 'big-nugget',    emoji: '🪙', color: '#f59e0b', effect: { kind: 'gold',   value: 1200 },desc: 'Donne 1200 or.' },
+  // Vitamines — bonus de stat PERMANENT sur toute l'équipe (survit aux niveaux)
+  { id: 'hp-up',        name: 'PV Plus',       slug: 'hp-up',         emoji: '❤️', color: '#fb7185', effect: { kind: 'vitamin', stat: 'hp',  value: 14 }, desc: '+PV max permanents à toute l\'équipe.' },
+  { id: 'protein',      name: 'Protéine',      slug: 'protein',       emoji: '💪', color: '#f97316', effect: { kind: 'vitamin', stat: 'atk', value: 10 }, desc: '+Attaque permanente à toute l\'équipe.' },
+  { id: 'iron',         name: 'Fer',           slug: 'iron',          emoji: '🛡️', color: '#94a3b8', effect: { kind: 'vitamin', stat: 'def', value: 10 }, desc: '+Défense permanente à toute l\'équipe.' },
+  { id: 'calcium',      name: 'Calcium',       slug: 'calcium',       emoji: '🔮', color: '#c084fc', effect: { kind: 'vitamin', stat: 'spa', value: 10 }, desc: '+Atq. Spé. permanente à toute l\'équipe.' },
+  { id: 'zinc',         name: 'Zinc',          slug: 'zinc',          emoji: '🧿', color: '#38bdf8', effect: { kind: 'vitamin', stat: 'spd', value: 10 }, desc: '+Déf. Spé. permanente à toute l\'équipe.' },
+  { id: 'carbos',       name: 'Carbone',       slug: 'carbos',        emoji: '⚡', color: '#fde047', effect: { kind: 'vitamin', stat: 'spe', value: 10 }, desc: '+Vitesse permanente à toute l\'équipe.' },
 ]
 export const CONSUMABLE_BY_ID = Object.fromEntries(CONSUMABLES.map(c => [c.id, c]))
 

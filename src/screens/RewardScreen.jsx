@@ -10,20 +10,30 @@ export default function RewardScreen() {
   const run = useRunStore()
   const [chosen, setChosen] = useState(false)
 
-  // 3 options: always 1 held item + 2 utility picks (granted into the bag).
+  // 4 options: always 1 held item + 3 utility picks (granted into the bag).
   const options = useMemo(() => {
     const relic = rollRelics(1, run.relics)[0]
     const utils = shuffle([
-      { type: 'item', itemId: 'super-potion' },
-      { type: 'item', itemId: 'rare-candy' },
-      { type: 'item', itemId: 'revive' },
+      { type: 'item', itemId: 'super-potion', n: 2 },
+      { type: 'item', itemId: 'hyper-potion', n: 1 },
+      { type: 'item', itemId: 'full-restore', n: 1 },
+      { type: 'item', itemId: 'rare-candy', n: 1 },
+      { type: 'item', itemId: 'revive', n: 2 },
+      { type: 'item', itemId: 'max-revive', n: 1 },
+      { type: 'item', itemId: 'nugget', n: 1 },
+      { type: 'item', itemId: 'hp-up', n: 1 },
+      { type: 'item', itemId: 'protein', n: 1 },
+      { type: 'item', itemId: 'iron', n: 1 },
+      { type: 'item', itemId: 'calcium', n: 1 },
+      { type: 'item', itemId: 'zinc', n: 1 },
+      { type: 'item', itemId: 'carbos', n: 1 },
       { type: 'ball', ballId: 'great-ball', n: 3 },
       { type: 'ball', ballId: 'ultra-ball', n: 2 },
-      { type: 'gold', amount: 60 },
-    ]).slice(0, 2).map(u => {
+      { type: 'gold', amount: 120 },
+    ]).slice(0, 3).map(u => {
       if (u.type === 'item') {
         const c = CONSUMABLE_BY_ID[u.itemId]
-        return { ...u, slug: c.slug, emoji: c.emoji, ring: c.color, title: `${c.name} ×1`, desc: c.desc }
+        return { ...u, slug: c.slug, emoji: c.emoji, ring: c.color, title: `${c.name} ×${u.n}`, desc: c.desc }
       }
       if (u.type === 'ball') {
         const b = BALL_BY_ID[u.ballId]
@@ -46,7 +56,7 @@ export default function RewardScreen() {
         // HP-penalty relics (glass-cannon, cursed) now shave HP at each wave
         // start via aggregateRelics.hpPenaltyPct — no one-time hit here.
         break
-      case 'item': run.addItem(opt.itemId, 1); break
+      case 'item': run.addItem(opt.itemId, opt.n || 1); break
       case 'ball': run.addBall(opt.ballId, opt.n); break
       case 'gold': run.addGold(opt.amount); break
     }

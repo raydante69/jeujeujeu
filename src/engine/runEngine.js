@@ -52,7 +52,9 @@ export function buildEnemy(wave, rng = Math.random, asc = null) {
 
   const sp = speciesById(id) || speciesById(19)
   const mon = makeInstance(sp.id, level)
-  const bulk = (1.05 + wave * 0.045) * hpFactor
+  // Linear early, exponential late (past wave ~20) so the run has a real ceiling.
+  const expo = Math.pow(1.035, Math.max(0, wave - 20))
+  const bulk = (1.05 + wave * 0.045) * hpFactor * expo
   mon.maxHp = Math.round(mon.maxHp * bulk * (asc?.enemyHpMult || 1))
   mon.hp = mon.maxHp
   mon.kind = kind
