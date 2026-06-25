@@ -32,6 +32,11 @@ export default {
         'hp-drain': 'hpDrain 0.8s ease-out',
         'shake': 'shake 0.4s ease-out',
         'float': 'float 3s ease-in-out infinite',
+        'screen-flash': 'screenFlash 0.9s ease-out forwards',
+        'pack-shake': 'packShake 0.5s ease-in-out',
+        'pack-rip': 'packRip 0.4s ease-in forwards',
+        'card-pop-in': 'cardPopIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'burst-in': 'burstIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       keyframes: {
         flipIn: {
@@ -62,6 +67,32 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-8px)' },
+        },
+        screenFlash: {
+          '0%': { opacity: '1' },
+          '60%': { opacity: '0.6' },
+          '100%': { opacity: '0' },
+        },
+        packShake: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '20%': { transform: 'rotate(-4deg)' },
+          '40%': { transform: 'rotate(4deg)' },
+          '60%': { transform: 'rotate(-3deg)' },
+          '80%': { transform: 'rotate(3deg)' },
+        },
+        packRip: {
+          '0%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.1) rotate(2deg)', opacity: '0.7' },
+          '100%': { transform: 'scale(0) rotate(-10deg)', opacity: '0' },
+        },
+        cardPopIn: {
+          '0%': { transform: 'scale(0) rotateY(90deg)', opacity: '0' },
+          '100%': { transform: 'scale(1) rotateY(0deg)', opacity: '1' },
+        },
+        burstIn: {
+          '0%': { transform: 'scale(0.3)', opacity: '0' },
+          '70%': { transform: 'scale(1.05)' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
     },

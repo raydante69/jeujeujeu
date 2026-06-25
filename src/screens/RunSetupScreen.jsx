@@ -30,7 +30,9 @@ export default function RunSetupScreen() {
       const bd = levelBreakdown(cards, sp.types, trainerLevels[id] || 0)
       return {
         id, sp, cards, cost: starterCost(sp), rarity: speciesRarity(sp),
-        level: bd.total, bd, trait: getTrait(id, sp.types), hasShiny: cards.some(c => c.shiny),
+        level: bd.total, bd, trait: getTrait(id, sp.types),
+        hasShiny: cards.some(c => c.shiny),
+        hasHolo: cards.some(c => c.holo),
       }
     }).filter(Boolean).sort((a, b) => a.id - b.id)
   }, [collection, trainerLevels])
@@ -51,7 +53,12 @@ export default function RunSetupScreen() {
 
   function begin() {
     if (!picked.length) return
-    startRun(picked.map(id => ({ id, level: byIdEntry[id]?.level || 5 })))
+    startRun(picked.map(id => ({
+      id,
+      level: byIdEntry[id]?.level || 5,
+      shiny: byIdEntry[id]?.hasShiny || false,
+      holo: byIdEntry[id]?.hasHolo || false,
+    })))
     navigate('run')
   }
 

@@ -5,13 +5,14 @@ import { speciesRarity, rarityTier } from '../data/cardModel.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import StatBars from '../components/StatBars.jsx'
 
-// 5-tier power-based rarity styling.
+// 6-tier power-based rarity styling.
 const RARITY_STYLES = {
-  common:    { color: '#9ca3af', bg: 'from-gray-700 to-gray-900',           label: 'Commune',     tier: 0, particle: '·' },
-  uncommon:  { color: '#4ade80', bg: 'from-green-800 to-gray-900',           label: 'Peu Commune', tier: 1, particle: '✦' },
-  rare:      { color: '#60a5fa', bg: 'from-blue-800 to-gray-900',            label: 'Rare',        tier: 2, particle: '★' },
-  epic:      { color: '#c084fc', bg: 'from-purple-800 to-gray-900',          label: 'Épique',      tier: 3, particle: '◈' },
-  legendary: { color: '#fbbf24', bg: 'from-yellow-600 to-amber-900',         label: 'Légendaire',  tier: 4, particle: '🌟' },
+  common:    { color: '#9ca3af', bg: 'from-gray-700 to-gray-900',           label: 'Commune',      tier: 0, particle: '·' },
+  uncommon:  { color: '#4ade80', bg: 'from-green-800 to-gray-900',           label: 'Peu Commune',  tier: 1, particle: '✦' },
+  rare:      { color: '#60a5fa', bg: 'from-blue-800 to-gray-900',            label: 'Rare',         tier: 2, particle: '★' },
+  veryrare:  { color: '#818cf8', bg: 'from-indigo-800 to-gray-900',          label: 'Très Rare',    tier: 3, particle: '◆' },
+  epic:      { color: '#c084fc', bg: 'from-purple-800 to-gray-900',          label: 'Épique',       tier: 4, particle: '◈' },
+  legendary: { color: '#fbbf24', bg: 'from-yellow-600 to-amber-900',         label: 'Légendaire',   tier: 5, particle: '🌟' },
 }
 const styleFor = (c) => RARITY_STYLES[speciesRarity(speciesById(c.id))] || RARITY_STYLES.common
 const cardTier = (c) => rarityTier(speciesRarity(speciesById(c.id)))
@@ -126,7 +127,7 @@ export default function PackOpeningScreen() {
   const revealCurrent = () => {
     if (revealed) return
     const c = cards[index]
-    if (cardTier(c) >= 3 || c.holo || c.shiny) { setFlash(styleFor(c).color); setTimeout(() => setFlash(null), 700) }
+    if (cardTier(c) >= 3 || c.holo || c.shiny) { setFlash(styleFor(c).color); setTimeout(() => setFlash(null), 900) }
     setRevealed(true)
   }
   const nextCard = () => {

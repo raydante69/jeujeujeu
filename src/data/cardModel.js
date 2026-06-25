@@ -21,15 +21,16 @@ export function isHoloEligible(sp) {
   return isLegendary(sp.id) || (isFinalEvo(sp.id) && bstOf(sp) >= 480)
 }
 
-// 5-tier power-based rarity (replaces the old random 11-tier scheme).
+// 6-tier power-based rarity.
 export const CARD_RARITY = {
-  common:    { key: 'common',    label: 'Commune',     color: '#9ca3af', tier: 0, weight: 1000 },
-  uncommon:  { key: 'uncommon',  label: 'Peu Commune', color: '#4ade80', tier: 1, weight: 430 },
-  rare:      { key: 'rare',      label: 'Rare',        color: '#60a5fa', tier: 2, weight: 150 },
-  epic:      { key: 'epic',      label: 'Épique',      color: '#c084fc', tier: 3, weight: 45 },
-  legendary: { key: 'legendary', label: 'Légendaire',  color: '#fbbf24', tier: 4, weight: 7 },
+  common:    { key: 'common',    label: 'Commune',      color: '#9ca3af', tier: 0, weight: 1000 },
+  uncommon:  { key: 'uncommon',  label: 'Peu Commune',  color: '#4ade80', tier: 1, weight: 400 },
+  rare:      { key: 'rare',      label: 'Rare',         color: '#60a5fa', tier: 2, weight: 100 },
+  veryrare:  { key: 'veryrare',  label: 'Très Rare',    color: '#818cf8', tier: 3, weight: 25 },
+  epic:      { key: 'epic',      label: 'Épique',       color: '#c084fc', tier: 4, weight: 5 },
+  legendary: { key: 'legendary', label: 'Légendaire',   color: '#fbbf24', tier: 5, weight: 0.8 },
 }
-export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary']
+export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'veryrare', 'epic', 'legendary']
 export const rarityColor = (r) => CARD_RARITY[r]?.color || '#9ca3af'
 export const rarityTier = (r) => CARD_RARITY[r]?.tier ?? 0
 export const rarityLabel = (r) => CARD_RARITY[r]?.label || 'Commune'
@@ -42,8 +43,9 @@ export function speciesRarity(sp) {
   const final = isFinalEvo(sp.id)
   if (bst >= 580) return 'epic'
   if (bst >= 500 && final) return 'epic'
-  if (bst >= 480 || final) return 'rare'
-  if (bst >= 410) return 'uncommon'
+  if (bst >= 470 || (bst >= 440 && final)) return 'veryrare'
+  if (bst >= 390 || final) return 'rare'
+  if (bst >= 310) return 'uncommon'
   return 'common'
 }
 

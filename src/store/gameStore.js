@@ -16,6 +16,12 @@ export function pointsUpgradeCost(currentMax) {
   return 80 + Math.max(0, (currentMax - START_POINTS) / POINTS_PER_UPGRADE) * 60
 }
 
+// Crystal cost to expand hand by 1 card (starts at 5, max 10).
+export const MAX_HAND_SIZE = 10
+export function handSizeUpgradeCost(currentSize) {
+  return 50 + Math.max(0, currentSize - 5) * 40
+}
+
 // Permanent training cost grows with how trained a species already is.
 export function trainCost(currentBonus) { return 30 + currentBonus * 25 }
 
@@ -29,6 +35,7 @@ export const useGameStore = create(
       // --- Economy ---
       money: 500,
       crystals: 0,
+      rubies: 0,
 
       addMoney: (n) => set(s => ({ money: s.money + n })),
       spendMoney: (n) => {
@@ -44,6 +51,7 @@ export const useGameStore = create(
         set({ crystals: s.crystals - n, crystalsSpent: s.crystalsSpent + n })
         return true
       },
+      addRubies: (n) => set(s => ({ rubies: s.rubies + n })),
 
       // --- Collection ---
       collection: [],
@@ -156,6 +164,17 @@ export const useGameStore = create(
         return cost
       },
 
+      // --- Combat hand size (upgradeable via shop) ---
+      handSize: 5,
+      upgradeHandSize: () => {
+        const s = get()
+        if (s.handSize >= MAX_HAND_SIZE) return false
+        const cost = handSizeUpgradeCost(s.handSize)
+        if (!s.spendCrystals(cost)) return false
+        set({ handSize: Math.min(MAX_HAND_SIZE, s.handSize + 1) })
+        return cost
+      },
+
       // --- Team point capacity (Pokérogue-style) ---
       starterPoints: START_POINTS,
       buyStarterPoints: () => {
@@ -219,6 +238,7 @@ export const useGameStore = create(
       resetGame: () => set({
         money: 500,
         crystals: 0,
+        rubies: 0,
         collection: [],
         team: [],
         badgesEarned: [],
@@ -240,6 +260,7 @@ export const useGameStore = create(
         trainerLevels: {},
         daily: { date: null, quests: [] },
         starterPoints: START_POINTS,
+        handSize: 5,
       }),
     }),
     {
@@ -257,6 +278,8 @@ export const useGameStore = create(
       partialize: (s) => ({
         money: s.money,
         crystals: s.crystals,
+        rubies: s.rubies,
+        handSize: s.handSize,
         collection: s.collection,
         team: s.team,
         badgesEarned: s.badgesEarned,

@@ -2,15 +2,11 @@ import { allSpecies, makeInstance } from '../data/pokemon.js'
 import { CARD_RARITY, RARITY_ORDER, speciesRarity, isHoloEligible } from '../data/cardModel.js'
 import { makeRng, randomSeed } from './rng.js'
 
-// Rarity is now an inherent, power-based property of the species (5 tiers).
-// Re-exported as RARITIES for the screens that read it.
+// Re-exported for screens.
 export const RARITIES = CARD_RARITY
 
 // ───────────────────────── Booster formats ─────────────────────────
-// Fewer cards + higher prices = strong Pokémon are genuinely rare and earned.
-//   sachet  → 1 card  (anything)
-//   booster → 2 cards (1 Rare+ guaranteed)
-//   premium → 3 cards (1 Épique+ guaranteed, boosted shiny/holo odds)
+// 'free' is virtual (used for the timer booster, not sold in shop).
 export const BOOSTER_TYPES = [
   {
     id: 'sachet', name: 'Sachet', emoji: '🎴', cards: 1, basePrice: 90,
@@ -26,12 +22,53 @@ export const BOOSTER_TYPES = [
   },
   {
     id: 'premium', name: 'Pack Premium', emoji: '💎', cards: 3, basePrice: 520,
-    color: '#a855f7', guaranteeTier: 3,
+    color: '#a855f7', guaranteeTier: 4,
     tagline: '3 cartes · Épique+ · variantes boostées',
-    slots: ['filler', 'rare', 'guarantee'],
+    slots: ['filler', 'veryrare', 'guarantee'],
   },
 ]
 export const BOOSTER_BY_ID = Object.fromEntries(BOOSTER_TYPES.map(b => [b.id, b]))
+
+// Virtual free-booster definition (not shown in shop, worse rates).
+const FREE_BOOSTER = {
+  id: 'free', cards: 1, guaranteeTier: 0, slots: ['any'],
+}
+
+// ─── Per-booster rarity weight tables (index = RARITY_ORDER position) ───
+// RARITY_ORDER = ['common','uncommon','rare','veryrare','epic','legendary']
+//                    0         1        2        3         4        5
+const WEIGHT_TABLES = {
+  free:    [900,  280, 35,   5.5, 0.7,  0.08],
+  sachet:  [800,  320, 60,   12,  1.5,  0.18],
+  booster: [600,  340, 90,   22,  4,    0.5 ],
+  premium: [440,  320, 130,  50,  15,   2   ],
+}
+
+// Shiny and holo chance per booster tier (values are much lower = rarer).
+const SHINY_RATES = { free: 0.003, sachet: 0.005, booster: 0.009, premium: 0.016 }
+const HOLO_RATES  = { free: 0.020, sachet: 0.040, booster: 0.070, premium: 0.120 }
+
+// Human-readable odds for the ShopScreen (guaranteed slot of each booster).
+export const BOOSTER_ODDS = {
+  sachet:  [
+    { key: 'common',   label: 'Commune',     color: CARD_RARITY.common.color,   pct: '51.4%' },
+    { key: 'uncommon', label: 'Peu Commune', color: CARD_RARITY.uncommon.color, pct: '20.6%' },
+    { key: 'rare',     label: 'Rare',        color: CARD_RARITY.rare.color,     pct: '23.6%' },
+    { key: 'veryrare', label: 'Très Rare',   color: CARD_RARITY.veryrare.color, pct: '7.7%' },
+    { key: 'epic',     label: 'Épique',      color: CARD_RARITY.epic.color,     pct: '0.96%' },
+    { key: 'legendary',label: 'Légendaire',  color: CARD_RARITY.legendary.color,pct: '0.12%' },
+  ],
+  booster: [
+    { key: 'rare',     label: 'Rare',        color: CARD_RARITY.rare.color,     pct: '77.2%' },
+    { key: 'veryrare', label: 'Très Rare',   color: CARD_RARITY.veryrare.color, pct: '18.9%' },
+    { key: 'epic',     label: 'Épique',      color: CARD_RARITY.epic.color,     pct: '3.4%' },
+    { key: 'legendary',label: 'Légendaire',  color: CARD_RARITY.legendary.color,pct: '0.4%' },
+  ],
+  premium: [
+    { key: 'epic',     label: 'Épique',      color: CARD_RARITY.epic.color,     pct: '88.2%' },
+    { key: 'legendary',label: 'Légendaire',  color: CARD_RARITY.legendary.color,pct: '11.8%' },
+  ],
+}
 
 export function genPriceMult(gen) {
   return 1 + (Math.max(1, gen) - 1) * 0.15
@@ -42,7 +79,6 @@ export function boosterPrice(boosterId, gen = 1, sessionBuys = 0) {
   const raw = t.basePrice * genPriceMult(gen) * Math.pow(1.18, sessionBuys)
   return Math.round(raw / 5) * 5
 }
-export const BOOSTER_PRICES = { 1: 90, 2: 100, 3: 120, 4: 150, 5: 150, 6: 180, 7: 200, 8: 200, 9: 250 }
 
 export function getFreeBoosterTimer(gen) {
   if (gen <= 3) return 4 * 60 * 60 * 1000
@@ -63,24 +99,24 @@ function speciesInGen(gen) {
   return allSpecies().filter(sp => sp.id >= min && sp.id <= max)
 }
 
-// Sample a rarity tier (>= minTier) weighted by the registry weights.
-function sampleRarity(rng, minTier = 0) {
-  const entries = RARITY_ORDER.map(k => CARD_RARITY[k]).filter(r => r.tier >= minTier)
-  const total = entries.reduce((s, r) => s + r.weight, 0)
+function sampleRarity(rng, tableKey = 'sachet', minTier = 0) {
+  const weights = WEIGHT_TABLES[tableKey] || WEIGHT_TABLES.sachet
+  const entries = RARITY_ORDER
+    .map((k, i) => ({ key: k, tier: CARD_RARITY[k].tier, w: weights[i] }))
+    .filter(e => e.tier >= minTier)
+  const total = entries.reduce((s, e) => s + e.w, 0)
   let roll = rng.next() * total
-  for (const r of entries) { roll -= r.weight; if (roll <= 0) return r.key }
+  for (const e of entries) { roll -= e.w; if (roll <= 0) return e.key }
   return entries[entries.length - 1].key
 }
 
 function pickSpeciesOfRarity(pool, rarity, rng) {
   const matching = pool.filter(sp => speciesRarity(sp) === rarity)
   if (matching.length) return rng.pick(matching)
-  // Fall back to the closest-available rarity if a tier is empty for this gen.
   const order = RARITY_ORDER.indexOf(rarity)
   for (let d = 1; d < RARITY_ORDER.length; d++) {
     for (const idx of [order - d, order + d]) {
-      const r = RARITY_ORDER[idx]
-      if (!r) continue
+      const r = RARITY_ORDER[idx]; if (!r) continue
       const alt = pool.filter(sp => speciesRarity(sp) === r)
       if (alt.length) return rng.pick(alt)
     }
@@ -88,31 +124,27 @@ function pickSpeciesOfRarity(pool, rarity, rng) {
   return rng.pick(pool)
 }
 
-// Build a card with shiny/holo variant rolls.
-function makeCard(sp, rng, { shinyBoost = false, holoBoost = false } = {}) {
-  const rarity = speciesRarity(sp)
-  const shiny = rng.next() < (shinyBoost ? 0.09 : 0.035)
-  let holo = false
-  if (isHoloEligible(sp)) holo = rng.next() < (holoBoost ? 0.5 : 0.18)
-  return makeInstance(sp.id, 5, { rarity, shiny, holo })
-}
-
 export function openBooster(gen = 1, boosterId = 'booster') {
-  const type = BOOSTER_BY_ID[boosterId] || BOOSTER_BY_ID.booster
+  const tableKey = ['free', 'sachet', 'booster', 'premium'].includes(boosterId) ? boosterId : 'sachet'
+  const type = boosterId === 'free' ? FREE_BOOSTER : (BOOSTER_BY_ID[boosterId] || BOOSTER_BY_ID.booster)
   const rng = makeRng(randomSeed())
   const pool = speciesInGen(gen)
   if (!pool.length) return []
-  const boost = boosterId === 'premium'
+  const shinyRate = SHINY_RATES[tableKey] ?? SHINY_RATES.sachet
+  const holoRate  = HOLO_RATES[tableKey]  ?? HOLO_RATES.sachet
   const cards = []
 
   for (const slot of type.slots) {
     const minTier =
-      slot === 'guarantee' ? type.guaranteeTier
-      : slot === 'rare'    ? 2
+      slot === 'guarantee' ? (type.guaranteeTier || 0)
+      : slot === 'veryrare' ? 3
       : 0
-    const rarity = sampleRarity(rng, minTier)
+    const rarity = sampleRarity(rng, tableKey, minTier)
     const sp = pickSpeciesOfRarity(pool, rarity, rng)
-    cards.push(makeCard(sp, rng, { shinyBoost: boost, holoBoost: boost }))
+    const shiny = rng.next() < shinyRate
+    let holo = false
+    if (isHoloEligible(sp)) holo = rng.next() < holoRate
+    cards.push(makeInstance(sp.id, 5, { rarity, shiny, holo }))
   }
   return cards
 }

@@ -17,19 +17,51 @@ import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
 import ItemSprite from '../components/ItemSprite.jsx'
 
-const HAND_SIZE = 5
-
 const KIND_ICON = { attack: '⚔️', guard: '🛡️', heal: '➕', drain: '🌿', status: '✨', buff: '💪' }
-const KIND_LABEL = { attack: 'Attaque', guard: 'Bouclier', heal: 'Soin', drain: 'Drain', status: 'Statut', buff: 'Boost' }
+
+// Preview the numeric value of a card for display on the face.
+function previewCard(card, caster, enemy, relicAgg) {
+  if (!caster || !enemy) return null
+  if (card.kind === 'attack' || card.kind === 'drain') {
+    const { dmg } = moveDamage(card, caster, enemy, relicAgg)
+    let d = dmg
+    if (caster.shiny) d = Math.round(d * 1.15)
+    if (caster.holo)  d = Math.round(d * 1.20)
+    if (card.kind === 'drain') {
+      const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+      return [{ label: `-${d}`, color: '#f87171' }, { label: `+${h}`, color: '#4ade80' }]
+    }
+    return [{ label: `-${d}`, color: '#f87171' }]
+  }
+  if (card.kind === 'guard') {
+    const g = guardValue(card, caster)
+    return [{ label: `${g}`, color: '#38bdf8' }]
+  }
+  if (card.kind === 'heal') {
+    const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+    return [{ label: `+${h}`, color: '#4ade80' }]
+  }
+  if (card.kind === 'status') {
+    const def = STATUS_DEF[card.status]
+    return [{ label: def?.label?.split(' ')[0] || '⚡', color: def?.color || '#facc15' }]
+  }
+  if (card.kind === 'buff') {
+    return [{ label: `+${Math.round((card.bonus || 0.7) * 100)}%`, color: '#f97316' }]
+  }
+  return null
+}
+
+const MAX_REROLLS = 2
 
 export default function BattleScreen() {
-  const { navigate } = useGameStore()
+  const { navigate, handSize } = useGameStore()
   const run = useRunStore()
   const { team, relics, wave, pendingEnemy } = run
   const relicAgg = useMemo(() => aggregateRelics(relics), [relics])
   const kind = waveKind(wave)
   const biome = useMemo(() => biomeForWave(wave), [wave])
   const maxEnergy = Math.min(8, 5 + Math.floor(wave / 6))
+  const effectiveHandSize = handSize || 5
 
   // ── State ───────────────────────────────────────────────────────
   const [enemy, setEnemy]       = useState(null)
@@ -50,9 +82,9 @@ export default function BattleScreen() {
   const [shake, setShake]       = useState(null)
   const [winSummary, setWinSummary] = useState(null)
   const [caught, setCaught]     = useState(null)
+  const [rerolls, setRerolls]   = useState(MAX_REROLLS)
   const reviveUsed = useRef(false)
 
-  // Fresh mirror of state for handlers that compute synchronously.
   const live = useRef({})
   live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, energy, enraged }
 
@@ -76,15 +108,24 @@ export default function BattleScreen() {
       : kind === 'trainer' ? `🧢 Dresseur envoie ${e.name} !`
       : `Un ${e.name} sauvage apparaît !`)
 
-    setHand(drawHand(team, startHp, HAND_SIZE))
+    setHand(drawHand(team, startHp, effectiveHandSize))
     setIntent(computeIntent(e, team, startHp))
     setEnergy(maxEnergy)
+    setRerolls(MAX_REROLLS)
     setPhase('player')
   }, []) // eslint-disable-line
 
   const weakTypes = useMemo(() => (enemy ? getWeakTypes(enemy.types || ['normal']) : []), [enemy])
 
-  // ── Heal helpers (pure) ─────────────────────────────────────────
+  // ── Reroll hand ─────────────────────────────────────────────────
+  function rerollHand() {
+    if (phase !== 'player' || rerolls <= 0) return
+    setRerolls(r => r - 1)
+    setHand(drawHand(team, live.current.hp, effectiveHandSize))
+    addLog(`🔄 Main relancée (${rerolls - 1} relance${rerolls - 1 !== 1 ? 's' : ''} restante${rerolls - 1 !== 1 ? 's' : ''})`)
+  }
+
+  // ── Heal helpers ────────────────────────────────────────────────
   function healAll(teamHp, amount) {
     const next = { ...teamHp }
     for (const m of team) if ((next[m.uid] || 0) > 0) next[m.uid] = Math.min(m.maxHp, next[m.uid] + amount)
@@ -110,6 +151,9 @@ export default function BattleScreen() {
 
     if (card.kind === 'attack' || card.kind === 'drain') {
       let { dmg, eff } = moveDamage(card, caster, enemy, relicAgg)
+      // Shiny: +15% ATK; Holo: +20% ATK
+      if (caster.shiny) dmg = Math.round(dmg * 1.15)
+      if (caster.holo)  dmg = Math.round(dmg * 1.20)
       let crit = false
       if (buff0 > 0) { dmg = Math.round(dmg * (1 + buff0)); setBuff(0) }
       if (Math.random() < (relicAgg.critChance || 0)) { dmg = Math.round(dmg * 2); crit = true }
@@ -122,11 +166,13 @@ export default function BattleScreen() {
       addLog(`${card.emoji} ${caster.name} · ${card.name} → ${dmg}${crit ? ' CRIT!' : ''}${eff >= 2 ? ' ⚡efficace' : eff < 1 ? ' ·peu efficace' : ''}`)
 
       let teamHp = hp0
-      if (card.kind === 'drain') { const h = healValue(card, caster); teamHp = healAll(teamHp, h) }
+      if (card.kind === 'drain') {
+        const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+        teamHp = healAll(teamHp, h)
+      }
       if (relicAgg.lifestealPct) teamHp = healWeakest(teamHp, Math.round(dmg * relicAgg.lifestealPct / 100))
       if (teamHp !== hp0) setHp(teamHp)
 
-      // Boss rage at 50%
       if (enemy.isBoss && newE <= enemyMax * 0.5 && !live.current.enraged) {
         setEnraged(true); addLog(`😡 ${enemy.name} entre en RAGE !`)
       }
@@ -138,7 +184,7 @@ export default function BattleScreen() {
       addLog(`${card.emoji} ${caster.name} · ${card.name} → bouclier +${g}`)
 
     } else if (card.kind === 'heal') {
-      const h = healValue(card, caster)
+      const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
       setHp(healAll(hp0, h))
       addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV équipe`)
 
@@ -159,7 +205,7 @@ export default function BattleScreen() {
     }
   }
 
-  // ── End the player turn → enemy resolves its telegraphed intent ──
+  // ── End the player turn ──────────────────────────────────────────
   function endTurn() {
     if (phase !== 'player') return
     setPhase('enemy')
@@ -171,7 +217,6 @@ export default function BattleScreen() {
     let skipEnemy = false
     const logs = []
 
-    // 1) Status tick on the enemy
     if (st0) {
       const def = STATUS_DEF[st0.type]
       if (st0.type === 'burn') {
@@ -196,7 +241,6 @@ export default function BattleScreen() {
 
     if (eHp <= 0) { setTimeout(() => win(teamHp), 650); return }
 
-    // 2) Enemy executes its telegraphed attack (unless skipped)
     setTimeout(() => {
       if (!skipEnemy) {
         let dmg = intent0?.damage ?? computeIntent(enemy, team, teamHp)?.damage ?? 1
@@ -216,7 +260,6 @@ export default function BattleScreen() {
           if (absorbed > 0) addLog(`🛡️ Bouclier absorbe ${absorbed}`)
           addLog(`💥 ${enemy.name} inflige ${dmg} à ${tname}${(live.current.enraged || enraged) ? ' [RAGE]' : ''}`)
 
-          // Phoenix revive relic
           if ((teamHp[targetUid] || 0) <= 0 && relicAgg.revive && !reviveUsed.current) {
             const m = team.find(t => t.uid === targetUid)
             teamHp[targetUid] = Math.round(m.maxHp * relicAgg.revive / 100)
@@ -229,12 +272,11 @@ export default function BattleScreen() {
       const anyAlive = team.some(m => (teamHp[m.uid] || 0) > 0)
       if (!anyAlive) { setTimeout(() => lose(teamHp), 450); return }
 
-      // 3) Next turn — fresh hand, energy, intent; shields expire
       setTimeout(() => {
         setTurn(t => t + 1)
         setEnergy(maxEnergy)
         setGuard(0)
-        setHand(drawHand(team, teamHp, HAND_SIZE))
+        setHand(drawHand(team, teamHp, effectiveHandSize))
         setIntent(computeIntent(enemy, team, teamHp))
         setPhase('player')
       }, 480)
@@ -293,7 +335,20 @@ export default function BattleScreen() {
     } else setCaught({ ok: false, name: enemy.name })
   }
 
-  function continueAfterWin() { run.advanceWave(); navigate(enemy.isBoss ? 'runshop' : 'reward') }
+  function continueAfterWin() {
+    run.advanceWave()
+    if (enemy.isBoss) {
+      navigate('runshop')
+    } else {
+      const newWins = run.recordRunWin()
+      // Every 5 wins → Milestone reward instead of regular reward
+      if (newWins % 5 === 0) {
+        navigate('milestone')
+      } else {
+        navigate('run')
+      }
+    }
+  }
   function continueAfterLose() { run.endRun(); navigate('runend') }
 
   if (!enemy || phase === 'init') {
@@ -320,11 +375,11 @@ export default function BattleScreen() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-3 py-3 flex flex-col gap-3 pb-44">
+      <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-3 py-3 flex flex-col gap-3 pb-52">
 
         {/* Enemy card */}
         <div
-          className={`rounded-2xl p-4 border relative ${shake === 'enemy' ? 'animate-shake' : ''} ${enraged ? 'animate-rage-pulse' : ''}`}
+          className={`rounded-2xl p-4 border relative ${shake === 'enemy' ? 'animate-shake' : ''} ${enraged ? 'animate-pulse' : ''}`}
           style={{ background: `linear-gradient(160deg, ${typeColor}33, #0f172a)`, borderColor: enraged ? '#ef4444aa' : typeColor + '55' }}
         >
           {enemy.isBoss && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">💀 BOSS</div>}
@@ -338,7 +393,7 @@ export default function BattleScreen() {
                 onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png` }}
               />
               {floatDmg && (
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 animate-float-dmg font-black text-xl pointer-events-none" style={{ color: floatDmg.color }}>
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 font-black text-xl pointer-events-none animate-bounce" style={{ color: floatDmg.color }}>
                   -{floatDmg.dmg}{floatDmg.crit ? '!' : ''}
                 </div>
               )}
@@ -358,7 +413,6 @@ export default function BattleScreen() {
             </div>
           </div>
 
-          {/* Weak types hint */}
           {weakTypes.length > 0 && phase !== 'win' && (
             <div className="mt-2 flex items-center gap-1.5 flex-wrap">
               <span className="text-[9px] text-gray-600 font-bold uppercase">Faible vs</span>
@@ -369,7 +423,7 @@ export default function BattleScreen() {
           )}
         </div>
 
-        {/* Enemy intent (telegraph) */}
+        {/* Enemy intent */}
         {phase !== 'win' && phase !== 'lose' && intent && (
           <div className="rounded-xl px-3 py-2.5 border flex items-center justify-between gap-2"
             style={{ background: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '14', borderColor: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '55' }}>
@@ -398,7 +452,7 @@ export default function BattleScreen() {
           </div>
         )}
 
-        {/* Team status row */}
+        {/* Team status */}
         {phase !== 'win' && phase !== 'lose' && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -414,10 +468,14 @@ export default function BattleScreen() {
                 const alive = h > 0
                 return (
                   <div key={m.uid} className={`flex-1 rounded-xl p-1.5 flex flex-col items-center gap-0.5 border ${shake === m.uid ? 'animate-shake' : ''}`}
-                    style={{ background: '#0f172a', borderColor: alive ? '#1e293b' : '#1a1a2e', opacity: alive ? 1 : 0.4 }}>
-                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.id}.png`} alt={m.name}
-                      className={`w-9 h-9 object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
+                    style={{ background: '#0f172a', borderColor: alive ? (m.holo ? '#c084fc55' : m.shiny ? '#fbbf2455' : '#1e293b') : '#1a1a2e', opacity: alive ? 1 : 0.4 }}>
+                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
+                      alt={m.name} className={`w-9 h-9 object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
                     <p className="text-[8px] text-white font-bold truncate w-full text-center leading-none">{m.name}</p>
+                    <div className="flex gap-0.5">
+                      {m.shiny && <span className="text-[7px]">✨</span>}
+                      {m.holo && <span className="text-[7px]">🌈</span>}
+                    </div>
                     <div className="w-full h-1 rounded-full bg-gray-800">
                       <div className="h-full rounded-full" style={{ width: `${Math.max(0, (h / maxH) * 100)}%`, background: h / maxH > 0.5 ? '#4ade80' : h / maxH > 0.25 ? '#fbbf24' : '#ef4444' }} />
                     </div>
@@ -431,12 +489,7 @@ export default function BattleScreen() {
         {/* Win panel */}
         {phase === 'win' && winSummary && (
           <div className="rounded-2xl p-4 border border-green-700/50 bg-green-900/15 text-center relative overflow-hidden">
-            <div className="absolute inset-0 pointer-events-none">
-              {['10%','30%','55%','75%','90%'].map((left, i) => (
-                <span key={i} className="absolute text-sm animate-sparkle-float" style={{ left, top: '60%', animationDelay: `${i * 0.18}s` }}>✨</span>
-              ))}
-            </div>
-            <p className="text-3xl mb-1 animate-burst-in">{enemy.isBoss ? '🏆' : '✅'}</p>
+            <p className="text-3xl mb-1">{enemy.isBoss ? '🏆' : '✅'}</p>
             <p className="font-game text-sm text-green-400">Victoire !</p>
             <div className="flex justify-center gap-4 mt-2 text-xs">
               <span className="text-yellow-300">+{winSummary.goldGain} 💰</span>
@@ -447,7 +500,7 @@ export default function BattleScreen() {
                 {winSummary.events.map((ev, i) => (
                   <div key={i} className="text-xs">
                     {ev.evo.length > 0
-                      ? <p className="text-purple-300 font-bold animate-burst-in">✨ {ev.evo[0].from} → {ev.evo[0].to} !</p>
+                      ? <p className="text-purple-300 font-bold">✨ {ev.evo[0].from} → {ev.evo[0].to} !</p>
                       : <p className="text-cyan-300">⬆️ {ev.name} Niv.{ev.from} → {ev.to}</p>}
                   </div>
                 ))}
@@ -503,13 +556,13 @@ export default function BattleScreen() {
         </div>
       </div>
 
-      {/* Bottom: hand of move-cards + actions */}
+      {/* Bottom: hand + actions */}
       <div className="fixed bottom-0 inset-x-0 border-t border-game-border z-20" style={{ background: 'rgba(10,10,20,0.97)', backdropFilter: 'blur(12px)' }}>
         <div className="max-w-lg mx-auto px-3 py-3">
 
           {phase === 'win' ? (
             <button onClick={continueAfterWin} className="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black rounded-xl text-base transition-all">
-              {enemy.isBoss ? '🛒 Marché du Rift →' : '🎁 Récompense →'}
+              {enemy.isBoss ? '🛒 Marché du Rift →' : `${run.winsThisRun > 0 && (run.winsThisRun + 1) % 5 === 0 ? '🏅 Récompense ×5 →' : '⏭ Vague suivante →'}`}
             </button>
           ) : phase === 'lose' ? (
             <button onClick={continueAfterLose} className="w-full py-4 bg-gray-800 hover:bg-gray-700 text-gray-300 font-black rounded-xl text-base transition-all">
@@ -517,22 +570,28 @@ export default function BattleScreen() {
             </button>
           ) : (
             <>
-              {/* Energy + end turn */}
+              {/* Energy + end turn + reroll */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Énergie</span>
                   <div className="flex gap-1">
                     {Array.from({ length: maxEnergy }).map((_, i) => (
-                      <div key={i} className={`w-3 h-3 rounded-full transition-all ${i < energy ? 'animate-orb-pulse' : ''}`}
+                      <div key={i} className={`w-3 h-3 rounded-full transition-all`}
                         style={{ background: i < energy ? '#8b5cf6' : '#1e293b', border: `1px solid ${i < energy ? '#7c3aed' : '#374151'}` }} />
                     ))}
                   </div>
                   <span className="text-[10px] text-purple-400 font-bold">{energy}/{maxEnergy}</span>
                 </div>
-                <button onClick={endTurn} disabled={phase !== 'player'}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${phase === 'player' ? 'bg-red-600/90 hover:bg-red-500 active:scale-95 text-white' : 'bg-gray-900 text-gray-700'}`}>
-                  Fin du tour ⏭
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={rerollHand} disabled={rerolls <= 0 || phase !== 'player'}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition-all ${rerolls > 0 && phase === 'player' ? 'bg-blue-900/70 hover:bg-blue-800 active:scale-95 text-blue-300 border border-blue-700/50' : 'bg-gray-900 text-gray-700'}`}>
+                    🔄 ×{rerolls}
+                  </button>
+                  <button onClick={endTurn} disabled={phase !== 'player'}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${phase === 'player' ? 'bg-red-600/90 hover:bg-red-500 active:scale-95 text-white' : 'bg-gray-900 text-gray-700'}`}>
+                    Fin du tour ⏭
+                  </button>
+                </div>
               </div>
 
               {/* Hand */}
@@ -543,10 +602,15 @@ export default function BattleScreen() {
                   const ownerDead = !owner || (hp[owner.uid] || 0) <= 0
                   const tc = TYPE_COLORS[card.type] || '#64748b'
                   const playable = phase === 'player' && card.cost <= energy && !ownerDead
+                  const preview = enemy ? previewCard(card, owner, enemy, relicAgg) : null
                   return (
                     <button key={card.uid} onClick={() => playCard(card)} disabled={!playable}
-                      className={`flex-shrink-0 w-[92px] rounded-xl p-2 flex flex-col items-center gap-1 transition-all ${playable ? 'active:scale-95 hover:-translate-y-0.5' : 'opacity-40'}`}
-                      style={{ background: `linear-gradient(160deg, ${tc}26, #0f172a)`, border: `1.5px solid ${tc}77` }}>
+                      className={`flex-shrink-0 w-[96px] rounded-xl p-2 flex flex-col items-center gap-1 transition-all ${playable ? 'active:scale-95 hover:-translate-y-1' : 'opacity-40'}`}
+                      style={{
+                        background: `linear-gradient(160deg, ${tc}26, #0f172a)`,
+                        border: `2px solid ${tc}${playable ? 'bb' : '44'}`,
+                        boxShadow: playable ? `0 0 8px ${tc}33` : 'none',
+                      }}>
                       <div className="flex items-center justify-between w-full">
                         <span className="text-[9px]">{KIND_ICON[card.kind]}</span>
                         <div className="flex gap-0.5">
@@ -555,10 +619,24 @@ export default function BattleScreen() {
                           ))}
                         </div>
                       </div>
-                      <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${card.ownerId}.png`} alt={owner?.name}
-                        className={`w-9 h-9 object-contain pixelated ${ownerDead ? 'grayscale' : ''}`} loading="lazy" />
+                      <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${owner?.shiny ? 'shiny/' : ''}${card.ownerId}.png`}
+                        alt={owner?.name} className={`w-9 h-9 object-contain pixelated ${ownerDead ? 'grayscale' : ''}`} loading="lazy" />
                       <p className="text-[9px] font-black text-white leading-tight text-center w-full truncate">{card.name}</p>
-                      <p className="text-[7px] leading-none truncate w-full text-center" style={{ color: tc }}>{owner?.name}</p>
+                      {/* Value preview */}
+                      {preview && (
+                        <div className="flex gap-1 items-center flex-wrap justify-center">
+                          {preview.map((p, i) => (
+                            <span key={i} className="text-[8px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[7px] leading-none truncate w-full text-center" style={{ color: tc + 'cc' }}>{owner?.name}</p>
+                      {(owner?.shiny || owner?.holo) && (
+                        <div className="flex gap-0.5">
+                          {owner.shiny && <span className="text-[7px]">✨</span>}
+                          {owner.holo && <span className="text-[7px]">🌈</span>}
+                        </div>
+                      )}
                     </button>
                   )
                 })}

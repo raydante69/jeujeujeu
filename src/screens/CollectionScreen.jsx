@@ -7,7 +7,7 @@ import { TYPE_COLORS } from '../data/types.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import StatBars from '../components/StatBars.jsx'
 
-const SHORT = { common: 'C', uncommon: 'UC', rare: 'R', epic: 'EP', legendary: 'LÉG' }
+const SHORT = { common: 'C', uncommon: 'UC', rare: 'R', veryrare: 'TR', epic: 'EP', legendary: 'LÉG' }
 const TYPE_FILTER_LIST = ['fire','water','grass','electric','psychic','fighting','ghost','ice','dragon','dark','rock','ground','flying','bug','poison','fairy','steel','normal']
 
 const sprite = (id, shiny) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? 'shiny/' : ''}${id}.png`

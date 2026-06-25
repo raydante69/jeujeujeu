@@ -29,6 +29,7 @@ export const useRunStore = create(
       pendingEnemy: null,
       lastOutcome: null,
       lastSummary: null,
+      winsThisRun: 0,
 
       // --- Derived ---
       relicAgg: () => aggregateRelics(get().relics),
@@ -38,16 +39,23 @@ export const useRunStore = create(
       // Accepts either [id, ...] or [{ id, level }, ...]. Levels let the
       // collection (duplicates / rarity / training) feed a stronger start.
       startRun: (starters) => {
-        const norm = (starters || []).slice(0, 3).map(s =>
-          typeof s === 'number' ? { id: s, level: 5 } : { id: s.id, level: s.level || 5 }
+        const norm = (starters || []).slice(0, 6).map(s =>
+          typeof s === 'number'
+            ? { id: s, level: 5, shiny: false, holo: false }
+            : { id: s.id, level: s.level || 5, shiny: s.shiny || false, holo: s.holo || false }
         )
-        const team = norm.map(s => makeRunMon(s.id, s.level))
+        const team = norm.map(s => {
+          const mon = makeRunMon(s.id, s.level)
+          mon.shiny = s.shiny
+          mon.holo = s.holo
+          return mon
+        })
         set({
           active: true, wave: 1, gold: 0,
           balls: { ...DEFAULT_BALLS },
           items: { 'potion': 1, 'rare-candy': 1 },
           team, relics: [], pendingEnemy: null, lastOutcome: null,
-          lastStarters: norm,
+          lastStarters: norm, winsThisRun: 0,
         })
       },
 
@@ -77,6 +85,10 @@ export const useRunStore = create(
       advanceWave: () => set(s => ({ wave: s.wave + 1, pendingEnemy: null })),
       commitTeam: (team) => set({ team: team.map(m => ({ ...m })) }),
       setOutcome: (o) => set({ lastOutcome: o }),
+      recordRunWin: () => {
+        set(s => ({ winsThisRun: (s.winsThisRun || 0) + 1 }))
+        return get().winsThisRun
+      },
 
       // --- Economy ---
       addGold: (n) => set(s => ({ gold: s.gold + n })),
@@ -201,6 +213,7 @@ export const useRunStore = create(
         team: s.team,
         relics: s.relics,
         pendingEnemy: s.pendingEnemy,
+        winsThisRun: s.winsThisRun,
       }),
     }
   )
