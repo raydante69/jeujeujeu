@@ -10,6 +10,7 @@ const LEGENDARY_IDS = new Set([144, 145, 146, 150, 151])
 
 // ---- Wave structure ----------------------------------------------------
 export function waveKind(wave) {
+  if (wave % 50 === 0 && wave > 0) return 'league'  // every 50 waves: 5-trainer gauntlet
   if (wave % 10 === 0) return 'boss'
   if (wave % 5 === 0) return 'elite'
   if (wave % 7 === 0) return 'encounter'   // waves 7, 14, 21, 28 … (not boss or elite)

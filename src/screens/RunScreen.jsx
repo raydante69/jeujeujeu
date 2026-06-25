@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { buildEnemy, waveKind, xpToNext } from '../engine/runEngine.js'
+import { pickTrainer, buildTrainerParty, pickLeagueTrainers } from '../data/trainers.js'
 import { biomeForWave } from '../data/biomes.js'
 import { aggregateAscension } from '../data/ascension.js'
 import { getRelic, RELIC_RARITY_COLOR } from '../data/relics.js'
@@ -15,6 +16,7 @@ const KIND_META = {
   elite:     { icon: '⭐', label: 'Élite',     color: '#fbbf24' },
   boss:      { icon: '💀', label: 'BOSS',      color: '#f87171' },
   encounter: { icon: '🔭', label: 'Rencontre', color: '#c084fc' },
+  league:    { icon: '🏆', label: 'LIGUE',     color: '#f59e0b' },
 }
 
 export default function RunScreen() {
@@ -30,10 +32,32 @@ export default function RunScreen() {
   })
 
   function startBattle() {
-    if (waveKind(wave) === 'encounter') {
+    const kind = waveKind(wave)
+    if (kind === 'encounter') {
       navigate('encounter')
+    } else if (kind === 'trainer') {
+      const asc = aggregateAscension(ascensionLevel)
+      const trainer = pickTrainer(wave, Math.random)
+      const party = buildTrainerParty(trainer, wave, asc)
+      run.setTrainerBattle(`${trainer.icon} ${trainer.name}`, party.slice(1))
+      run.setPendingEnemy(party[0])
+      navigate('battle')
+    } else if (kind === 'league') {
+      const asc = aggregateAscension(ascensionLevel)
+      const trainers = pickLeagueTrainers(wave, Math.random)
+      const leagueEntries = trainers.map(t => ({
+        name: `${t.icon} ${t.name} (${t.class})`,
+        party: buildTrainerParty(t, wave, asc),
+        trainer: t,
+      }))
+      run.setLeagueBattle(leagueEntries)
+      const firstParty = leagueEntries[0].party
+      run.setTrainerBattle(leagueEntries[0].name, firstParty.slice(1))
+      run.setPendingEnemy(firstParty[0])
+      navigate('battle')
     } else {
-      setPendingEnemy(buildEnemy(wave, Math.random, aggregateAscension(ascensionLevel)))
+      run.clearTrainerBattle()
+      run.setPendingEnemy(buildEnemy(wave, Math.random, aggregateAscension(ascensionLevel)))
       navigate('battle')
     }
   }

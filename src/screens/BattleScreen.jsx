@@ -6,7 +6,7 @@ import {
 } from '../engine/runEngine.js'
 import { recomputeStats } from '../data/pokemon.js'
 import {
-  drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF,
+  drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF, buildMoveset, movesetSize,
 } from '../engine/combatEngine.js'
 import { aggregateRelics } from '../data/relics.js'
 import { aggregateAscension } from '../data/ascension.js'
@@ -82,6 +82,7 @@ export default function BattleScreen() {
   const [hand, setHand]           = useState([])
   const [guard, setGuard]         = useState(0)
   const [buff, setBuff]           = useState(0)
+  const [lastCardKind, setLastCardKind] = useState(null)  // prevents 2 consecutive guard plays
   const [enemyStatus, setEStatus] = useState(null)
   const [teamStatus, setTeamStatus] = useState({})  // { [uid]: { type, turns, stacks } }
   const [enemyShield, setEnemyShield] = useState(0) // boss 'shield' ability: reduces next player burst
@@ -91,15 +92,31 @@ export default function BattleScreen() {
   const [turn, setTurn]           = useState(1)
   const [floatDmg, setFloatDmg]   = useState(null)
   const [log, setLog]             = useState([])
+  const logRef = useRef(null)
   const [shake, setShake]         = useState(null)
   const [winSummary, setWinSummary] = useState(null)
   const [caught, setCaught]       = useState(null)
   const [throwUsed, setThrowUsed] = useState(false)
   const [rerolls, setRerolls]     = useState(MAX_REROLLS)
+  const [showMoves, setShowMoves] = useState(false)      // "Mes Attaques" overlay
+  const [focusedCard, setFocusedCard] = useState(null)   // card detail popup
   const reviveUsed = useRef(false)
 
   const live = useRef({})
   live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield }
+
+  // Auto-scroll the combat log to bottom on each new entry (Lot 8)
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [log])
+
+  // Full moveset for all team members (used in "Mes Attaques" panel)
+  const allTeamMoves = useMemo(() => {
+    return team.map(m => ({
+      mon: m,
+      moves: buildMoveset(m).slice(0, movesetSize(m)),
+    }))
+  }, [team])
 
   // Mons that can't act this turn (paralyzed) are excluded from the drawn hand,
   // unless that would leave no living mon able to play (avoid a soft-lock).
@@ -224,13 +241,13 @@ export default function BattleScreen() {
     if (localEHp <= 0) { setTeamStatus(nextTeamStatus); setTimeout(() => win(localHp), 650); return }
 
     setTimeout(() => {
+      let remainingGuard = currentGuard  // tracks shield left after absorption (persists to next turn)
       if (!skipEnemy) {
         // Enemy may strike one OR several Pokémon this turn.
         const fallback = intent0?.targets?.length
           ? intent0.targets
           : (intent0 ? [{ targetUid: intent0.targetUid, targetName: intent0.targetName, damage: intent0.damage }] : [])
         const hits = fallback.length ? fallback : (computeIntent(enemy, team, localHp, asc)?.targets || [])
-        let remainingGuard = currentGuard
         let dealtTotal = 0
 
         for (const hit of hits) {
@@ -294,7 +311,8 @@ export default function BattleScreen() {
       // New turn — paralyzed mons are excluded from the drawn hand.
       setTimeout(() => {
         setTurn(t => t + 1)
-        setGuard(0)
+        setGuard(remainingGuard)   // shield persists between turns (reset only in resetBattleState)
+        setLastCardKind(null)      // allow guard again after one non-guard turn
         setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
         setIntent(computeIntent(enemy, team, localHp, asc))
         setPhase('player')
@@ -307,6 +325,13 @@ export default function BattleScreen() {
     if (phase !== 'player') return
     const caster = team.find(m => m.uid === card.ownerUid)
     if (!caster || (live.current.hp[caster.uid] || 0) <= 0) return
+
+    // Prevent 2 consecutive guard plays in a row
+    if (card.kind === 'guard' && lastCardKind === 'guard') {
+      addLog('🚫 Tu ne peux pas jouer 2 boucliers d\'affilé !')
+      return
+    }
+    setLastCardKind(card.kind)
 
     // Clear the hand immediately (card has been played)
     setHand([])
@@ -458,7 +483,46 @@ export default function BattleScreen() {
     } else setCaught({ ok: false, name: enemy.name })
   }
 
+  function resetBattleState(newEnemy) {
+    setEnemy(newEnemy)
+    setEnemyHp(newEnemy.maxHp)
+    setEnemyMax(newEnemy.maxHp)
+    setEStatus(null)
+    setEnemyShield(0)
+    setEnraged(false)
+    setGuard(0)
+    setLastCardKind(null)
+    setBuff(0)
+    setPhase('player')
+    setTurn(1)
+    setWinSummary(null)
+    setCaught(null)
+    setThrowUsed(false)
+    setFloatDmg(null)
+    setShake(null)
+    setTeamStatus({})
+    setRerolls(MAX_REROLLS)
+    reviveUsed.current = false
+    const currentHp = live.current.hp
+    setHand(drawHand(drawableTeam({}, currentHp), currentHp, handSize))
+    setIntent(computeIntent(newEnemy, team, currentHp, asc))
+    addLog(`${run.trainerName ? run.trainerName + ' envoie ' : ''}${newEnemy.name} !`)
+  }
+
   function continueAfterWin() {
+    // Trainer still has more Pokémon to send?
+    const nextTrainerEnemy = run.advanceTrainer()
+    if (nextTrainerEnemy) {
+      resetBattleState(nextTrainerEnemy)
+      return
+    }
+    // League: next trainer in the gauntlet?
+    const nextLeagueEnemy = run.advanceLeague()
+    if (nextLeagueEnemy) {
+      resetBattleState(nextLeagueEnemy)
+      return
+    }
+    // Normal flow
     run.advanceWave()
     if (enemy.isBoss) {
       // Clearing a boss at the current ceiling unlocks the next Ascension tier.
@@ -485,8 +549,22 @@ export default function BattleScreen() {
       <div className="px-4 pt-10 pb-2 border-b border-white/5" style={{ background: 'rgba(10,10,20,0.55)' }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-500 font-bold uppercase">Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'trainer' ? '🧢 Dresseur' : '🌿 Sauvage'}</p>
-            <p className="text-[10px] text-gray-600">Tour {turn}</p>
+            <p className="text-[11px] text-gray-500 font-bold uppercase">
+              Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'league' ? '🏆 LIGUE' : (kind === 'trainer' || run.trainerName) ? '🧢 Dresseur' : '🌿 Sauvage'}
+            </p>
+            {run.trainerName ? (
+              <p className="text-[10px] font-bold text-blue-300">
+                {run.trainerName}
+                {run.trainerTotalParty > 1 && (
+                  <span className="text-gray-500 ml-1">· Pokémon {run.trainerKilled + 1}/{run.trainerTotalParty}</span>
+                )}
+                {run.leagueQueue?.length > 0 && (
+                  <span className="text-amber-400 ml-1">· Dresseur {run.leagueIndex + 1}/{run.leagueQueue.length}</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-[10px] text-gray-600">Tour {turn}</p>
+            )}
           </div>
           <div className="flex gap-1 items-center">
             {team.map(m => (
@@ -634,38 +712,41 @@ export default function BattleScreen() {
                 ))}
               </div>
             )}
-            <div className="mt-3">
-              {caught ? (
-                <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
-                  {caught.ok
-                    ? (caught.benched ? `🎉 ${caught.name} capturé (Pokédex) !` : `🎉 ${caught.name} rejoint l'équipe !`)
-                    : `💨 ${caught.name} s'est échappé…`}
-                </p>
-              ) : (
-                <>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">
-                    {enemy.isBoss ? 'Master Ball uniquement' : throwUsed ? '1 lancer max utilisé' : 'Tente une capture'}
+            {/* No capture during trainer/league battles — you fight the trainer, not wild mons */}
+            {!run.trainerName && (
+              <div className="mt-3">
+                {caught ? (
+                  <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
+                    {caught.ok
+                      ? (caught.benched ? `🎉 ${caught.name} capturé (Pokédex) !` : `🎉 ${caught.name} rejoint l'équipe !`)
+                      : `💨 ${caught.name} s'est échappé…`}
                   </p>
-                  {!throwUsed && (
-                    <div className="flex justify-center gap-2 flex-wrap">
-                      {BALLS.map(b => {
-                        const owned = run.balls?.[b.id] || 0
-                        const usable = owned > 0 && (!enemy.isBoss || b.rate >= 1)
-                        return (
-                          <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
-                            className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
-                            style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
-                            <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
-                            <span className="text-[9px] font-bold text-white">×{owned}</span>
-                            <span className="text-[8px] font-bold" style={{ color: b.color }}>{Math.round((b.rate ?? 0) * 100)}%</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">
+                      {enemy.isBoss ? 'Master Ball uniquement' : throwUsed ? '1 lancer max utilisé' : 'Tente une capture'}
+                    </p>
+                    {!throwUsed && (
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {BALLS.map(b => {
+                          const owned = run.balls?.[b.id] || 0
+                          const usable = owned > 0 && (!enemy.isBoss || b.rate >= 1)
+                          return (
+                            <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
+                              className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
+                              style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
+                              <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
+                              <span className="text-[9px] font-bold text-white">×{owned}</span>
+                              <span className="text-[8px] font-bold" style={{ color: b.color }}>{Math.round((b.rate ?? 0) * 100)}%</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -678,8 +759,8 @@ export default function BattleScreen() {
           </div>
         )}
 
-        {/* Battle log */}
-        <div className="bg-game-surface rounded-xl p-2.5 border border-game-border">
+        {/* Battle log — auto-scrolls to latest entry */}
+        <div ref={logRef} className="bg-game-surface rounded-xl p-2.5 border border-game-border max-h-24 overflow-y-auto scroll-smooth">
           {log.length === 0 && <p className="text-[10px] text-gray-700">…</p>}
           {log.map((l, i) => <p key={i} className="text-[10px] text-gray-500 leading-relaxed">{l}</p>)}
         </div>
@@ -690,7 +771,12 @@ export default function BattleScreen() {
         <div className="max-w-lg mx-auto px-3 py-3">
           {phase === 'win' ? (
             <button onClick={continueAfterWin} className="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black rounded-xl text-base transition-all">
-              {enemy.isBoss ? '🛒 Marché du Rift →' : `${run.winsThisRun > 0 && (run.winsThisRun + 1) % 5 === 0 ? '🏅 Récompense ×5 →' : '⏭ Vague suivante →'}`}
+              {run.trainerQueue?.length > 0
+                ? `⚔️ Pokémon suivant (${run.trainerKilled + 2}/${run.trainerTotalParty}) →`
+                : (run.leagueQueue?.length > 0 && run.leagueIndex + 1 < run.leagueQueue.length)
+                ? `🏆 Dresseur suivant (${run.leagueIndex + 2}/${run.leagueQueue.length}) →`
+                : enemy.isBoss ? '🛒 Marché du Rift →'
+                : `${run.winsThisRun > 0 && (run.winsThisRun + 1) % 5 === 0 ? '🏅 Récompense ×5 →' : '⏭ Vague suivante →'}`}
             </button>
           ) : phase === 'lose' ? (
             <button onClick={continueAfterLose} className="w-full py-4 bg-gray-800 hover:bg-gray-700 text-gray-300 font-black rounded-xl text-base transition-all">
@@ -698,9 +784,15 @@ export default function BattleScreen() {
             </button>
           ) : phase === 'player' ? (
             <>
-              {/* Swap + hint */}
+              {/* Swap + hint + Mes Attaques */}
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Choisis 1 attaque · {hand.length} tirée{hand.length > 1 ? 's' : ''}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-gray-600 font-bold uppercase">Choisis 1 attaque · {hand.length} tirée{hand.length > 1 ? 's' : ''}</p>
+                  <button onClick={() => setShowMoves(true)}
+                    className="px-2 py-1 rounded-lg text-[10px] font-black bg-violet-900/70 hover:bg-violet-800 active:scale-95 text-violet-300 border border-violet-700/50 transition-all">
+                    📖 Attaques
+                  </button>
+                </div>
                 <button onClick={swapHand} disabled={rerolls <= 0}
                   className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition-all ${rerolls > 0 ? 'bg-blue-900/70 hover:bg-blue-800 active:scale-95 text-blue-300 border border-blue-700/50' : 'bg-gray-900 text-gray-700'}`}>
                   🔄 Échanger ×{rerolls}
@@ -758,6 +850,107 @@ export default function BattleScreen() {
           )}
         </div>
       </div>
+
+      {/* ── "Mes Attaques" overlay ─────────────────────────────────────── */}
+      {showMoves && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.92)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pt-10 pb-3 border-b border-white/10">
+            <p className="font-game text-white text-base">📖 Toutes tes attaques</p>
+            <button onClick={() => { setShowMoves(false); setFocusedCard(null) }}
+              className="text-gray-400 hover:text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full bg-white/10">✕</button>
+          </div>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+            {allTeamMoves.map(({ mon, moves }) => {
+              if (mon.hp <= 0) return null
+              const tc = TYPE_COLORS[mon.types?.[0]] || '#64748b'
+              return (
+                <div key={mon.uid}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.shiny ? 'shiny/' : ''}${mon.id}.png`}
+                      alt={mon.name} className="w-8 h-8 object-contain pixelated" />
+                    <p className="text-sm font-bold text-white">{mon.name}</p>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: tc + '33', color: tc }}>Niv.{mon.level}</span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {moves.map(card => {
+                      const cardTc = TYPE_COLORS[card.type] || '#64748b'
+                      const preview = previewCard(card, mon, enemy, relicAgg)
+                      return (
+                        <button key={card.uid} onClick={() => setFocusedCard({ card, mon })}
+                          className="rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 hover:-translate-y-0.5"
+                          style={{
+                            width: 104,
+                            background: `linear-gradient(160deg, ${cardTc}2a, #0f172a)`,
+                            border: `2px solid ${cardTc}cc`,
+                            boxShadow: `0 0 8px ${cardTc}44`,
+                          }}>
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[10px]">{KIND_ICON[card.kind]}</span>
+                            <span className="text-[7px] font-bold rounded px-1" style={{ background: cardTc + '33', color: cardTc }}>
+                              {card.type?.toUpperCase().slice(0, 3)}
+                            </span>
+                          </div>
+                          <p className="text-[9px] font-black text-white text-center leading-tight w-full">{card.name}</p>
+                          {preview && (
+                            <div className="flex gap-1 flex-wrap justify-center">
+                              {preview.map((p, i) => (
+                                <span key={i} className="text-[9px] font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
+                              ))}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Card detail popup */}
+          {focusedCard && (() => {
+            const { card, mon } = focusedCard
+            const cardTc = TYPE_COLORS[card.type] || '#64748b'
+            const preview = previewCard(card, mon, enemy, relicAgg)
+            return (
+              <div className="fixed inset-0 z-60 flex items-end justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}
+                onClick={() => setFocusedCard(null)}>
+                <div onClick={e => e.stopPropagation()}
+                  className="w-full max-w-sm rounded-2xl p-5 border"
+                  style={{ background: `linear-gradient(160deg, ${cardTc}22, #0f172a)`, borderColor: cardTc + '88' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{KIND_ICON[card.kind]}</span>
+                      <p className="font-black text-white text-base">{card.name}</p>
+                    </div>
+                    <span className="text-[10px] font-bold rounded-full px-2 py-0.5" style={{ background: cardTc + '33', color: cardTc }}>
+                      {card.type?.toUpperCase()}
+                    </span>
+                  </div>
+                  {/* Stat row */}
+                  {preview && (
+                    <div className="flex gap-3 mb-3">
+                      {preview.map((p, i) => (
+                        <span key={i} className="text-lg font-black tabular-nums" style={{ color: p.color }}>{p.label}</span>
+                      ))}
+                    </div>
+                  )}
+                  {card.desc && <p className="text-[11px] text-gray-300 leading-relaxed mb-3">{card.desc}</p>}
+                  <div className="text-[10px] text-gray-500">
+                    Pokémon : <span className="text-gray-300 font-bold">{mon.name}</span>
+                  </div>
+                  <button onClick={() => setFocusedCard(null)}
+                    className="mt-4 w-full py-2 rounded-xl font-black text-sm text-white bg-white/10 hover:bg-white/20 transition-all">
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
     </div>
   )
 }

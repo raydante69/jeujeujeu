@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { allSpecies, makeInstance } from '../data/pokemon.js'
@@ -22,69 +22,103 @@ function randomSpecies(excludeIds = []) {
 }
 
 function ProfShenSwapPokemon({ team, onConfirm, onBack }) {
-  const [selectedUid, setSelectedUid] = useState(null)
+  const [spinPhase, setSpinPhase] = useState('idle')  // 'idle' | 'spinning' | 'done'
+  const [spinPos, setSpinPos] = useState(0)
+  const spinRef = useRef(null)
 
-  // Generate a random replacement Pokémon at average team level
   const avgLevel = Math.round(team.reduce((s, m) => s + (m.level || 5), 0) / Math.max(1, team.length))
   const replacement = useMemo(() => {
     const sp = randomSpecies(team.map(m => m.id))
-    const mon = makeRunMon(sp.id, avgLevel)
-    return mon
+    return makeRunMon(sp.id, avgLevel)
   }, []) // eslint-disable-line
 
-  function confirm() {
-    if (!selectedUid) return
-    onConfirm({ swapUid: selectedUid, replacement })
+  useEffect(() => () => clearInterval(spinRef.current), [])
+
+  const highlighted = Math.round(spinPos) % Math.max(1, team.length)
+
+  function launchSpin() {
+    const winner = Math.floor(Math.random() * team.length)
+    const totalDist = 3 * team.length + winner  // 3 full laps + land on winner
+    const duration = 3200
+    const startTime = Date.now()
+    setSpinPhase('spinning')
+
+    spinRef.current = setInterval(() => {
+      const t = Math.min((Date.now() - startTime) / duration, 1)
+      setSpinPos(totalDist * (1 - Math.pow(1 - t, 4)))  // ease-out quartic
+      if (t >= 1) {
+        clearInterval(spinRef.current)
+        setSpinPhase('done')
+        setTimeout(() => onConfirm({ swapUid: team[winner].uid, replacement }), 700)
+      }
+    }, 16)
   }
 
   return (
     <div className="space-y-4">
+      {/* Replacement preview */}
       <div className="bg-purple-900/20 border border-purple-700/40 rounded-xl p-3">
-        <p className="text-xs text-gray-400 mb-1 font-bold uppercase text-[10px]">Pokémon proposé</p>
+        <p className="text-[10px] text-gray-400 mb-1 font-bold uppercase">Pokémon proposé</p>
         <div className="flex items-center gap-3">
           <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${replacement.id}.png`}
-            alt={replacement.name} className="w-16 h-16 object-contain"
+            alt={replacement.name} className="w-14 h-14 object-contain"
             onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${replacement.id}.png` }} />
           <div>
             <p className="font-black text-white text-sm">{replacement.name}</p>
-            <p className="text-[11px] text-gray-400">Niv.{replacement.level} · {movesetSize(replacement)} attaque{movesetSize(replacement) > 1 ? 's' : ''}</p>
-            <p className="text-[10px] text-purple-300 mt-0.5">{(replacement.types || []).join(' / ')}</p>
+            <p className="text-[11px] text-gray-400">Niv.{replacement.level} · {(replacement.types || []).join(' / ')}</p>
             <p className="text-[9px] text-yellow-500/70 mt-0.5 italic">Ne sera pas ajouté au Pokédex.</p>
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-gray-400">Choisis le Pokémon à échanger :</p>
-      <div className="space-y-2">
-        {team.map(mon => {
-          const tc = TYPE_COLORS[(mon.types || ['normal'])[0]] || '#64748b'
-          const sel = selectedUid === mon.uid
-          return (
-            <button key={mon.uid} onClick={() => setSelectedUid(mon.uid)}
-              className="w-full flex items-center gap-3 rounded-xl p-3 border text-left transition-all active:scale-95"
-              style={{ background: sel ? tc + '33' : tc + '11', borderColor: sel ? tc + 'cc' : tc + '33', boxShadow: sel ? `0 0 10px ${tc}55` : 'none' }}>
-              <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.shiny ? 'shiny/' : ''}${mon.id}.png`}
-                alt={mon.name} className="w-12 h-12 object-contain pixelated" />
-              <div>
-                <p className="font-bold text-white text-sm">{mon.name}</p>
-                <p className="text-[11px] text-gray-400">Niv.{mon.level} · {movesetSize(mon)} attaque{movesetSize(mon) > 1 ? 's' : ''}</p>
-                <p className="text-[10px]" style={{ color: tc }}>{mon.rarity}</p>
+      {/* Slot machine — arrow above cards */}
+      <div className="rounded-xl border border-purple-700/30 bg-black/30 p-3">
+        <p className="text-[10px] text-gray-500 text-center mb-2 uppercase font-bold">Tirage au sort</p>
+        {/* Arrow indicator */}
+        <div className="relative h-6 mb-1">
+          <span className="absolute text-yellow-400 text-base leading-none transition-none"
+            style={{ left: `calc(${(highlighted / team.length) * 100}% + ${(1 / team.length / 2) * 100}% - 8px)` }}>
+            ▼
+          </span>
+        </div>
+        {/* Team row */}
+        <div className="flex justify-around gap-1">
+          {team.map((mon, i) => {
+            const tc = TYPE_COLORS[(mon.types || ['normal'])[0]] || '#64748b'
+            const isHl = highlighted === i && spinPhase !== 'idle'
+            return (
+              <div key={mon.uid}
+                className="flex flex-col items-center rounded-xl p-1.5 border transition-all flex-1"
+                style={{
+                  background: isHl ? tc + '33' : 'rgba(0,0,0,0.4)',
+                  borderColor: isHl ? tc + 'cc' : tc + '22',
+                  transform: isHl ? 'scale(1.1)' : 'scale(1)',
+                  boxShadow: isHl ? `0 0 14px ${tc}88` : 'none',
+                }}>
+                <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.shiny ? 'shiny/' : ''}${mon.id}.png`}
+                  alt={mon.name} className="w-10 h-10 object-contain pixelated" />
+                <p className="text-[7px] text-gray-300 font-bold text-center truncate w-full mt-0.5">{mon.name}</p>
               </div>
-              {sel && <span className="ml-auto text-xl">✓</span>}
-            </button>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button onClick={onBack} className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-400 text-sm font-bold">
-          Annuler
-        </button>
-        <button onClick={confirm} disabled={!selectedUid}
-          className={`flex-1 py-3 rounded-xl font-black text-sm transition-all ${selectedUid ? 'bg-purple-600 text-white active:scale-95' : 'bg-gray-800 text-gray-600'}`}>
-          Échanger →
-        </button>
-      </div>
+      {spinPhase === 'idle' ? (
+        <div className="flex gap-3">
+          <button onClick={onBack} className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-400 text-sm font-bold">
+            Annuler
+          </button>
+          <button onClick={launchSpin}
+            className="flex-1 py-3 rounded-xl font-black text-sm bg-purple-600 text-white active:scale-95 transition-all">
+            🎲 Lancer le tirage !
+          </button>
+        </div>
+      ) : spinPhase === 'spinning' ? (
+        <p className="text-center text-purple-300 font-bold animate-pulse text-sm py-2">🎲 Tirage en cours…</p>
+      ) : (
+        <p className="text-center text-yellow-300 font-black text-sm py-2">🎉 {team[highlighted]?.name} sélectionné !</p>
+      )}
     </div>
   )
 }

@@ -34,6 +34,44 @@ export const useRunStore = create(
       flawless: true,   // becomes false the moment any mon faints this run
       ascensionLevel: 0, // difficulty tier chosen for this run
 
+      // --- Trainer battle (session-only, not persisted) ---
+      trainerName: '',         // displayed in combat header
+      trainerQueue: [],        // remaining Enemy[] from the current trainer's party
+      trainerTotalParty: 0,    // total party size (for progress display)
+      trainerKilled: 0,        // how many defeated so far in this trainer battle
+      leagueQueue: [],         // [{ name, party, trainer }] for the League gauntlet
+      leagueIndex: 0,
+
+      setTrainerBattle: (name, remainingParty) => set({
+        trainerName: name,
+        trainerQueue: remainingParty,
+        trainerTotalParty: remainingParty.length + 1,
+        trainerKilled: 0,
+      }),
+      advanceTrainer: () => {
+        const { trainerQueue, trainerKilled } = get()
+        if (!trainerQueue || trainerQueue.length === 0) return null
+        const [next, ...rest] = trainerQueue
+        set({ trainerQueue: rest, trainerKilled: trainerKilled + 1 })
+        return next
+      },
+      setLeagueBattle: (trainers) => set({ leagueQueue: trainers, leagueIndex: 0 }),
+      advanceLeague: () => {
+        const { leagueQueue, leagueIndex } = get()
+        const nextIndex = leagueIndex + 1
+        const next = leagueQueue[nextIndex]
+        if (!next) return null
+        set({
+          leagueIndex: nextIndex,
+          trainerName: next.name,
+          trainerQueue: next.party.slice(1),
+          trainerTotalParty: next.party.length,
+          trainerKilled: 0,
+        })
+        return next.party[0]
+      },
+      clearTrainerBattle: () => set({ trainerName: '', trainerQueue: [], trainerTotalParty: 0, trainerKilled: 0, leagueQueue: [], leagueIndex: 0 }),
+
       // --- Derived ---
       relicAgg: () => aggregateRelics(get().relics),
       totalBalls: () => Object.values(get().balls || {}).reduce((s, n) => s + n, 0),

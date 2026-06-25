@@ -97,9 +97,10 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
   const bonusStats = bonus > 0
     ? Object.fromEntries(Object.keys(species.stats).map(k => [k, bonus]))
     : {}
+  const [viewShiny, setViewShiny] = useState(hasShiny)
 
   // Full signature moveset this Pokémon can use in combat.
-  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: frName(species.id, species.name), types: species.types, rarity, shiny: hasShiny, holo: hasHolo }
+  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: frName(species.id, species.name), types: species.types, rarity, shiny: viewShiny, holo: hasHolo }
   const moveCount = movesetSize(synthMon)
   const moves = buildMoveset(synthMon).slice(0, moveCount)
 
@@ -111,12 +112,21 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
           {hasHolo && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: 'linear-gradient(135deg,transparent 20%,rgba(255,255,255,0.16) 50%,transparent 80%)', backgroundSize: '300% 300%', animation: 'shimmer 2.4s linear infinite', mixBlendMode: 'overlay' }} />}
 
           <div className="flex items-center gap-3 relative z-10">
-            <img
-              src={hasShiny ? sprite(species.id, true) : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${species.id}.png`}
-              alt={frName(species.id, species.name)}
-              className="w-20 h-20 object-contain drop-shadow-xl flex-shrink-0"
-              onError={e => { e.target.src = sprite(species.id, hasShiny) }}
-            />
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <img
+                src={viewShiny ? sprite(species.id, true) : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${species.id}.png`}
+                alt={frName(species.id, species.name)}
+                className="w-20 h-20 object-contain drop-shadow-xl"
+                onError={e => { e.target.src = sprite(species.id, viewShiny) }}
+              />
+              {hasShiny && (
+                <button onClick={() => setViewShiny(v => !v)}
+                  className="px-2 py-0.5 rounded-full text-[9px] font-black transition-all"
+                  style={{ background: viewShiny ? '#ffd70033' : '#33415533', color: viewShiny ? '#fbbf24' : '#94a3b8', border: `1px solid ${viewShiny ? '#fbbf2466' : '#475569'}` }}>
+                  {viewShiny ? '✨ Shiny' : '◇ Normal'}
+                </button>
+              )}
+            </div>
             <div className="min-w-0">
               <p className="text-gray-400 text-[10px]">#{String(species.id).padStart(3, '0')}</p>
               <div className="flex items-center gap-2">
