@@ -54,6 +54,8 @@ export function buildEnemy(wave, rng = Math.random) {
   mon.kind = kind
   mon.isBoss = kind === 'boss'
   mon.isLegendary = LEGENDARY_IDS.has(sp.id)
+  // Bosses carry a signature ability (enrage / shield / lifedrain) from the biome.
+  if (mon.isBoss) mon.ability = biome.bossAbilities?.[sp.id] || null
   return mon
 }
 

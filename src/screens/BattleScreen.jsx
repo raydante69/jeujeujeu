@@ -21,6 +21,13 @@ import ItemSprite from '../components/ItemSprite.jsx'
 
 const KIND_ICON = { attack: '⚔️', guard: '🛡️', heal: '➕', drain: '🌿', status: '✨', buff: '💪' }
 
+// Boss signature abilities (set on the enemy by buildEnemy from biome data).
+const ABILITY_LABEL = {
+  enrage:    '😡 Furie croissante (dégâts +8% / tour)',
+  shield:    '🛡️ Carapace (bouclier périodique)',
+  lifedrain: '🩸 Drain vital (se soigne en frappant)',
+}
+
 // Preview the numeric value a card will deal/heal.
 function previewCard(card, caster, enemy, relicAgg) {
   if (!caster || !enemy) return null
@@ -74,6 +81,8 @@ export default function BattleScreen() {
   const [guard, setGuard]         = useState(0)
   const [buff, setBuff]           = useState(0)
   const [enemyStatus, setEStatus] = useState(null)
+  const [teamStatus, setTeamStatus] = useState({})  // { [uid]: { type, turns, stacks } }
+  const [enemyShield, setEnemyShield] = useState(0) // boss 'shield' ability: reduces next player burst
   const [intent, setIntent]       = useState(null)
   const [enraged, setEnraged]     = useState(false)
   const [phase, setPhase]         = useState('init')
@@ -88,7 +97,15 @@ export default function BattleScreen() {
   const reviveUsed = useRef(false)
 
   const live = useRef({})
-  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged }
+  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield }
+
+  // Mons that can't act this turn (paralyzed) are excluded from the drawn hand,
+  // unless that would leave no living mon able to play (avoid a soft-lock).
+  const drawableTeam = (ts, hps) => {
+    const filtered = team.filter(m => ts?.[m.uid]?.type !== 'paralyze')
+    const livingFiltered = filtered.filter(m => (hps?.[m.uid] ?? m.hp ?? 0) > 0)
+    return livingFiltered.length ? filtered : team
+  }
 
   const addLog = (m) => setLog(p => [...p.slice(-5), m])
   const doShake = (t, ms = 420) => { setShake(t); setTimeout(() => setShake(null), ms) }
@@ -105,7 +122,9 @@ export default function BattleScreen() {
       startHp[m.uid] = m.hp > 0 ? Math.max(1, h) : h
     })
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
+    setTeamStatus({}); setEnemyShield(0)
     reviveUsed.current = false
+    if (e.ability) addLog(`✨ Capacité du boss : ${ABILITY_LABEL[e.ability] || e.ability}`)
 
     addLog(e.isBoss ? `💀 BOSS : ${e.name} (Niv.${e.level}) surgit !`
       : kind === 'elite'   ? `⭐ ${e.name} d'élite apparaît !`
@@ -124,8 +143,15 @@ export default function BattleScreen() {
   function swapHand() {
     if (phase !== 'player' || rerolls <= 0) return
     setRerolls(r => r - 1)
-    setHand(drawHand(team, live.current.hp, handSize))
+    setHand(drawHand(drawableTeam(live.current.teamStatus, live.current.hp), live.current.hp, handSize))
     addLog(`🔄 Pokémon échangés`)
+  }
+
+  // Healing cleanses team afflictions (burn/poison/paralyze) — the counterplay.
+  function cleanseStatuses() {
+    if (Object.keys(live.current.teamStatus || {}).length === 0) return
+    setTeamStatus({})
+    addLog('💧 Les soins purifient les statuts de l\'équipe')
   }
 
   // ── Heal helpers ─────────────────────────────────────────────────────
@@ -170,10 +196,28 @@ export default function BattleScreen() {
       if (!status) logs.push(`${enemy.name} se rétablit`)
     }
 
-    setEnemyHp(localEHp); setEStatus(status)
+    // ── Team status ticks (burn/poison/paralyze inflicted by elites/bosses) ──
+    const ts0 = live.current.teamStatus || {}
+    let nextTeamStatus = {}
+    for (const m of team) {
+      const tsm = ts0[m.uid]
+      if (!tsm || (localHp[m.uid] || 0) <= 0) continue
+      const tdef = STATUS_DEF[tsm.type]
+      if (tsm.type === 'burn' || tsm.type === 'poison') {
+        const stacks = tsm.type === 'poison' ? (tsm.stacks || 1) : 1
+        const d = Math.max(1, Math.round((m.maxHp || 20) * tdef.tickPct * stacks))
+        localHp[m.uid] = Math.max(0, (localHp[m.uid] || 0) - d)
+        logs.push(`${(tdef.label || '').split(' ')[0]} ${m.name} subit ${d}`)
+      }
+      const tt = tsm.turns - 1
+      if (tt > 0) nextTeamStatus[m.uid] = { ...tsm, turns: tt, stacks: tsm.type === 'poison' ? (tsm.stacks || 1) + 1 : tsm.stacks }
+      else logs.push(`${m.name} se libère de ${(tdef.label || '').split(' ')[1] || 'son état'}`)
+    }
+
+    setEnemyHp(localEHp); setEStatus(status); setHp(localHp)
     logs.forEach(addLog)
 
-    if (localEHp <= 0) { setTimeout(() => win(localHp), 650); return }
+    if (localEHp <= 0) { setTeamStatus(nextTeamStatus); setTimeout(() => win(localHp), 650); return }
 
     setTimeout(() => {
       if (!skipEnemy) {
@@ -183,6 +227,7 @@ export default function BattleScreen() {
           : (intent0 ? [{ targetUid: intent0.targetUid, targetName: intent0.targetName, damage: intent0.damage }] : [])
         const hits = fallback.length ? fallback : (computeIntent(enemy, team, localHp)?.targets || [])
         let remainingGuard = currentGuard
+        let dealtTotal = 0
 
         for (const hit of hits) {
           let targetUid = hit.targetUid
@@ -193,9 +238,12 @@ export default function BattleScreen() {
           }
           let dmg = hit.damage ?? 1
           if (isRaged || enraged) dmg = Math.round(dmg * 1.3)
+          // Boss 'enrage' ability ramps damage every turn that passes.
+          if (enemy.ability === 'enrage') dmg = Math.round(dmg * (1 + 0.08 * turn))
           const absorbed = Math.min(remainingGuard, dmg)
           remainingGuard -= absorbed
           dmg = Math.max(0, dmg - absorbed)
+          dealtTotal += dmg
 
           const tname = team.find(m => m.uid === targetUid)?.name
           localHp = { ...localHp, [targetUid]: Math.max(0, (localHp[targetUid] || 0) - dmg) }
@@ -210,16 +258,40 @@ export default function BattleScreen() {
             addLog(`🪶 La Plume Phénix ranime ${tname} !`)
           }
         }
+
+        // Boss 'lifedrain' ability: heal a fraction of the damage it dealt.
+        if (enemy.ability === 'lifedrain' && dealtTotal > 0) {
+          const heal = Math.round(dealtTotal * 0.25)
+          localEHp = Math.min(enemyMax, localEHp + heal)
+          setEnemyHp(localEHp)
+          addLog(`🩸 ${enemy.name} draine ${heal} PV`)
+        }
+        // Boss 'shield' ability: erect a periodic barrier on the next player burst.
+        if (enemy.ability === 'shield' && turn % 3 === 0) {
+          const sh = Math.round((enemy.level || 5) * 3)
+          setEnemyShield(sh)
+          addLog(`🛡️ ${enemy.name} érige une carapace (absorbe ${sh})`)
+        }
+        // Apply a freshly inflicted status to the targeted team member.
+        if (intent0?.applyStatus) {
+          const as = intent0.applyStatus
+          if ((localHp[as.targetUid] || 0) > 0) {
+            const sdef = STATUS_DEF[as.type]
+            nextTeamStatus[as.targetUid] = { type: as.type, turns: sdef.turns, stacks: 1 }
+            addLog(`${sdef.label} infligé à ${team.find(t => t.uid === as.targetUid)?.name} !`)
+          }
+        }
       }
       setHp(localHp)
+      setTeamStatus(nextTeamStatus)
       const anyAlive = team.some(m => (localHp[m.uid] || 0) > 0)
       if (!anyAlive) { setTimeout(() => lose(localHp), 450); return }
 
-      // New turn
+      // New turn — paralyzed mons are excluded from the drawn hand.
       setTimeout(() => {
         setTurn(t => t + 1)
         setGuard(0)
-        setHand(drawHand(team, localHp, handSize))
+        setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
         setIntent(computeIntent(enemy, team, localHp))
         setPhase('player')
       }, 480)
@@ -248,6 +320,13 @@ export default function BattleScreen() {
       let crit = false
       if (buff0 > 0) { dmg = Math.round(dmg * (1 + buff0)); setBuff(0) }
       if (Math.random() < (relicAgg.critChance || 0)) { dmg = Math.round(dmg * 2); crit = true }
+      // Boss 'shield' ability absorbs part of this burst, then breaks.
+      if (live.current.enemyShield > 0) {
+        const blocked = Math.min(live.current.enemyShield, dmg)
+        dmg = Math.max(0, dmg - blocked)
+        setEnemyShield(0)
+        addLog(`🛡️ La carapace de ${enemy.name} absorbe ${blocked} !`)
+      }
 
       const newE = Math.max(0, eHp0 - dmg)
       finalEHp = newE
@@ -260,6 +339,7 @@ export default function BattleScreen() {
       if (card.kind === 'drain') {
         const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
         finalHp = healAll(hp0, h)
+        cleanseStatuses()  // healing washes away team afflictions
       }
       if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
       if (finalHp !== hp0) setHp(finalHp)
@@ -282,6 +362,7 @@ export default function BattleScreen() {
       const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
       finalHp = healAll(hp0, h)
       setHp(finalHp)
+      cleanseStatuses()  // healing washes away team afflictions
       addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV équipe`)
 
     } else if (card.kind === 'status') {
@@ -416,6 +497,7 @@ export default function BattleScreen() {
           style={{ background: `linear-gradient(160deg, ${typeColor}33, #0f172a)`, borderColor: enraged ? '#ef4444aa' : typeColor + '55' }}>
           {enemy.isBoss && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">💀 BOSS</div>}
           {enraged && <div className="absolute -top-2 right-3 bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse">😡 RAGE</div>}
+          {enemy.ability && <div className="absolute -top-2 left-3 bg-purple-700 text-white text-[9px] font-black px-2 py-0.5 rounded-full" title={ABILITY_LABEL[enemy.ability]}>{(ABILITY_LABEL[enemy.ability] || '').split(' ')[0]} {enemy.ability}</div>}
           <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0">
               <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${enemy.id}.png`}
@@ -437,7 +519,10 @@ export default function BattleScreen() {
                   </span>
                 )}
               </div>
-              <div className="flex gap-1 my-1">{(enemy.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}</div>
+              <div className="flex gap-1 my-1 items-center">
+                {(enemy.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}
+                {enemyShield > 0 && <span className="text-[9px] font-bold text-cyan-300 ml-1">🛡️ {enemyShield}</span>}
+              </div>
               <HPBar hp={enemyHp} maxHp={enemyMax} showNumbers size="md" />
             </div>
           </div>
@@ -504,9 +589,14 @@ export default function BattleScreen() {
                     <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
                       alt={m.name} className={`w-9 h-9 object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
                     <p className="text-[8px] text-white font-bold truncate w-full text-center leading-none">{m.name}</p>
-                    <div className="flex gap-0.5">
+                    <div className="flex gap-0.5 items-center">
                       {m.shiny && <span className="text-[7px]">✨</span>}
                       {m.holo  && <span className="text-[7px]">🌈</span>}
+                      {teamStatus[m.uid] && alive && (
+                        <span className="text-[8px] leading-none" title={`${STATUS_DEF[teamStatus[m.uid].type]?.label} ${teamStatus[m.uid].turns}t`}>
+                          {STATUS_DEF[teamStatus[m.uid].type]?.label?.split(' ')[0]}
+                        </span>
+                      )}
                     </div>
                     <div className="w-full h-1 rounded-full bg-gray-800">
                       <div className="h-full rounded-full" style={{ width: `${Math.max(0, (h / maxH) * 100)}%`, background: h / maxH > 0.5 ? '#4ade80' : h / maxH > 0.25 ? '#fbbf24' : '#ef4444' }} />

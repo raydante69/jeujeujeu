@@ -207,12 +207,22 @@ export function computeIntent(enemy, team, hps) {
     return { targetUid: target.uid, targetName: target.name, damage: dmg, eff }
   })
   const moveName = heavy ? (HEAVY_NAMES[t0] || 'Charge Lourde') : (STRIKE_NAMES[t0] || 'Attaque')
+
+  // Elites & bosses can also inflict a status (burn/poison) on a team member.
+  let applyStatus = null
+  const canInflict = enemy.isBoss || enemy.kind === 'elite'
+  if (canInflict && Math.random() < (enemy.isBoss ? 0.32 : 0.18)) {
+    const pool = enemy.isBoss ? ['burn', 'poison', 'paralyze'] : ['burn', 'poison']
+    applyStatus = { type: pool[Math.floor(Math.random() * pool.length)], targetUid: targets[0].targetUid }
+  }
+
   // Top-level fields mirror the first target for backward compatibility.
   return {
     kind: heavy ? 'heavy' : 'attack',
     type: t0, moveName,
     targets,
     multi: nTargets > 1,
+    applyStatus,
     targetUid: targets[0].targetUid,
     targetName: targets[0].targetName,
     damage: targets[0].damage,
