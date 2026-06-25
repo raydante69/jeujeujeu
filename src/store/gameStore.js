@@ -47,7 +47,7 @@ export const useGameStore = create(
       navigate: (screen) => set({ currentScreen: screen }),
 
       // --- Economy ---
-      money: 500,
+      money: 0,
       crystals: 0,
       rubies: 0,
 
@@ -349,7 +349,7 @@ export const useGameStore = create(
 
       // --- Reset ---
       resetGame: () => set({
-        money: 500,
+        money: 0,
         crystals: 0,
         rubies: 0,
         collection: [],

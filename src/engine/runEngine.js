@@ -5,6 +5,7 @@ import { evaluateBurst } from './comboBurst.js'
 import { nextEvolution } from '../data/evolutions.js'
 import { biomeForWave } from '../data/biomes.js'
 import { speciesRarity } from '../data/cardModel.js'
+import { rollModifiers } from '../data/enemyModifiers.js'
 
 const LEGENDARY_IDS = new Set([144, 145, 146, 150, 151])
 
@@ -59,6 +60,19 @@ export function buildEnemy(wave, rng = Math.random, asc = null) {
   mon.isLegendary = LEGENDARY_IDS.has(sp.id)
   // Bosses carry a signature ability (enrage / shield / lifedrain) from the biome.
   if (mon.isBoss) mon.ability = biome.bossAbilities?.[sp.id] || null
+
+  // Roll random modifiers on non-boss enemies (0, 1 or 2).
+  if (!mon.isBoss) {
+    const roll = rng()
+    const count = roll < 0.12 ? 2 : roll < 0.45 ? 1 : 0
+    mon.modifiers = rollModifiers(count, rng)
+    for (const mod of mon.modifiers) {
+      if (mod.id === 'hp_boost') { mon.maxHp = Math.round(mon.maxHp * 1.3); mon.hp = mon.maxHp }
+    }
+  } else {
+    mon.modifiers = []
+  }
+
   return mon
 }
 

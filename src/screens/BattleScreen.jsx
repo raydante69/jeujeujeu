@@ -13,7 +13,8 @@ import { aggregateAscension } from '../data/ascension.js'
 import { getWeakTypes } from '../engine/comboBurst.js'
 import { biomeForWave } from '../data/biomes.js'
 import { getTrait } from '../data/signatureTraits.js'
-import { TYPE_COLORS } from '../data/types.js'
+import { TYPE_COLORS, TYPE_LABELS_FR } from '../data/types.js'
+import { MODIFIER_DEF } from '../data/enemyModifiers.js'
 import { BALLS, BALL_BY_ID } from '../data/items.js'
 import { rollRandomCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
@@ -98,8 +99,9 @@ export default function BattleScreen() {
   const [caught, setCaught]       = useState(null)
   const [throwUsed, setThrowUsed] = useState(false)
   const [rerolls, setRerolls]     = useState(MAX_REROLLS)
-  const [showMoves, setShowMoves] = useState(false)      // "Mes Attaques" overlay
-  const [focusedCard, setFocusedCard] = useState(null)   // card detail popup
+  const [showMoves, setShowMoves] = useState(false)
+  const [focusedCard, setFocusedCard] = useState(null)
+  const [selectedMon, setSelectedMon] = useState(null)
   const reviveUsed = useRef(false)
 
   const live = useRef({})
@@ -141,8 +143,11 @@ export default function BattleScreen() {
       startHp[m.uid] = m.hp > 0 ? Math.max(1, h) : h
     })
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
-    setTeamStatus({}); setEnemyShield(0)
+    setTeamStatus({})
     reviveUsed.current = false
+    // Apply shield_start modifier
+    const shieldMod = e.modifiers?.find(m => m.id === 'shield_start')
+    setEnemyShield(shieldMod ? Math.round((e.level || 5) * 4) : 0)
     // Ascension 'Boss Enragés' : the boss starts in a rage.
     if (e.isBoss && asc.bossRageFromStart) { setEnraged(true); addLog(`😡 ${e.name} démarre enragé (Ascension) !`) }
     if (e.ability) addLog(`✨ Capacité du boss : ${ABILITY_LABEL[e.ability] || e.ability}`)
@@ -259,8 +264,8 @@ export default function BattleScreen() {
           }
           let dmg = hit.damage ?? 1
           if (isRaged || enraged) dmg = Math.round(dmg * 1.3)
-          // Boss 'enrage' ability ramps damage every turn that passes.
           if (enemy.ability === 'enrage') dmg = Math.round(dmg * (1 + 0.08 * turn))
+          if (enemy.modifiers?.some(m => m.id === 'attack_up')) dmg = Math.round(dmg * 1.25)
           const absorbed = Math.min(remainingGuard, dmg)
           remainingGuard -= absorbed
           dmg = Math.max(0, dmg - absorbed)
@@ -349,6 +354,13 @@ export default function BattleScreen() {
       let crit = false
       if (buff0 > 0) { dmg = Math.round(dmg * (1 + buff0)); setBuff(0) }
       if (Math.random() < (relicAgg.critChance || 0)) { dmg = Math.round(dmg * 2); crit = true }
+      // Enemy type modifiers: resist (×0.5) or weakness (×2)
+      for (const mod of enemy.modifiers || []) {
+        if (mod.param === card.type) {
+          if (mod.id === 'type_resist') { dmg = Math.round(dmg * 0.5); addLog(`🔒 Résistance ${TYPE_LABELS_FR[mod.param] || mod.param}`) }
+          if (mod.id === 'type_weak')   { dmg = Math.round(dmg * 2);   addLog(`💥 Fragilité ${TYPE_LABELS_FR[mod.param] || mod.param} !`) }
+        }
+      }
       // Boss 'shield' ability absorbs part of this burst, then breaks.
       if (live.current.enemyShield > 0) {
         const blocked = Math.min(live.current.enemyShield, dmg)
@@ -416,7 +428,8 @@ export default function BattleScreen() {
 
   // ── Win / Lose ──────────────────────────────────────────────────────
   function win(finalHp) {
-    const xpEach = Math.round(xpForWin(enemy, wave) * (relicAgg.xpMult || 1))
+    const xpMult = (relicAgg.xpMult || 1) * (enemy.modifiers?.some(m => m.id === 'xp_gift') ? 1.5 : 1)
+    const xpEach = Math.round(xpForWin(enemy, wave) * xpMult)
     const events = []
     // Level cap: Pokémon can't exceed wave + 3 to prevent easy snowballing
     const levelCap = Math.max(5, wave + 3)
@@ -435,7 +448,8 @@ export default function BattleScreen() {
       }
       return copy
     })
-    const goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
+    let goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
+    if (enemy.modifiers?.some(m => m.id === 'gold_gift')) goldGain = Math.round(goldGain * 1.5)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
@@ -488,7 +502,8 @@ export default function BattleScreen() {
     setEnemyHp(newEnemy.maxHp)
     setEnemyMax(newEnemy.maxHp)
     setEStatus(null)
-    setEnemyShield(0)
+    const shieldMod = newEnemy.modifiers?.find(m => m.id === 'shield_start')
+    setEnemyShield(shieldMod ? Math.round((newEnemy.level || 5) * 4) : 0)
     setEnraged(false)
     setGuard(0)
     setLastCardKind(null)
@@ -576,9 +591,10 @@ export default function BattleScreen() {
 
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-3 py-3 flex flex-col gap-3 pb-72">
 
-        {/* Enemy */}
-        <div className={`rounded-2xl p-4 border relative ${shake === 'enemy' ? 'animate-shake' : ''} ${enraged ? 'animate-pulse' : ''}`}
-          style={{ background: `linear-gradient(160deg, ${typeColor}33, #0f172a)`, borderColor: enraged ? '#ef4444aa' : typeColor + '55' }}>
+        {/* Enemy — clickable for detail */}
+        <div className={`rounded-2xl p-4 border relative cursor-pointer active:scale-[0.99] transition-transform ${shake === 'enemy' ? 'animate-shake' : ''} ${enraged ? 'animate-pulse' : ''}`}
+          style={{ background: `linear-gradient(160deg, ${typeColor}33, #0f172a)`, borderColor: enraged ? '#ef4444aa' : typeColor + '55' }}
+          onClick={() => setSelectedMon({ kind: 'enemy' })}>
           {enemy.isBoss && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">💀 BOSS</div>}
           {enraged && <div className="absolute -top-2 right-3 bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse">😡 RAGE</div>}
           {enemy.ability && <div className="absolute -top-2 left-3 bg-purple-700 text-white text-[9px] font-black px-2 py-0.5 rounded-full" title={ABILITY_LABEL[enemy.ability]}>{(ABILITY_LABEL[enemy.ability] || '').split(' ')[0]} {enemy.ability}</div>}
@@ -618,6 +634,23 @@ export default function BattleScreen() {
               ))}
             </div>
           )}
+          {/* Modifier badges — red = buff enemy, blue = nerf enemy */}
+          {enemy.modifiers?.length > 0 && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              {enemy.modifiers.map((mod, i) => {
+                const def = MODIFIER_DEF[mod.id]
+                if (!def) return null
+                return (
+                  <div key={i} className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5"
+                    style={{ background: mod.isNerf ? '#3b82f622' : '#ef444422', border: `1px solid ${mod.isNerf ? '#3b82f666' : '#ef444466'}` }}
+                    title={def.name}>
+                    <span className="text-[10px]">{def.icon}</span>
+                  </div>
+                )
+              })}
+              <span className="text-[8px] text-gray-600 italic">Tape pour détails</span>
+            </div>
+          )}
         </div>
 
         {/* Intent */}
@@ -653,7 +686,7 @@ export default function BattleScreen() {
           </div>
         )}
 
-        {/* Team status row */}
+        {/* Team — responsive to team size, clickable for detail */}
         {phase !== 'win' && phase !== 'lose' && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -663,32 +696,80 @@ export default function BattleScreen() {
                 {buff > 0 && <span className="text-[10px] font-bold text-orange-300">💪 +{Math.round(buff * 100)}%</span>}
               </div>
             </div>
-            <div className="flex gap-2">
-              {team.map(m => {
+
+            {team.length === 1 ? (
+              /* Single mon: mirror the enemy panel */
+              (() => {
+                const m = team[0]
                 const h = hp[m.uid] ?? 0, maxH = m.maxHp || 1
                 const alive = h > 0
+                const tc = TYPE_COLORS[m.types?.[0]] || '#1e293b'
+                const borderCol = m.holo ? '#c084fc88' : m.shiny ? '#fbbf2488' : tc + '66'
                 return (
-                  <div key={m.uid} className={`flex-1 rounded-xl p-1.5 flex flex-col items-center gap-0.5 border ${shake === m.uid ? 'animate-shake' : ''}`}
-                    style={{ background: '#0f172a', borderColor: alive ? (m.holo ? '#c084fc55' : m.shiny ? '#fbbf2455' : '#1e293b') : '#1a1a2e', opacity: alive ? 1 : 0.4 }}>
-                    <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
-                      alt={m.name} className={`w-9 h-9 object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
-                    <p className="text-[8px] text-white font-bold truncate w-full text-center leading-none">{m.name}</p>
-                    <div className="flex gap-0.5 items-center">
-                      {m.shiny && <span className="text-[7px]">✨</span>}
-                      {m.holo  && <span className="text-[7px]">🌈</span>}
-                      {teamStatus[m.uid] && alive && (
-                        <span className="text-[8px] leading-none" title={`${STATUS_DEF[teamStatus[m.uid].type]?.label} ${teamStatus[m.uid].turns}t`}>
-                          {STATUS_DEF[teamStatus[m.uid].type]?.label?.split(' ')[0]}
-                        </span>
-                      )}
-                    </div>
-                    <div className="w-full h-1 rounded-full bg-gray-800">
-                      <div className="h-full rounded-full" style={{ width: `${Math.max(0, (h / maxH) * 100)}%`, background: h / maxH > 0.5 ? '#4ade80' : h / maxH > 0.25 ? '#fbbf24' : '#ef4444' }} />
+                  <div className={`rounded-2xl p-4 border cursor-pointer active:scale-[0.99] transition-transform ${shake === m.uid ? 'animate-shake' : ''}`}
+                    style={{ background: `linear-gradient(160deg, ${tc}22, #0f172a)`, borderColor: alive ? borderCol : '#1a1a2e', opacity: alive ? 1 : 0.5 }}
+                    onClick={() => setSelectedMon({ kind: 'ally', mon: m })}>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0">
+                        <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
+                          alt={m.name} className={`w-20 h-20 object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
+                        {m.shiny && <span className="absolute -top-1 -right-1 text-sm leading-none">✨</span>}
+                        {m.holo  && <span className="absolute -top-1 -left-1 text-sm leading-none">🌈</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <p className="font-bold text-white text-sm truncate">{m.name}</p>
+                          <p className="text-[11px] font-bold text-gray-400 flex-shrink-0">Niv.{m.level}</p>
+                        </div>
+                        <div className="flex gap-1 items-center flex-wrap mb-1.5">
+                          {(m.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}
+                          {teamStatus[m.uid] && alive && (
+                            <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ color: STATUS_DEF[teamStatus[m.uid].type]?.color, background: STATUS_DEF[teamStatus[m.uid].type]?.color + '22' }}>
+                              {STATUS_DEF[teamStatus[m.uid].type]?.label?.split(' ')[0]}
+                            </span>
+                          )}
+                        </div>
+                        <HPBar hp={h} maxHp={maxH} showNumbers size="md" />
+                      </div>
                     </div>
                   </div>
                 )
-              })}
-            </div>
+              })()
+            ) : (
+              /* Multiple mons: equal-width cards, sprite size scales with count */
+              <div className="flex gap-1.5">
+                {team.map(m => {
+                  const h = hp[m.uid] ?? 0, maxH = m.maxHp || 1
+                  const alive = h > 0
+                  const tc = TYPE_COLORS[m.types?.[0]] || '#1e293b'
+                  const borderCol = m.holo ? '#c084fc66' : m.shiny ? '#fbbf2466' : tc + '44'
+                  const spriteClass = team.length <= 2 ? 'w-14 h-14' : team.length === 3 ? 'w-11 h-11' : 'w-9 h-9'
+                  return (
+                    <div key={m.uid}
+                      className={`flex-1 rounded-xl p-2 flex flex-col items-center gap-1 border cursor-pointer active:scale-95 transition-transform ${shake === m.uid ? 'animate-shake' : ''}`}
+                      style={{ background: `linear-gradient(160deg, ${tc}15, #0f172a)`, borderColor: alive ? borderCol : '#1a1a2e', opacity: alive ? 1 : 0.4 }}
+                      onClick={() => setSelectedMon({ kind: 'ally', mon: m })}>
+                      <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
+                        alt={m.name} className={`${spriteClass} object-contain pixelated ${!alive ? 'grayscale' : ''}`} loading="lazy" />
+                      <p className="text-[8px] text-white font-bold truncate w-full text-center leading-none">{m.name}</p>
+                      <p className="text-[8px] text-gray-400 tabular-nums leading-none">{h}/{maxH}</p>
+                      <div className="flex gap-0.5 items-center">
+                        {m.shiny && <span className="text-[7px]">✨</span>}
+                        {m.holo  && <span className="text-[7px]">🌈</span>}
+                        {teamStatus[m.uid] && alive && (
+                          <span className="text-[8px] leading-none" style={{ color: STATUS_DEF[teamStatus[m.uid].type]?.color }}>
+                            {STATUS_DEF[teamStatus[m.uid].type]?.label?.split(' ')[0]}
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full h-1 rounded-full bg-gray-800">
+                        <div className="h-full rounded-full" style={{ width: `${Math.max(0, (h / maxH) * 100)}%`, background: h / maxH > 0.5 ? '#4ade80' : h / maxH > 0.25 ? '#fbbf24' : '#ef4444' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -949,6 +1030,192 @@ export default function BattleScreen() {
               </div>
             )
           })()}
+        </div>
+      )}
+
+      {/* ── Pokémon detail modal (ally or enemy) ──────────────────────── */}
+      {selectedMon && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center pb-4 px-3"
+          style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setSelectedMon(null)}>
+          <div onClick={e => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl overflow-hidden"
+            style={{
+              background: '#0a0a14',
+              border: `1px solid ${selectedMon.kind === 'ally'
+                ? (TYPE_COLORS[selectedMon.mon?.types?.[0]] || '#334155') + '66'
+                : typeColor + '66'}`,
+              maxHeight: '82vh',
+              overflowY: 'auto',
+            }}>
+
+            {selectedMon.kind === 'ally' ? (() => {
+              const m = selectedMon.mon
+              const h = hp[m.uid] ?? 0
+              const maxH = m.maxHp || 1
+              const tc = TYPE_COLORS[m.types?.[0]] || '#1e293b'
+              const xpNeed = xpToNext(m.level)
+              const moves = allTeamMoves.find(x => x.mon.uid === m.uid)?.moves || []
+              return (
+                <div className="p-4">
+                  {/* Header */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${m.id}.png`}
+                        alt={m.name} className="w-20 h-20 object-contain drop-shadow-lg"
+                        onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png` }}
+                      />
+                      {m.shiny && <span className="absolute -top-1 -right-1 text-sm">✨</span>}
+                      {m.holo  && <span className="absolute -top-1 -left-1 text-sm">🌈</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-base">{m.name}</p>
+                      <p className="text-[11px] text-gray-400 font-bold mb-1">Niv.{m.level}</p>
+                      <div className="flex gap-1 flex-wrap mb-2">
+                        {(m.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}
+                      </div>
+                      <HPBar hp={h} maxHp={maxH} showNumbers size="md" />
+                    </div>
+                  </div>
+
+                  {/* XP bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between mb-1">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">Expérience</p>
+                      <p className="text-[10px] text-gray-500">{m.xp || 0} / {xpNeed} XP</p>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                      <div className="h-full rounded-full bg-cyan-400/80 transition-all"
+                        style={{ width: `${Math.min(100, ((m.xp || 0) / xpNeed) * 100)}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  {m.stats && Object.keys(m.stats).length > 0 && (
+                    <>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Statistiques</p>
+                      <div className="grid grid-cols-3 gap-1.5 mb-3">
+                        {Object.entries(m.stats).map(([k, v]) => (
+                          <div key={k} className="rounded-lg px-2 py-1.5 text-center"
+                            style={{ background: tc + '18', border: `1px solid ${tc}33` }}>
+                            <p className="text-[7px] text-gray-500 uppercase font-bold">{k}</p>
+                            <p className="text-sm font-black text-white">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Moves */}
+                  <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Attaques ({moves.length})</p>
+                  <div className="space-y-1.5">
+                    {moves.map(card => {
+                      const ct = TYPE_COLORS[card.type] || '#64748b'
+                      const preview = previewCard(card, m, enemy, relicAgg)
+                      return (
+                        <div key={card.uid} className="flex items-center gap-2 rounded-lg px-2.5 py-2"
+                          style={{ background: ct + '18', border: `1px solid ${ct}44` }}>
+                          <span className="text-sm flex-shrink-0">{KIND_ICON[card.kind]}</span>
+                          <p className="text-[11px] font-bold text-white flex-1 truncate">{card.name}</p>
+                          <span className="text-[8px] font-bold rounded px-1 flex-shrink-0" style={{ background: ct + '33', color: ct }}>
+                            {card.type?.toUpperCase().slice(0, 3)}
+                          </span>
+                          {preview?.map((p, i) => (
+                            <span key={i} className="text-[10px] font-black tabular-nums flex-shrink-0" style={{ color: p.color }}>{p.label}</span>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })() : (() => {
+              // Enemy detail
+              return (
+                <div className="p-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <img
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${enemy.id}.png`}
+                      alt={enemy.name} className="w-20 h-20 object-contain drop-shadow-lg flex-shrink-0"
+                      onError={e => { e.target.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png` }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-base">{enemy.name}</p>
+                      <p className="text-[11px] text-gray-400 font-bold mb-1">
+                        Niv.{enemy.level}{enemy.isBoss ? ' 💀 BOSS' : kind === 'elite' ? ' ⭐ Élite' : ''}
+                      </p>
+                      <div className="flex gap-1 flex-wrap mb-2">
+                        {(enemy.types || ['normal']).map(t => <TypeBadge key={t} type={t} size="xs" />)}
+                      </div>
+                      <HPBar hp={enemyHp} maxHp={enemyMax} showNumbers size="md" />
+                    </div>
+                  </div>
+
+                  {/* Enemy stats */}
+                  {enemy.stats && Object.keys(enemy.stats).length > 0 && (
+                    <>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Statistiques</p>
+                      <div className="grid grid-cols-3 gap-1.5 mb-3">
+                        {Object.entries(enemy.stats).map(([k, v]) => (
+                          <div key={k} className="rounded-lg px-2 py-1.5 text-center"
+                            style={{ background: typeColor + '18', border: `1px solid ${typeColor}33` }}>
+                            <p className="text-[7px] text-gray-500 uppercase font-bold">{k}</p>
+                            <p className="text-sm font-black text-white">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Boss ability */}
+                  {enemy.ability && (
+                    <div className="mb-3 rounded-xl px-3 py-2.5 border border-purple-700/40 bg-purple-900/20">
+                      <p className="text-[11px] text-purple-300 font-bold">{ABILITY_LABEL[enemy.ability]}</p>
+                    </div>
+                  )}
+
+                  {/* Modifiers with full descriptions */}
+                  {enemy.modifiers?.length > 0 ? (
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1.5">Effets actifs ({enemy.modifiers.length})</p>
+                      <div className="space-y-2">
+                        {enemy.modifiers.map((mod, i) => {
+                          const def = MODIFIER_DEF[mod.id]
+                          if (!def) return null
+                          const typeLabel = TYPE_LABELS_FR[mod.param] || mod.param || ''
+                          const desc = def.desc.replace('{TYPE}', typeLabel)
+                          return (
+                            <div key={i} className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 border"
+                              style={{ background: mod.isNerf ? '#3b82f615' : '#ef444415', borderColor: mod.isNerf ? '#3b82f644' : '#ef444444' }}>
+                              <span className="text-base mt-0.5 flex-shrink-0">{def.icon}</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                  <p className="text-[11px] font-bold text-white">{def.name}</p>
+                                  <span className="text-[8px] font-black rounded-full px-1.5 py-0.5"
+                                    style={{ background: mod.isNerf ? '#3b82f633' : '#ef444433', color: mod.isNerf ? '#60a5fa' : '#f87171' }}>
+                                    {mod.isNerf ? '🔵 Affaiblit' : '🔴 Renforce'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-gray-400">{desc}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-600 italic">Aucun effet actif</p>
+                  )}
+                </div>
+              )
+            })()}
+
+            <button onClick={() => setSelectedMon(null)}
+              className="w-full py-3 text-gray-500 text-sm font-bold border-t border-white/10 hover:text-white transition-colors">
+              Fermer ✕
+            </button>
+          </div>
         </div>
       )}
     </div>
