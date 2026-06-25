@@ -3,7 +3,8 @@ import { useGameStore } from './store/gameStore.js'
 import { useRunStore } from './store/runStore.js'
 import { loadPokemonData, ensureUidAbove } from './data/pokemon.js'
 import AuthGate from './components/AuthGate.jsx'
-import { useAuthStore } from './store/authStore.js'
+import { useSettingsStore } from './store/settingsStore.js'
+import { setSfxEnabled } from './lib/sfx.js'
 import HomeScreen from './screens/HomeScreen.jsx'
 import ShopScreen from './screens/ShopScreen.jsx'
 import PackOpeningScreen from './screens/PackOpeningScreen.jsx'
@@ -49,8 +50,13 @@ const NAV_SCREENS = ['title', 'home', 'shop', 'collection', 'training']
 
 export default function App() {
   const { currentScreen } = useGameStore()
+  const { sfxEnabled, reducedMotion, compactMode } = useSettingsStore()
   const [dataLoaded, setDataLoaded] = React.useState(false)
   const [loadError, setLoadError] = React.useState(null)
+
+  useEffect(() => {
+    setSfxEnabled(sfxEnabled)
+  }, [sfxEnabled])
 
   useEffect(() => {
     loadPokemonData()
@@ -91,10 +97,15 @@ export default function App() {
 
   const Screen = SCREENS[currentScreen] || HomeScreen
   const showNav = NAV_SCREENS.includes(currentScreen)
+  const appClassName = [
+    'min-h-screen bg-game-bg text-white',
+    reducedMotion ? 'reduce-motion' : '',
+    compactMode ? 'compact-mode' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-game-bg text-white">
+      <div className={appClassName}>
         <div className={showNav ? 'pb-16' : ''}>
           <Screen />
         </div>

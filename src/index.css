@@ -146,4 +146,22 @@
   .text-shadow-glow {
     text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
   }
+
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .compact-mode .compactable-stack {
+    gap: 0.75rem !important;
+  }
+
+  .compact-mode .compactable-panel {
+    padding: 0.75rem !important;
+    border-radius: 0.75rem !important;
+  }
 }
