@@ -4,6 +4,7 @@ import { useRunStore } from '../store/runStore.js'
 import {
   buildEnemy, xpForWin, goldForWin, gainXp, waveKind,
 } from '../engine/runEngine.js'
+import { recomputeStats } from '../data/pokemon.js'
 import {
   drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF,
 } from '../engine/combatEngine.js'
@@ -303,12 +304,20 @@ export default function BattleScreen() {
   function win(finalHp) {
     const xpEach = Math.round(xpForWin(enemy, wave) * (relicAgg.xpMult || 1))
     const events = []
+    // Level cap: Pokémon can't exceed wave + 3 to prevent easy snowballing
+    const levelCap = Math.max(5, wave + 3)
     const updated = team.map(m => {
       const copy = { ...m, hp: finalHp[m.uid] ?? m.hp }
       if (copy.hp > 0) {
         const before = copy.level
         const ev = gainXp(copy, xpEach)
-        if (ev.levels.length || ev.evolutions.length) events.push({ name: m.name, from: before, to: copy.level, evo: ev.evolutions })
+        if (copy.level > levelCap) {
+          copy.level = levelCap
+          copy.xp = 0
+          recomputeStats(copy)
+          copy.hp = Math.min(copy.hp, copy.maxHp)
+        }
+        if (ev.levels.length || ev.evolutions.length) events.push({ name: copy.name, from: before, to: copy.level, evo: ev.evolutions })
       }
       return copy
     })

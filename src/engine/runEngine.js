@@ -64,7 +64,8 @@ export function makeRunMon(speciesId, level = 5) {
   inst.xp = 0
   inst.runLevel = level
   inst.rarity = speciesRarity(sp)
-  // Player Pokémon get a HP boost so early-game is survivable
+  // Store HP multiplier on the mon so recomputeStats reapplies it on level-up
+  inst.hpMult = 2.5
   inst.maxHp = Math.round(inst.stats.hp * 2.5)
   inst.hp = inst.maxHp
   return inst
