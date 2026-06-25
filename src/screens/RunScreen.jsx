@@ -9,10 +9,11 @@ import { TYPE_COLORS } from '../data/types.js'
 import ItemSprite from '../components/ItemSprite.jsx'
 
 const KIND_META = {
-  wild:    { icon: '🌿', label: 'Sauvage',  color: '#4ade80' },
-  trainer: { icon: '🧢', label: 'Dresseur', color: '#60a5fa' },
-  elite:   { icon: '⭐', label: 'Élite',    color: '#fbbf24' },
-  boss:    { icon: '💀', label: 'BOSS',     color: '#f87171' },
+  wild:      { icon: '🌿', label: 'Sauvage',   color: '#4ade80' },
+  trainer:   { icon: '🧢', label: 'Dresseur',  color: '#60a5fa' },
+  elite:     { icon: '⭐', label: 'Élite',     color: '#fbbf24' },
+  boss:      { icon: '💀', label: 'BOSS',      color: '#f87171' },
+  encounter: { icon: '🔭', label: 'Rencontre', color: '#c084fc' },
 }
 
 export default function RunScreen() {
@@ -28,8 +29,12 @@ export default function RunScreen() {
   })
 
   function startBattle() {
-    setPendingEnemy(buildEnemy(wave))
-    navigate('battle')
+    if (waveKind(wave) === 'encounter') {
+      navigate('encounter')
+    } else {
+      setPendingEnemy(buildEnemy(wave))
+      navigate('battle')
+    }
   }
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(null), 1300) }
@@ -200,7 +205,11 @@ export default function RunScreen() {
         <button onClick={startBattle}
           className="w-full max-w-lg mx-auto block py-4 rounded-xl font-black text-base text-white transition-all active:scale-95"
           style={{ background: `linear-gradient(90deg, ${KIND_META[waveKind(wave)].color}, #dc2626)` }}>
-          {KIND_META[waveKind(wave)].icon} {waveKind(wave) === 'boss' ? `BOSS — Vague ${wave}` : `Combattre — Vague ${wave}`} →
+          {KIND_META[waveKind(wave)].icon} {
+            waveKind(wave) === 'boss' ? `BOSS — Vague ${wave}`
+            : waveKind(wave) === 'encounter' ? `Rencontre — Vague ${wave}`
+            : `Combattre — Vague ${wave}`
+          } →
         </button>
       </div>
     </div>

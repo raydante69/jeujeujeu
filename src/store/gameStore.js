@@ -16,11 +16,9 @@ export function pointsUpgradeCost(currentMax) {
   return 80 + Math.max(0, (currentMax - START_POINTS) / POINTS_PER_UPGRADE) * 60
 }
 
-// Crystal cost to expand hand by 1 card (starts at 5, max 10).
-export const MAX_HAND_SIZE = 10
-export function handSizeUpgradeCost(currentSize) {
-  return 50 + Math.max(0, currentSize - 5) * 40
-}
+// Crystal cost to unlock 2nd card slot per Pokémon (one-time upgrade).
+export const MAX_CARDS_PER_SLOT = 2
+export const CARDS_PER_SLOT_UPGRADE_COST = 80
 
 // Permanent training cost grows with how trained a species already is.
 export function trainCost(currentBonus) { return 30 + currentBonus * 25 }
@@ -164,15 +162,14 @@ export const useGameStore = create(
         return cost
       },
 
-      // --- Combat hand size (upgradeable via shop) ---
-      handSize: 5,
-      upgradeHandSize: () => {
+      // --- Cards per Pokémon slot (1 = default, 2 = upgraded) ---
+      cardsPerSlot: 1,
+      upgradeCardsPerSlot: () => {
         const s = get()
-        if (s.handSize >= MAX_HAND_SIZE) return false
-        const cost = handSizeUpgradeCost(s.handSize)
-        if (!s.spendCrystals(cost)) return false
-        set({ handSize: Math.min(MAX_HAND_SIZE, s.handSize + 1) })
-        return cost
+        if (s.cardsPerSlot >= MAX_CARDS_PER_SLOT) return false
+        if (!s.spendCrystals(CARDS_PER_SLOT_UPGRADE_COST)) return false
+        set({ cardsPerSlot: MAX_CARDS_PER_SLOT })
+        return CARDS_PER_SLOT_UPGRADE_COST
       },
 
       // --- Team point capacity (Pokérogue-style) ---
@@ -260,7 +257,7 @@ export const useGameStore = create(
         trainerLevels: {},
         daily: { date: null, quests: [] },
         starterPoints: START_POINTS,
-        handSize: 5,
+        cardsPerSlot: 1,
       }),
     }),
     {
@@ -279,7 +276,7 @@ export const useGameStore = create(
         money: s.money,
         crystals: s.crystals,
         rubies: s.rubies,
-        handSize: s.handSize,
+        cardsPerSlot: s.cardsPerSlot,
         collection: s.collection,
         team: s.team,
         badgesEarned: s.badgesEarned,

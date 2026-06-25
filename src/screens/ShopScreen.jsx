@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useGameStore, pointsUpgradeCost, MAX_POINTS, handSizeUpgradeCost, MAX_HAND_SIZE } from '../store/gameStore.js'
+import { useGameStore, pointsUpgradeCost, MAX_POINTS, MAX_CARDS_PER_SLOT, CARDS_PER_SLOT_UPGRADE_COST } from '../store/gameStore.js'
 import { openBooster, BOOSTER_TYPES, boosterPrice, RARITIES, BOOSTER_ODDS } from '../engine/boosterAcquisition.js'
 import { GEN_UNLOCKS } from '../data/genUnlocks.js'
 import FreeBoosterTimer from '../components/FreeBoosterTimer.jsx'
@@ -21,7 +21,7 @@ export default function ShopScreen() {
     money, crystals, rubies, spendMoney, unlockedGens, setPendingBoosters, navigate,
     claimFreeBooster, activeGenForFreeBooster, sessionBuys, recordBoosterBuy,
     recordStat, reportQuest, starterPoints, buyStarterPoints,
-    handSize, upgradeHandSize,
+    cardsPerSlot, upgradeCardsPerSlot,
   } = useGameStore()
   const [selectedGen, setSelectedGen] = useState(1)
   const [buyMsg, setBuyMsg] = useState(null)
@@ -193,31 +193,31 @@ export default function ShopScreen() {
           })}
         </div>
 
-        {/* Hand size upgrade */}
+        {/* Cards per slot upgrade */}
         <div className="rounded-2xl p-4 border" style={{ background: 'linear-gradient(135deg, #7c3aed22, #0f172a)', borderColor: '#7c3aed55' }}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: '#7c3aed22', border: '1px solid #7c3aed66' }}>🃏</div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-sm">Taille de Main</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Plus de cartes proposées au combat.</p>
+              <p className="font-bold text-white text-sm">Double Carte</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">Chaque Pokémon propose 2 attaques au lieu d'1 lors des combats.</p>
               <p className="text-[11px] mt-1">
-                <span className="text-violet-300 font-black">{handSize || 5}</span>
-                <span className="text-gray-500"> / {MAX_HAND_SIZE} cartes</span>
+                <span className="text-violet-300 font-black">{cardsPerSlot || 1}</span>
+                <span className="text-gray-500"> / {MAX_CARDS_PER_SLOT} carte{MAX_CARDS_PER_SLOT > 1 ? 's' : ''} par Pokémon</span>
               </p>
             </div>
           </div>
-          {(handSize || 5) >= MAX_HAND_SIZE ? (
-            <div className="w-full mt-3 py-2.5 rounded-xl text-center text-xs font-black bg-violet-900/40 text-violet-400">Main maximale atteinte ✓</div>
+          {(cardsPerSlot || 1) >= MAX_CARDS_PER_SLOT ? (
+            <div className="w-full mt-3 py-2.5 rounded-xl text-center text-xs font-black bg-violet-900/40 text-violet-400">Double Carte déverrouillé ✓</div>
           ) : (
             <button
               onClick={() => {
-                const spent = upgradeHandSize()
-                showMsg(spent === false ? 'Pas assez de 💎 cristaux !' : '+1 carte dans la main !', spent === false ? 'error' : 'ok')
+                const spent = upgradeCardsPerSlot()
+                showMsg(spent === false ? 'Pas assez de 💎 cristaux !' : '2 cartes par Pokémon déverrouillées !', spent === false ? 'error' : 'ok')
               }}
               className="w-full mt-3 py-2.5 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 bg-violet-600 text-white active:scale-95"
             >
-              <span>+1 carte</span>
-              <span className="bg-black/20 rounded-lg px-2.5 py-1 text-xs tabular-nums">{handSizeUpgradeCost(handSize || 5)} 💎</span>
+              <span>Déverrouiller</span>
+              <span className="bg-black/20 rounded-lg px-2.5 py-1 text-xs tabular-nums">{CARDS_PER_SLOT_UPGRADE_COST} 💎</span>
             </button>
           )}
         </div>

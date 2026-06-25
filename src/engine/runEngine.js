@@ -3,6 +3,7 @@ import { effectiveness } from '../data/types.js'
 import { evaluateBurst } from './comboBurst.js'
 import { nextEvolution } from '../data/evolutions.js'
 import { biomeForWave } from '../data/biomes.js'
+import { speciesRarity } from '../data/cardModel.js'
 
 const LEGENDARY_IDS = new Set([144, 145, 146, 150, 151])
 
@@ -10,6 +11,7 @@ const LEGENDARY_IDS = new Set([144, 145, 146, 150, 151])
 export function waveKind(wave) {
   if (wave % 10 === 0) return 'boss'
   if (wave % 5 === 0) return 'elite'
+  if (wave % 7 === 0) return 'encounter'   // waves 7, 14, 21, 28 … (not boss or elite)
   if (wave % 3 === 0) return 'trainer'
   return 'wild'
 }
@@ -56,9 +58,11 @@ export function buildEnemy(wave, rng = Math.random) {
 
 // ---- Player run instances ---------------------------------------------
 export function makeRunMon(speciesId, level = 5) {
+  const sp = speciesById(speciesId)
   const inst = makeInstance(speciesId, level)
   inst.xp = 0
   inst.runLevel = level
+  inst.rarity = speciesRarity(sp)
   return inst
 }
 
