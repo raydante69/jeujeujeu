@@ -4,6 +4,7 @@ import { useRunStore } from '../store/runStore.js'
 import { buildEnemy, waveKind, xpToNext } from '../engine/runEngine.js'
 import { pickTrainer, buildTrainerParty, pickLeagueTrainers } from '../data/trainers.js'
 import { biomeForWave } from '../data/biomes.js'
+import { eventForWave } from '../data/events.js'
 import { aggregateAscension } from '../data/ascension.js'
 import { getRelic, RELIC_RARITY_COLOR } from '../data/relics.js'
 import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
@@ -57,10 +58,14 @@ export default function RunScreen() {
       navigate('battle')
     } else {
       run.clearTrainerBattle()
-      run.setPendingEnemy(buildEnemy(wave, Math.random, aggregateAscension(ascensionLevel)))
+      const enemy = buildEnemy(wave, Math.random, aggregateAscension(ascensionLevel))
+      enemy.event = eventForWave(wave, team.length)   // attach wild-wave event (or null)
+      run.setPendingEnemy(enemy)
       navigate('battle')
     }
   }
+
+  const waveEvent = waveKind(wave) === 'wild' ? eventForWave(wave, team.length) : null
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(null), 1300) }
 
@@ -230,6 +235,16 @@ export default function RunScreen() {
 
       {/* Action */}
       <div className="fixed bottom-0 inset-x-0 p-3 z-20" style={{ background: 'linear-gradient(180deg, transparent, #0a0a14 40%)' }}>
+        {waveEvent && (
+          <div className="max-w-lg mx-auto mb-2 rounded-xl px-3 py-2 border flex items-center gap-2.5"
+            style={{ background: waveEvent.good ? '#16a34a18' : '#f59e0b18', borderColor: waveEvent.good ? '#22c55e66' : '#f59e0b66' }}>
+            <span className="text-xl flex-shrink-0">{waveEvent.icon}</span>
+            <div className="min-w-0">
+              <p className="text-xs font-black" style={{ color: waveEvent.good ? '#4ade80' : '#fbbf24' }}>Événement — {waveEvent.name}</p>
+              <p className="text-[10px] text-gray-300 leading-snug">{waveEvent.desc}</p>
+            </div>
+          </div>
+        )}
         <button onClick={startBattle}
           className="w-full max-w-lg mx-auto block py-4 rounded-xl font-black text-base text-white transition-all active:scale-95"
           style={{ background: `linear-gradient(90deg, ${KIND_META[waveKind(wave)].color}, #dc2626)` }}>

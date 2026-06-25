@@ -249,10 +249,12 @@ export default function BattleScreen() {
   const [showMoves, setShowMoves] = useState(false)
   const [focusedCard, setFocusedCard] = useState(null)
   const [selectedMon, setSelectedMon] = useState(null)
+  const [benchedUid, setBenchedUid] = useState(null)   // event 'handicap_bench': mon can't attack for 5 turns
   const reviveUsed = useRef(false)
+  const eventRef = useRef({ goldMult: 1, dmgMult: 1, forceDrop: false })
 
   const live = useRef({})
-  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield }
+  live.current = { enemyHp, hp, guard, buff, enemyStatus, intent, enraged, teamStatus, enemyShield, benchedUid }
 
   // Auto-scroll the combat log to bottom on each new entry (Lot 8)
   useEffect(() => {
@@ -270,7 +272,7 @@ export default function BattleScreen() {
   // Mons that can't act this turn (paralyzed) are excluded from the drawn hand,
   // unless that would leave no living mon able to play (avoid a soft-lock).
   const drawableTeam = (ts, hps) => {
-    const filtered = team.filter(m => ts?.[m.uid]?.type !== 'paralyze')
+    const filtered = team.filter(m => ts?.[m.uid]?.type !== 'paralyze' && m.uid !== live.current.benchedUid)
     const livingFiltered = filtered.filter(m => (hps?.[m.uid] ?? m.hp ?? 0) > 0)
     return livingFiltered.length ? filtered : team
   }
@@ -281,14 +283,35 @@ export default function BattleScreen() {
   // ── Init ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const e = pendingEnemy || buildEnemy(wave, Math.random, asc)
+    const ev = e.event || null   // wild-wave event (Lot D)
+    eventRef.current = {
+      goldMult: ev?.id === 'golden' ? 3 : ev?.id === 'frenzy' ? 1.5 : 1,
+      dmgMult:  ev?.id === 'frenzy' ? 1.3 : 1,
+      forceDrop: ev?.id === 'treasure',
+    }
     const startHp = {}
     team.forEach(m => {
       let h = m.hp
       // Cursed/glass relics shave HP at the start of each wave.
       if (relicAgg.hpPenaltyPct) h = Math.round(h * (1 - relicAgg.hpPenaltyPct / 100))
       if (relicAgg.healWavePct) h = Math.min(m.maxHp, Math.round(h + m.maxHp * relicAgg.healWavePct / 100))
+      if (ev?.id === 'healing_spring' && m.hp > 0) h = m.maxHp   // event: full heal at start
       startHp[m.uid] = m.hp > 0 ? Math.max(1, h) : h
     })
+    // Event 'handicap_bench': one living mon can't attack for the first 5 turns.
+    if (ev?.id === 'handicap_bench' && team.length > 1) {
+      const livingAtStart = team.filter(m => startHp[m.uid] > 0)
+      if (livingAtStart.length > 1) {
+        const pick = livingAtStart[Math.floor(Math.random() * livingAtStart.length)]
+        setBenchedUid(pick.uid)
+        live.current.benchedUid = pick.uid
+        addLog(`⛓️ ${pick.name} est indisponible (5 tours)`)
+      }
+    } else {
+      setBenchedUid(null)
+      live.current.benchedUid = null
+    }
+    if (ev) addLog(`${ev.icon} Événement : ${ev.name}`)
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
     setTeamStatus({})
     reviveUsed.current = false
@@ -305,7 +328,7 @@ export default function BattleScreen() {
       : kind === 'trainer' ? `🧢 Dresseur envoie ${e.name} !`
       : `Un ${e.name} sauvage apparaît !`)
 
-    setHand(drawHand(team, startHp, handSize))
+    setHand(drawHand(drawableTeam({}, startHp), startHp, handSize))
     setIntent(computeIntent(e, team, startHp, asc))
     setRerolls(MAX_REROLLS)
     setPhase('player')
@@ -413,6 +436,7 @@ export default function BattleScreen() {
           if (isRaged || enraged) dmg = Math.round(dmg * 1.3)
           if (enemy.ability === 'enrage') dmg = Math.round(dmg * (1 + 0.08 * turn))
           if (enemy.modifiers?.some(m => m.id === 'attack_up')) dmg = Math.round(dmg * 1.25)
+          if (eventRef.current.dmgMult !== 1) dmg = Math.round(dmg * eventRef.current.dmgMult)
           const absorbed = Math.min(remainingGuard, dmg)
           remainingGuard -= absorbed
           dmg = Math.max(0, dmg - absorbed)
@@ -462,7 +486,13 @@ export default function BattleScreen() {
 
       // New turn — paralyzed mons are excluded from the drawn hand.
       setTimeout(() => {
-        setTurn(t => t + 1)
+        let benchCleared = false
+        setTurn(t => {
+          const nt = t + 1
+          if (nt >= 6 && live.current.benchedUid) benchCleared = true
+          return nt
+        })
+        if (benchCleared) { setBenchedUid(null); live.current.benchedUid = null; addLog('⛓️ Ton Pokémon est de nouveau disponible !') }
         setGuard(remainingGuard)   // shield persists between turns (reset only in resetBattleState)
         setLastCardKind(null)      // allow guard again after one non-guard turn
         setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
@@ -621,6 +651,7 @@ export default function BattleScreen() {
     }
     let goldGain = goldForWin(wave, asc) + (relicAgg.goldWin || 0)
     if (enemy.modifiers?.some(m => m.id === 'gold_gift')) goldGain = Math.round(goldGain * 1.5)
+    if (eventRef.current.goldMult !== 1) goldGain = Math.round(goldGain * eventRef.current.goldMult)
     run.commitTeam(updated); run.addGold(goldGain); run.setOutcome('win')
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
@@ -639,7 +670,7 @@ export default function BattleScreen() {
       { w: 4,  ball: 'poke-ball',    n: 1 },
       { w: 3,  ball: 'great-ball',   n: 1 },
     ]
-    if (Math.random() < 0.30) {
+    if (eventRef.current.forceDrop || Math.random() < 0.30) {
       const total = dropTable.reduce((s, d) => s + d.w, 0)
       let roll = Math.random() * total
       const d = dropTable.find(x => (roll -= x.w) <= 0) || dropTable[0]
@@ -712,6 +743,8 @@ export default function BattleScreen() {
     setShake(null)
     setTeamStatus({})
     setRerolls(MAX_REROLLS)
+    setBenchedUid(null); live.current.benchedUid = null
+    eventRef.current = { goldMult: 1, dmgMult: 1, forceDrop: false }
     reviveUsed.current = false
     const currentHp = live.current.hp
     setHand(drawHand(drawableTeam({}, currentHp), currentHp, handSize))
