@@ -58,7 +58,7 @@ export default function RunShopScreen() {
     if (!run.spendGold(o.cost)) { flash('Pas assez d\'or !'); return }
     if (o.kind === 'relic') {
       run.addRelic(o.relic.id)
-      if (o.relic.id === 'glass-cannon') run.healTeam(-15)
+      // HP-penalty relics shave HP at each wave start via hpPenaltyPct.
     } else if (o.kind === 'ball') {
       run.addBall(o.ballId, o.n)
     } else if (o.kind === 'item') {
@@ -98,6 +98,9 @@ export default function RunShopScreen() {
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-white text-sm">{o.title}</p>
                 <p className="text-[11px] text-gray-400 leading-snug">{o.desc}</p>
+                {o.kind === 'relic' && o.relic.curse && (
+                  <p className="text-[10px] text-red-400 mt-0.5 font-bold">⚠️ Malédiction</p>
+                )}
               </div>
               <button onClick={() => buy(o)} disabled={soldOut || !afford}
                 className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-black transition-all ${soldOut ? 'bg-green-900/40 text-green-400' : afford ? 'bg-yellow-500 text-black hover:brightness-110 active:scale-95' : 'bg-gray-900 text-gray-600'}`}>

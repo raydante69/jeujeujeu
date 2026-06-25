@@ -43,7 +43,8 @@ export default function RewardScreen() {
     switch (opt.type) {
       case 'relic':
         run.addRelic(opt.relic.id)
-        if (opt.relic.id === 'glass-cannon') run.healTeam(-15)
+        // HP-penalty relics (glass-cannon, cursed) now shave HP at each wave
+        // start via aggregateRelics.hpPenaltyPct — no one-time hit here.
         break
       case 'item': run.addItem(opt.itemId, 1); break
       case 'ball': run.addBall(opt.ballId, opt.n); break
@@ -75,6 +76,9 @@ export default function RewardScreen() {
                   {opt.type === 'relic' && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded" style={{ background: opt.ring + '33', color: opt.ring }}>Objet {opt.rarity}</span>}
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{opt.desc}</p>
+                {opt.type === 'relic' && opt.relic.curse && (
+                  <p className="text-[10px] text-red-400 mt-1 font-bold leading-snug">⚠️ Malédiction — lis bien le malus</p>
+                )}
               </div>
             </button>
           ))}

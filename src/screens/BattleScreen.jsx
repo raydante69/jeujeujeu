@@ -30,17 +30,17 @@ function previewCard(card, caster, enemy, relicAgg) {
     if (caster.shiny) d = Math.round(d * 1.15)
     if (caster.holo)  d = Math.round(d * 1.20)
     if (card.kind === 'drain') {
-      const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+      const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
       return [{ label: `-${d}`, color: '#f87171' }, { label: `+${h}`, color: '#4ade80' }]
     }
     return [{ label: `-${d}`, color: '#f87171' }]
   }
   if (card.kind === 'guard') {
-    const g = guardValue(card, caster)
-    return [{ label: `🛡️${g}`, color: '#38bdf8' }]
+    const g = guardValue(card, caster, relicAgg)
+    return [{ label: g > 0 ? `🛡️${g}` : '🚫', color: '#38bdf8' }]
   }
   if (card.kind === 'heal') {
-    const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+    const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
     return [{ label: `+${h}`, color: '#4ade80' }]
   }
   if (card.kind === 'status') {
@@ -99,8 +99,10 @@ export default function BattleScreen() {
     const startHp = {}
     team.forEach(m => {
       let h = m.hp
+      // Cursed/glass relics shave HP at the start of each wave.
+      if (relicAgg.hpPenaltyPct) h = Math.round(h * (1 - relicAgg.hpPenaltyPct / 100))
       if (relicAgg.healWavePct) h = Math.min(m.maxHp, Math.round(h + m.maxHp * relicAgg.healWavePct / 100))
-      startHp[m.uid] = h
+      startHp[m.uid] = m.hp > 0 ? Math.max(1, h) : h
     })
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
     reviveUsed.current = false
@@ -256,7 +258,7 @@ export default function BattleScreen() {
       addLog(`${card.emoji} ${caster.name} · ${card.name} → ${dmg}${crit ? ' CRIT!' : ''}${eff >= 2 ? ' ⚡efficace' : eff < 1 ? ' ·peu efficace' : ''}`)
 
       if (card.kind === 'drain') {
-        const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+        const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
         finalHp = healAll(hp0, h)
       }
       if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
@@ -268,14 +270,16 @@ export default function BattleScreen() {
       if (newE <= 0) { setTimeout(() => win(finalHp), 650); return }
 
     } else if (card.kind === 'guard') {
-      const g = guardValue(card, caster)
+      const g = guardValue(card, caster, relicAgg)
       const newG = guard0 + g
       setGuard(newG)
       finalGuard = newG
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → bouclier +${g}`)
+      addLog(g > 0
+        ? `${card.emoji} ${caster.name} · ${card.name} → bouclier +${g}`
+        : `🚫 ${caster.name} · ${card.name} → bouclier annulé (malédiction)`)
 
     } else if (card.kind === 'heal') {
-      const h = Math.round(healValue(card, caster) * (caster.holo ? 1.20 : 1))
+      const h = Math.round(healValue(card, caster, relicAgg) * (caster.holo ? 1.20 : 1))
       finalHp = healAll(hp0, h)
       setHp(finalHp)
       addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV équipe`)

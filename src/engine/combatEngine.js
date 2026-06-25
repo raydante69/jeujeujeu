@@ -165,18 +165,20 @@ export function moveDamage(move, caster, enemy, relicAgg = {}) {
   return { dmg: Math.max(1, Math.round(dmg)), eff }
 }
 
-export function guardValue(move, caster) {
+export function guardValue(move, caster, relicAgg = {}) {
+  if (relicAgg.curses?.has?.('no-guard')) return 0   // cursed: shields disabled
   const trait = getTrait(caster.id, caster.types)
   const mult = 1 + (trait.guardMult || 0)
   return Math.max(1, Math.round((caster.level || 5) * 2.6 * (move.guard || 1) * mult))
 }
 
-export function healValue(move, caster) {
+export function healValue(move, caster, relicAgg = {}) {
   const lvl = caster.level || 5
   const pct = move.heal || 0
   const trait = getTrait(caster.id, caster.types)
   const mult = 1 + (trait.healMult || 0)
-  return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6) * mult))
+  const cursed = relicAgg.curses?.has?.('half-heal') ? 0.5 : 1   // cursed: halved healing
+  return Math.max(1, Math.round(lvl * 6 * (pct ? pct * 2 : 0.6) * mult * cursed))
 }
 
 export function computeIntent(enemy, team, hps) {
