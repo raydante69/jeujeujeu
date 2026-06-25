@@ -1,5 +1,6 @@
 import { speciesById, recomputeStats, makeInstance } from '../data/pokemon.js'
 import { effectiveness } from '../data/types.js'
+import { frName } from '../data/frenchNames.js'
 import { evaluateBurst } from './comboBurst.js'
 import { nextEvolution } from '../data/evolutions.js'
 import { biomeForWave } from '../data/biomes.js'
@@ -91,11 +92,11 @@ export function gainXp(mon, amount) {
       mon.id = evo.to
       const sp = speciesById(evo.to)
       if (sp) {
-        mon.name = sp.name
-        mon.species = sp.name
+        mon.name = frName(evo.to, sp.name)
+        mon.species = frName(evo.to, sp.name)
         recomputeStats(mon)
         mon.hp = Math.round(mon.maxHp * ratio2)
-        events.evolutions.push({ from: fromName, to: sp.name, id: evo.to })
+        events.evolutions.push({ from: fromName, to: frName(evo.to, sp.name), id: evo.to })
       }
     }
   }

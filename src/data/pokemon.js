@@ -1,4 +1,5 @@
 import { makeMove } from './moves.js'
+import { frName } from './frenchNames.js'
 
 let DATA = null
 const BY_ID = new Map()
@@ -55,8 +56,8 @@ export function makeInstance(id, level, opts = {}) {
   const inst = {
     uid: UID++,
     id,
-    name: sp.name,
-    species: sp.name,
+    name: frName(id, sp.name),
+    species: frName(id, sp.name),
     types: sp.types.slice(),
     level,
     shiny: !!opts.shiny,

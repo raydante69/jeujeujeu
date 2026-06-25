@@ -58,7 +58,7 @@ function DexSlot({ species, ownedCards, isNew, onClick, cardRef }) {
         }
         <img
           src={sprite(species.id, hasShiny)}
-          alt={owned ? species.name : '???'}
+          alt={owned ? frName(species.id, species.name) : '???'}
           className="w-12 h-12 object-contain pixelated"
           style={owned ? {} : { filter: 'brightness(0)', opacity: 0.1 }}
           loading="lazy"
@@ -99,7 +99,7 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
     : {}
 
   // Full signature moveset this Pokémon can use in combat.
-  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: species.name, types: species.types, rarity, shiny: hasShiny, holo: hasHolo }
+  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: frName(species.id, species.name), types: species.types, rarity, shiny: hasShiny, holo: hasHolo }
   const moveCount = movesetSize(synthMon)
   const moves = buildMoveset(synthMon).slice(0, moveCount)
 
@@ -113,7 +113,7 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
           <div className="flex items-center gap-3 relative z-10">
             <img
               src={hasShiny ? sprite(species.id, true) : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${species.id}.png`}
-              alt={species.name}
+              alt={frName(species.id, species.name)}
               className="w-20 h-20 object-contain drop-shadow-xl flex-shrink-0"
               onError={e => { e.target.src = sprite(species.id, hasShiny) }}
             />

@@ -3,6 +3,7 @@ import { useGameStore, trainCost } from '../store/gameStore.js'
 import { speciesById } from '../data/pokemon.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { getTrait } from '../data/signatureTraits.js'
+import { frName } from '../data/frenchNames.js'
 
 export default function TrainingScreen() {
   const { navigate, collection, trainerLevels, crystals, trainSpecies } = useGameStore()
@@ -54,15 +55,15 @@ export default function TrainingScreen() {
               const afford = crystals >= cost
               return (
                 <div key={sp.id} className="flex items-center gap-3 rounded-xl p-2.5 border" style={{ background: `linear-gradient(110deg, ${color}1f, #0f172a)`, borderColor: color + '33' }}>
-                  <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${sp.id}.png`} alt={sp.name} className="w-12 h-12 object-contain pixelated flex-shrink-0" loading="lazy" />
+                  <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${sp.id}.png`} alt={frName(sp.id, sp.name)} className="w-12 h-12 object-contain pixelated flex-shrink-0" loading="lazy" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-white font-bold text-sm truncate">{sp.name}</p>
+                      <p className="text-white font-bold text-sm truncate">{frName(sp.id, sp.name)}</p>
                       {cur > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300">+{cur} niv</span>}
                     </div>
                     <p className="text-[10px] truncate" style={{ color }}>{trait.emoji} {trait.name}</p>
                   </div>
-                  <button onClick={() => train(sp.id, sp.name)} disabled={!afford}
+                  <button onClick={() => train(sp.id, frName(sp.id, sp.name))} disabled={!afford}
                     className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-black transition-all ${afford ? 'bg-cyan-500 text-black hover:brightness-110 active:scale-95' : 'bg-gray-900 text-gray-600'}`}>
                     +1 · {cost} 💎
                   </button>
