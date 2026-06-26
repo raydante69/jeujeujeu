@@ -5,6 +5,7 @@ import { makeInstance, speciesById, recomputeStats } from '../data/pokemon.js'
 import { speciesRarity } from '../data/cardModel.js'
 import { aggregateRelics } from '../data/relics.js'
 import { DEFAULT_BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
+import { CT_BY_ID, canLearnCT } from '../data/ct.js'
 import { useGameStore } from './gameStore.js'
 
 const MAX_TEAM = 6
@@ -25,6 +26,7 @@ export const useRunStore = create(
       gold: 0,
       balls: { ...DEFAULT_BALLS },   // { 'poke-ball': n, 'great-ball': n, ... }
       items: {},                     // consumables bag: { 'rare-candy': n, ... }
+      cts: [],                       // CT collectées pendant la run (ids), perdues à la fin
       team: [],
       relics: [],                    // equipped held items (ids)
       pendingEnemy: null,
@@ -95,6 +97,7 @@ export const useRunStore = create(
           active: true, wave: 1, gold: 0,
           balls: { ...DEFAULT_BALLS },
           items: {},
+          cts: [],
           team, relics: [], pendingEnemy: null, lastOutcome: null,
           lastStarters: norm, winsThisRun: 0, flawless: true,
           ascensionLevel: Math.max(0, ascensionLevel | 0),
@@ -215,6 +218,29 @@ export const useRunStore = create(
         return msg || def.name
       },
 
+      // --- CT bag (run-scoped) ---
+      addCT: (ctId) => set(s => ({ cts: [...s.cts, ctId] })),
+      // Teach a run CT to a team member. Consumes the CT from the run bag and
+      // appends it to the mon's learnedCTs (permanent for the run, lost on swap).
+      // Returns a result message or null on failure.
+      learnCT: (monUid, ctId) => {
+        const s = get()
+        const ct = CT_BY_ID[ctId]
+        const idx = s.cts.indexOf(ctId)
+        if (!ct || idx === -1) return null
+        const mon = s.team.find(m => m.uid === monUid)
+        if (!mon) return null
+        if (!canLearnCT(mon, ct)) return `${mon.name} ne peut pas apprendre ${ct.name} (type incompatible).`
+        const nextCts = [...s.cts]; nextCts.splice(idx, 1)
+        set({
+          cts: nextCts,
+          team: s.team.map(m => m.uid === monUid
+            ? { ...m, learnedCTs: [...(m.learnedCTs || []), ctId] }
+            : m),
+        })
+        return `${mon.name} apprend ${ct.name} !`
+      },
+
       // --- Held items (equipment) ---
       addRelic: (id) => set(s => ({
         relics: s.relics.includes(id) ? s.relics : [...s.relics, id],
@@ -251,9 +277,10 @@ export const useRunStore = create(
     }),
     {
       name: 'pokebooster-run-v1',
-      version: 3,
+      version: 4,
       // v2: reset any active run + caught team (fresh ball/item economy).
       // v3: adds bestFlawlessWave + flawless — new fields default in naturally.
+      // v4: adds run CT bag + per-mon learnedCTs (default [] naturally).
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {
@@ -280,6 +307,7 @@ export const useRunStore = create(
         gold: s.gold,
         balls: s.balls,
         items: s.items,
+        cts: s.cts,
         team: s.team,
         relics: s.relics,
         pendingEnemy: s.pendingEnemy,

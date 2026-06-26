@@ -4,6 +4,17 @@
 
 export const PATCH_NOTES = [
   {
+    version: '0.6.0',
+    date: '2026-06-26',
+    title: 'Refonte attaques & économie',
+    highlight: true,
+    changes: [
+      { type: 'balance', text: 'Chaque Pokémon n\'a plus qu\'une seule attaque (deux pour les légendaires) ; sa puissance dépend de la force de l\'espèce — fini les petits Pokémon avec des attaques surpuissantes.' },
+      { type: 'content', text: 'Gros catalogue de CT (~100) couvrant tous les types ; les soins et boucliers passent désormais par les CT ou les légendaires.' },
+      { type: 'feat', text: 'Apprends une CT à un Pokémon compatible pendant l\'expédition (CT Normal pour tous, sinon même type).' },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-06-25',
     title: 'Refonte majeure',

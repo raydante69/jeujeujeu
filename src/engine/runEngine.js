@@ -89,6 +89,7 @@ export function makeRunMon(speciesId, level = 5) {
   inst.hpMult = 2.5
   inst.maxHp = Math.round(inst.stats.hp * 2.5)
   inst.hp = inst.maxHp
+  inst.learnedCTs = []   // CT apprises pendant la run (perdues si échangé)
   return inst
 }
 

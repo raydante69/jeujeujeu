@@ -1,6 +1,7 @@
 import { effectiveness } from '../data/types.js'
 import { getTrait, traitDamageMult } from './../data/signatureTraits.js'
-import { rarityTier } from '../data/cardModel.js'
+import { rarityTier, isLegendary } from '../data/cardModel.js'
+import { CT_BY_ID } from '../data/ct.js'
 
 // ─────────────────────────────────────────────────────────────────────────
 //  PER-POKÉMON CARD COMBAT ENGINE
@@ -70,43 +71,62 @@ export const STATUS_DEF = {
   freeze:   { label: '❄️ Gelé',       color: '#7dd3fc', turns: 1, skip: 1 },
 }
 
-// How many moves a Pokémon has based on rarity + shiny/holo.
-// common=1, uncommon=2, rare=3, veryrare=3, epic=4, legendary=4
-// +1 for shiny, +1 for holo (capped at 4)
-export function movesetSize(mon) {
-  const tier = rarityTier(mon.rarity || 'common') // 0-5
-  let base
-  if (tier === 0) base = 1
-  else if (tier === 1) base = 2
-  else if (tier <= 3) base = 3  // rare + veryrare
-  else base = 4                 // epic + legendary
-  if (mon.shiny) base = Math.min(4, base + 1)
-  if (mon.holo)  base = Math.min(4, base + 1)
-  return base
+// Puissance de l'unique attaque, par palier d'espèce (rarityTier 0-5).
+// Un Pokémon faible frappe faible, un fort frappe fort — fini les petits
+// Pokémon avec des attaques surpuissantes.
+const ATK_POWER_BY_TIER = [1.5, 1.8, 2.1, 2.4, 2.7, 3.0]
+
+// Attaques signatures des légendaires (leur 2e attaque, seule source "innée"
+// de soin/bouclier/buff). Les autres soins/boucliers viennent des CT.
+const SIGNATURE_BY_ID = {
+  144: { kind: 'guard',  guard: 1.8,            name: 'Voile Glacé',   emoji: '🧊', desc: "Bouclier d'équipe glacial." },          // Artikodin
+  145: { kind: 'attack', power: 3.6,            name: 'Fatal-Foudre',  emoji: '☄️', desc: 'Foudre dévastatrice.' },                 // Électhor
+  146: { kind: 'drain',  power: 2.8, heal: 0.6, name: 'Rebondifeu',    emoji: '🔥', desc: 'Frappe ardente qui draine des PV.' },    // Sulfura
+  150: { kind: 'attack', power: 3.8,            name: 'Psyko',         emoji: '🔮', desc: 'Assaut psychique titanesque.' },         // Mewtwo
+  151: { kind: 'heal',   heal: 1.0,             name: 'Vœu',          emoji: '🌠', desc: 'Soin majeur du plus faible.' },          // Mew
 }
 
-// Build the full signature moveset for a Pokémon (up to 4 moves).
-// Respects mon.customMoves if set (from ProfShen swap).
-export function buildMoveset(mon) {
-  if (mon.customMoves && mon.customMoves.length > 0) return mon.customMoves
+// Nombre d'attaques d'un Pokémon : 1 pour tous, 2 pour les légendaires,
+// + 1 par CT apprise (run-scoped). On retourne la taille réelle du moveset.
+export function movesetSize(mon) {
+  return buildMoveset(mon).length
+}
 
+// Construit le moveset d'un Pokémon : 1 attaque offensive (palier-scalée),
+// + une signature pour les légendaires, + les cartes des CT apprises.
+// Respecte mon.customMoves si présent (échange en rencontre) pour l'attaque de base.
+export function buildMoveset(mon) {
   const t0 = (mon.types || ['normal'])[0]
   const base = { ownerUid: mon.uid, ownerName: mon.name, ownerId: mon.id, ownerRarity: mon.rarity }
+  const isLeg = mon.rarity === 'legendary' || mon.isLegendary || isLegendary(mon.id)
+  const tier = rarityTier(mon.rarity || 'common')
+  const moves = []
 
-  const strike = {
-    ...base, key: `${mon.uid}-s`, kind: 'attack', type: t0, power: 1.0,
-    name: STRIKE_NAMES[t0] || 'Frappe', emoji: '⚔️', desc: 'Attaque rapide.',
+  if (mon.customMoves && mon.customMoves.length > 0) {
+    for (const cm of mon.customMoves) moves.push(cm)
+  } else {
+    const power = ATK_POWER_BY_TIER[Math.min(tier, 5)] || 1.5
+    moves.push({
+      ...base, key: `${mon.uid}-atk`, kind: 'attack', type: t0, power,
+      name: HEAVY_NAMES[t0] || STRIKE_NAMES[t0] || 'Frappe', emoji: '⚔️', desc: 'Attaque principale.',
+    })
+    if (isLeg) {
+      const sig = SIGNATURE_BY_ID[mon.id] || { kind: 'attack', power: power + 0.6, name: 'Coup Suprême', emoji: '🌟', desc: 'Attaque légendaire.' }
+      moves.push({ ...base, key: `${mon.uid}-sig`, type: sig.type || t0, ...sig })
+    }
   }
-  const heavy = {
-    ...base, key: `${mon.uid}-h`, kind: 'attack', type: t0, power: 2.3,
-    name: HEAVY_NAMES[t0] || 'Déchaînement', emoji: '💥', desc: 'Grosse attaque.',
-  }
-  const u = UTILITY_BY_TYPE[t0] || DEFAULT_UTILITY
-  const utility = { ...base, key: `${mon.uid}-u`, type: t0, ...u }
-  const s = SUPER_BY_TYPE[t0] || { kind: 'attack', power: 3.0, name: 'Coup Suprême', emoji: '🌟', desc: 'Attaque ultime.' }
-  const superMove = { ...base, key: `${mon.uid}-x`, type: t0, ...s }
 
-  return [strike, heavy, utility, superMove]
+  // CT apprises pendant l'expédition → cartes supplémentaires (icône 💿).
+  for (const ctId of (mon.learnedCTs || [])) {
+    const ct = CT_BY_ID[ctId]
+    if (!ct) continue
+    moves.push({
+      ...base, key: `${mon.uid}-${ctId}`, type: ct.type, kind: ct.kind,
+      power: ct.power, heal: ct.heal, guard: ct.guard, status: ct.status, bonus: ct.bonus,
+      name: ct.name, emoji: ct.emoji, desc: ct.desc, fromCT: true, ctNum: ct.num,
+    })
+  }
+  return moves
 }
 
 function shuffle(arr) {
