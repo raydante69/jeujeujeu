@@ -209,6 +209,18 @@ collection: []         // instances de cartes (uid, id, level, xp, holo, shiny�
 unlockedAchievements: []
 ```
 
+## Refonte v2 (attaques, économie, drops, UI) — systèmes clés
+
+- **Attaques** : `buildMoveset(mon)` → **1 attaque offensive** par Pokémon (puissance scalée par palier via `rarityTier`), **2 pour les légendaires** (dont signature `SIGNATURE_BY_ID`). Plus de guard/heal/buff « gratuits » : ils viennent des **CT** ou des légendaires. `movesetSize(mon)` = longueur réelle du moveset (base + CT apprises).
+- **CT** : `src/data/ct.js` ~100 CT (`CT_LIST`, `CT_BY_ID`, `canLearnCT(mon, ct)` = Normal pour tous, sinon type partagé, `rollRandomCT`). Bag de run `runStore.cts` + `runStore.addCT/learnCT(monUid, ctId)`. `mon.learnedCTs: []` (perdu si échangé). Méta (boosters) : `gameStore.ctInventory`. Carte issue d'une CT → `card.fromCT` (icône 💿).
+- **Drops** : `src/data/drops.js` `rollDrop(wave)`. Proba de drop = `min(0.95, 0.05 × starterCost(espèce vaincue))`. Type : CT 10 %, balls/potions/pierres 30 % chacun. Poids de rareté interpolés vague 1→100. Appliqué dans `BattleScreen.win()`.
+- **Économie** : `RunShopScreen` = **Centre Commercial** (déblocage progressif `unlockWave`/10, max 5 achats, prix expo, CT dès vague 100). `MilestoneRewardScreen` = **Centre Pokémon** (soin payant ciblé via `runStore.healAtCenter(uids, cost)`, 10 %/Pokémon + surcoût points, plafond 90 %).
+- **Évolution par pierre** : `src/data/evolutions.js` `STONE_EVOLUTIONS` + `stoneEvolution(id, stone)` (dont Évoli → 3 formes). Pierres = objets `items.js` (kind `stone`), appliquées via objet ciblé.
+- **Objets ciblés** : `runStore.useItem(id, targetUid)` (heal/revive/candy/fullrestore/stone ciblent 1 Pokémon). `itemNeedsTarget(id)`. Or/vitamines restent directs.
+- **Capture à 6** : `runStore.catchEnemy` stocke `pendingCatch` si équipe pleine → `swapCaught(oldUid)` / `cancelCatchSwap()`.
+- **UI** : `RunScreen` = chemin vertical illustré + bouton Légende + encart équipe (`components/TeamSheet.jsx` : vue 2 colonnes + onglet « Mes CT »). Combat : séparateur VS + nom/sprite dresseur (`trainers.js` `trainerSpriteUrl` → Pokémon Showdown, stocké via `setTrainerBattle(name, party, sprite)`). Cartes d'attaque : icône de type réelle + 💿 (CT). Rencontre « échanger une attaque » = tirage au sort (machine à sous), accept-only.
+- **Persist** : `runStore` v4 (ajout `cts`, `learnedCTs`).
+
 ## Commandes utiles
 
 ```bash
@@ -234,6 +246,13 @@ Branche principale de développement : `claude/blissful-knuth-es390g`
 | G | Onglet Progression, Pokédex combat 3 états, 8 badges Kanto réels | `b43b91a` |
 | D | Événements de vague (golden, healing spring, frenzy, handicap, double) | `f5d4093` |
 | E | Vrai combat double (2 ennemis actifs, ciblage, victoire conjointe) | `3c1590e` |
+| J | 1 attaque/Pokémon (2 légendaires), gros catalogue CT, équilibrage | `961d237` |
+| K | Drops d'objets en combat (remplace achats de masse) | `d576548` |
+| M | Évolutions par pierre | `803bb7d` |
+| N | Objets de soin/pierre ciblés sur 1 Pokémon | `8be8242` |
+| O | Fix capture à 6 Pokémon (échange) | `bd80f67` |
+| L | Centre Commercial + Centre Pokémon | `5421a63` |
+| P | UI : expédition verticale illustrée, encart équipe/CT, cartes, dresseur | `a688fb2`+`51e4041` |
 
 ## Ce qui n'existe pas encore (idées futures)
 
