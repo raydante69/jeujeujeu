@@ -51,7 +51,12 @@ export default function MilestoneRewardScreen() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-5">
-          <p className="text-5xl mb-3">🏥</p>
+          <div className="flex justify-center mb-2">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Centre Pokémon"
+              className="hidden" onError={() => {}}
+              style={{ display: 'none' }} />
+            <span className="text-6xl drop-shadow-lg">🏥</span>
+          </div>
           <h2 className="font-game text-sm text-red-400">Centre Pokémon</h2>
           <p className="text-xs text-gray-500 mt-2">Soigne tes Pokémon contre de l'or. Choisis qui soigner.</p>
           <div className="mt-3 inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 rounded-full px-3 py-1">

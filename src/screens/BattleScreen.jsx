@@ -18,6 +18,7 @@ import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS, TYPE_LABELS_FR, typeMatchups } from '../data/types.js'
 import { MODIFIER_DEF } from '../data/enemyModifiers.js'
 import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
+import { CT_BY_ID, canLearnCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
 import ItemSprite from '../components/ItemSprite.jsx'
@@ -257,6 +258,9 @@ export default function BattleScreen() {
   const [throwUsed, setThrowUsed] = useState(false)
   const [rerolls, setRerolls]     = useState(MAX_REROLLS)
   const [showMoves, setShowMoves] = useState(false)
+  const [movesTab, setMovesTab]   = useState('moves')   // 'moves' | 'ct'
+  const [pickedCT, setPickedCT]   = useState(null)
+  const [ctFlash, setCtFlash]     = useState(null)
   const [focusedCard, setFocusedCard] = useState(null)
   const [selectedMon, setSelectedMon] = useState(null)
   const [benchedUid, setBenchedUid] = useState(null)   // event 'handicap_bench': mon can't attack for 5 turns
@@ -1322,13 +1326,23 @@ export default function BattleScreen() {
         <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.92)' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-10 pb-3 border-b border-white/10">
-            <p className="font-game text-white text-base">📖 Toutes tes attaques</p>
-            <button onClick={() => { setShowMoves(false); setFocusedCard(null) }}
+            <p className="font-game text-white text-sm">📖 Attaques & CT</p>
+            <button onClick={() => { setShowMoves(false); setFocusedCard(null); setPickedCT(null); setMovesTab('moves') }}
               className="text-gray-400 hover:text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full bg-white/10">✕</button>
           </div>
+          {/* Tabs */}
+          <div className="flex gap-2 px-4 py-2">
+            {[['moves', '📖 Attaques'], ['ct', `💿 Apprendre CT (${run.cts?.length || 0})`]].map(([k, label]) => (
+              <button key={k} onClick={() => { setMovesTab(k); setPickedCT(null) }}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${movesTab === k ? 'bg-violet-600 text-white' : 'bg-white/5 text-gray-400'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {ctFlash && <div className="mx-4 mb-1 text-center text-[11px] font-bold text-cyan-200">{ctFlash}</div>}
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-            {allTeamMoves.map(({ mon, moves }) => {
+            {movesTab === 'moves' && allTeamMoves.map(({ mon, moves }) => {
               if (mon.hp <= 0) return null
               const tc = TYPE_COLORS[mon.types?.[0]] || '#64748b'
               return (
@@ -1347,6 +1361,66 @@ export default function BattleScreen() {
                 </div>
               )
             })}
+            {movesTab === 'ct' && (() => {
+              const ctCounts = (run.cts || []).reduce((acc, id) => { acc[id] = (acc[id] || 0) + 1; return acc }, {})
+              const ctEntries = Object.entries(ctCounts).map(([id, n]) => ({ ct: CT_BY_ID[id], n, id })).filter(e => e.ct)
+              if (ctEntries.length === 0) return (
+                <p className="text-center text-xs text-gray-500 mt-8">Aucune CT dans ton sac. Les CT se gagnent en combat (butin).</p>
+              )
+              return (
+                <div>
+                  <p className="text-[10px] text-gray-400 mb-3">Sélectionne une CT puis un Pokémon compatible pour l'apprendre. <span className="text-amber-400">CT Normal = tous ; sinon même type.</span></p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {ctEntries.map(({ ct, n, id }) => {
+                      const tc = TYPE_COLORS[ct.type] || '#64748b'
+                      const sel = pickedCT === id
+                      return (
+                        <button key={id} onClick={() => setPickedCT(sel ? null : id)}
+                          className="rounded-lg px-2.5 py-1.5 border flex items-center gap-1.5 transition-all"
+                          style={{ background: tc + (sel ? '44' : '18'), borderColor: sel ? tc : tc + '55', boxShadow: sel ? `0 0 10px ${tc}88` : 'none' }}>
+                          <span className="text-sm">💿</span>
+                          <span className="text-[11px] font-bold text-white">{ct.name}</span>
+                          <TypeBadge type={ct.type} size="img" />
+                          <span className="text-[9px] text-gray-400">×{n}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {pickedCT && (
+                    <>
+                      <p className="text-[10px] text-cyan-300 font-bold mb-2">Apprendre {CT_BY_ID[pickedCT]?.name} à :</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {team.map(m => {
+                          const ok = canLearnCT(m, CT_BY_ID[pickedCT])
+                          const tc = TYPE_COLORS[m.types?.[0]] || '#1e293b'
+                          return (
+                            <button key={m.uid} disabled={!ok || m.hp <= 0}
+                              onClick={() => {
+                                if (!ok || m.hp <= 0) return
+                                const res = run.learnCT(m.uid, pickedCT)
+                                const msg = res || `${CT_BY_ID[pickedCT]?.name} appris par ${m.name} !`
+                                setCtFlash(msg); setTimeout(() => setCtFlash(null), 1600)
+                                if ((run.cts || []).filter(x => x === pickedCT).length <= 0) setPickedCT(null)
+                              }}
+                              className={`rounded-lg p-2 border flex items-center gap-2 text-left transition-all ${ok && m.hp > 0 ? 'active:scale-[0.98]' : 'opacity-35 grayscale'}`}
+                              style={{ background: `linear-gradient(135deg, ${tc}22, #0f172a)`, borderColor: ok && m.hp > 0 ? '#22d3ee99' : tc + '33' }}>
+                              <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.shiny ? 'shiny/' : ''}${m.id}.png`}
+                                alt={m.name} className="w-9 h-9 object-contain pixelated" />
+                              <div className="min-w-0">
+                                <p className="text-white font-bold text-[11px] truncate">{m.name}</p>
+                                <p className="text-[8px]" style={{ color: ok && m.hp > 0 ? '#67e8f9' : '#ef4444' }}>
+                                  {m.hp <= 0 ? 'K.O.' : ok ? 'Compatible' : 'Incompatible'}
+                                </p>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Card detail popup */}

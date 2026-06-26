@@ -83,19 +83,26 @@ export default function RunShopScreen() {
 
   return (
     <div className="min-h-screen bg-game-bg flex flex-col">
-      <div className="px-4 pt-10 pb-3 bg-game-surface border-b border-game-border">
+      <div className="px-4 pt-10 pb-4 bg-game-surface border-b border-game-border">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <div>
-            <h2 className="font-game text-sm text-white">🏬 Centre Commercial</h2>
-            <p className="text-[11px] text-gray-500">Achats : {purchases}/{MAX_PURCHASES} — choisis bien !</p>
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">🏬</span>
+            <div>
+              <h2 className="font-game text-sm text-white">Centre Commercial</h2>
+              <span className="bg-black/40 rounded-full px-2 py-0.5 text-[11px] font-bold text-yellow-300">💰 {run.gold}</span>
+            </div>
           </div>
-          <span className="bg-black/40 rounded-full px-3 py-1.5 text-sm font-bold text-yellow-300">💰 {run.gold}</span>
+          <span className="text-xs font-bold text-gray-500">{purchases}/{MAX_PURCHASES}</span>
         </div>
       </div>
 
       {msg && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-xs font-bold px-4 py-2 rounded-full">{msg}</div>}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full space-y-2.5 pb-28">
+      <div className="flex-1 overflow-y-auto px-4 max-w-lg mx-auto w-full space-y-2.5 pb-28">
+        <div className="py-3 text-center">
+          <p className="text-sm font-black text-amber-300">Tu as droit à {MAX_PURCHASES} achats maximum</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">Les prix augmentent avec l'avancement de ton expédition.</p>
+        </div>
         {offers.map(o => {
           const soldOut = o.once && bought[o.key]
           const afford = run.gold >= o.cost
@@ -104,8 +111,8 @@ export default function RunShopScreen() {
           return (
             <div key={o.key} className={`flex items-center gap-3 rounded-2xl p-3 border ${o.locked ? 'opacity-50 grayscale' : ''}`}
               style={{ background: `linear-gradient(110deg, ${o.ring}14, #0f172a)`, borderColor: o.ring + '55' }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: o.ring + '22' }}>
-                <ItemSprite slug={o.slug} emoji={o.emoji} size={30} />
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: o.ring + '22' }}>
+                <ItemSprite slug={o.slug} emoji={o.emoji} size={38} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-white text-sm">{o.title}</p>

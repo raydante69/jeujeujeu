@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { buildEnemy, waveKind } from '../engine/runEngine.js'
@@ -22,6 +22,10 @@ const KIND_META = {
 }
 
 const pokeSprite = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`
+const showdownTrainer = (slug) => `https://play.pokemonshowdown.com/sprites/trainers/${slug}.png`
+
+// Deterministic trainer slugs for path nodes (cycle through common ones).
+const TRAINER_SLUGS = ['youngster', 'lass', 'bugcatcher', 'hiker', 'cooltrainer', 'acetrainer', 'gentleman', 'beauty']
 
 // Representative artwork inside each path node.
 function nodeArt(kind, w, biome) {
@@ -31,9 +35,9 @@ function nodeArt(kind, w, biome) {
     case 'wild':  return { img: pokeSprite(pool[w % pool.length]) }
     case 'elite': return { img: pokeSprite(pool[(w + 3) % pool.length]), badge: '⭐' }
     case 'boss':  return { img: pokeSprite(bosses[w % bosses.length]), badge: '💀', gray: true }
-    case 'trainer':   return { emoji: '🧢' }
-    case 'encounter': return { emoji: '🔭' }
-    case 'league':    return { emoji: '🏆' }
+    case 'trainer':   return { img: showdownTrainer(TRAINER_SLUGS[w % TRAINER_SLUGS.length]), fallbackEmoji: '🧢' }
+    case 'encounter': return { img: showdownTrainer('oak'), fallbackEmoji: '🔭' }
+    case 'league':    return { img: showdownTrainer('blue'), badge: '🏆', fallbackEmoji: '🏆' }
     default: return { emoji: '🌿' }
   }
 }
@@ -106,12 +110,41 @@ export default function RunScreen() {
   const bagItems = Object.entries(items || {}).filter(([, n]) => n > 0)
   const curMeta = KIND_META[waveKind(wave)]
 
+  // Scroll path so current node sits ~3 nodes from bottom
+  const pathScrollRef = useRef(null)
+  const currentNodeRef = useRef(null)
+  const [bgErr, setBgErr] = useState(false)
+
+  function recenterPath() {
+    if (!pathScrollRef.current || !currentNodeRef.current) return
+    const container = pathScrollRef.current
+    const nodeEl = currentNodeRef.current
+    // offset = node bottom position from container top - container height + 3 * node-slot height (~96px each)
+    const nodeTop = nodeEl.offsetTop
+    const containerH = container.clientHeight
+    const targetScroll = nodeTop - containerH + 3 * 96
+    container.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' })
+  }
+
+  useEffect(() => { recenterPath() }, [wave]) // eslint-disable-line
+  // Also recenter on first render after a tiny delay to allow layout
+  useEffect(() => { setTimeout(recenterPath, 80) }, []) // eslint-disable-line
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: biome.bg }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: biome.bg }}>
+      {/* Biome background image with dark overlay */}
+      {biome.bgImage && !bgErr && (
+        <img src={biome.bgImage} alt="" onError={() => setBgErr(true)}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+          style={{ opacity: 0.35 }} />
+      )}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(0,0,0,0.55)' }} />
+
+      <div className="relative z-10 flex flex-col min-h-screen">
       {msg && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-black/85 text-white text-xs font-bold px-4 py-2 rounded-full">{msg}</div>}
 
       {/* Header — back, region, location */}
-      <div className="px-4 pt-10 pb-3 border-b border-white/5">
+      <div className="px-4 pt-10 pb-3 border-b border-white/10" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)' }}>
         <div className="max-w-lg mx-auto flex items-start justify-between">
           <div className="min-w-0">
             <button onClick={() => navigate('home')} className="text-gray-300 text-[12px] font-bold mb-1">‹ Quitter</button>
@@ -122,42 +155,51 @@ export default function RunScreen() {
             </p>
           </div>
           <div className="flex flex-col gap-1.5 items-end flex-shrink-0">
-            <span className="bg-black/40 rounded-full px-3 py-1 text-xs font-bold text-yellow-300">💰 {gold}</span>
-            <span className="bg-black/40 rounded-full px-3 py-1 text-xs font-bold text-red-300 flex items-center gap-1">
+            <span className="bg-black/60 rounded-full px-3 py-1 text-xs font-bold text-yellow-300">💰 {gold}</span>
+            <span className="bg-black/60 rounded-full px-3 py-1 text-xs font-bold text-red-300 flex items-center gap-1">
               <ItemSprite slug="poke-ball" emoji="🔴" size={16} /> {totalBalls}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full">
-        {/* Legend toggle */}
-        <div className="flex justify-end mb-1">
-          <button onClick={() => setShowLegend(true)} className="text-[11px] font-bold text-white/80 bg-black/30 rounded-full px-3 py-1">❔ Légende</button>
+      {/* Scrollable path section */}
+      <div ref={pathScrollRef} className="overflow-y-auto px-4 pt-3" style={{ height: 'calc(100vh - 280px)' }}>
+        {/* Legend + recenter buttons */}
+        <div className="flex justify-between mb-2 max-w-lg mx-auto">
+          <button onClick={recenterPath} className="text-[11px] font-bold text-white/80 bg-black/40 rounded-full px-3 py-1">🎯 Recentrer</button>
+          <button onClick={() => setShowLegend(true)} className="text-[11px] font-bold text-white/80 bg-black/40 rounded-full px-3 py-1">❔ Légende</button>
         </div>
 
         {/* Vertical path — bottom→top, current wave at the bottom */}
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center max-w-lg mx-auto pb-4">
           {[...path].reverse().map((node, idx, arr) => {
             const m = KIND_META[node.kind]
             const current = node.w === wave
             const art = nodeArt(node.kind, node.w, biome)
             return (
               <React.Fragment key={node.w}>
-                <div className="flex flex-col items-center">
+                <div ref={current ? currentNodeRef : null} className="flex flex-col items-center" style={{ minHeight: 80 }}>
                   <div className="relative rounded-full flex items-center justify-center"
                     style={{
                       width: current ? 76 : 60, height: current ? 76 : 60,
-                      background: current ? m.color + '33' : 'rgba(0,0,0,0.45)',
+                      background: current ? m.color + '33' : 'rgba(0,0,0,0.55)',
                       border: `3px solid ${current ? m.color : m.color + '55'}`,
                       boxShadow: current ? `0 0 22px ${m.color}aa` : 'none',
                     }}>
                     {art.img ? (
                       <img src={art.img} alt={m.label}
-                        className={`object-contain pixelated ${art.gray ? 'grayscale brightness-50' : ''}`}
-                        style={{ width: current ? 56 : 42, height: current ? 56 : 42 }} />
-                    ) : (
-                      <span style={{ fontSize: current ? 34 : 26 }}>{art.emoji}</span>
+                        className={`object-contain ${art.gray ? 'grayscale brightness-50' : ''}`}
+                        style={{ width: current ? 56 : 44, height: current ? 56 : 44 }}
+                        onError={e => {
+                          e.target.style.display = 'none'
+                          e.target.nextSibling && (e.target.nextSibling.style.display = 'block')
+                        }} />
+                    ) : null}
+                    {(art.fallbackEmoji || art.emoji) && (
+                      <span style={{ fontSize: current ? 30 : 24, display: art.img ? 'none' : 'block' }}>
+                        {art.fallbackEmoji || art.emoji}
+                      </span>
                     )}
                     {art.badge && <span className="absolute -top-1 -right-1 text-base">{art.badge}</span>}
                     {current && <span className="absolute inset-0 rounded-full border-2 animate-ping" style={{ borderColor: m.color + '66' }} />}
@@ -165,7 +207,7 @@ export default function RunScreen() {
                   <p className="text-[11px] font-black mt-1" style={{ color: current ? m.color : '#cbd5e1' }}>{node.w}</p>
                 </div>
                 {idx < arr.length - 1 && (
-                  <div className="w-1 h-5" style={{ background: 'rgba(255,255,255,0.18)' }} />
+                  <div className="w-1 h-5" style={{ background: 'rgba(255,255,255,0.25)' }} />
                 )}
               </React.Fragment>
             )
@@ -283,6 +325,7 @@ export default function RunScreen() {
       )}
 
       {showTeam && <TeamSheet onClose={() => setShowTeam(false)} />}
+    </div>
     </div>
   )
 }

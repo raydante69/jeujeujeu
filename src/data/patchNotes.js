@@ -4,6 +4,24 @@
 
 export const PATCH_NOTES = [
   {
+    version: '0.6.1',
+    date: '2026-06-26',
+    title: 'Polissage & immersion',
+    highlight: true,
+    changes: [
+      { type: 'feat', text: 'Apprendre une CT pendant le combat : onglet « 💿 Apprendre CT » dans l\'overlay Attaques.' },
+      { type: 'feat', text: 'Fonds de biome illustrés (Pokémon Showdown gen6bgs) derrière le chemin d\'expédition.' },
+      { type: 'feat', text: 'Nœuds de chemin enrichis : sprite dresseur Showdown pour les Dresseurs, Prof. Oak pour les Rencontres, Blue pour la Ligue.' },
+      { type: 'feat', text: 'Chemin scrollable : l\'étape courante est positionnée au-dessus du bas ; bouton 🎯 Recentrer.' },
+      { type: 'feat', text: 'Pokédex — bouton « 💿 Mes CT » : liste toutes les CT méta avec sprite du Pokémon détenteur.' },
+      { type: 'feat', text: 'Pokédex — valeurs numériques des attaques (dégâts / soin / bouclier) dans le détail d\'un Pokémon.' },
+      { type: 'feat', text: 'Booster — « ⚡ Tout dévoiler » : affiche les 5 cartes en grille côte à côte.' },
+      { type: 'feat', text: 'Booster — « Carte suivante » révèle automatiquement la prochaine carte (plus besoin de cliquer).' },
+      { type: 'balance', text: 'Échange d\'attaque (Rencontre) : pool = tout le catalogue CT filtré par type du Pokémon ciblé, 3 candidats tirés au sort ; la valeur numérique est affichée.' },
+      { type: 'fix', text: 'Centre Commercial : texte « Tu as droit à 5 achats maximum » mieux placé et plus lisible ; icônes d\'articles plus grandes.' },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-06-26',
     title: 'Refonte attaques & économie',

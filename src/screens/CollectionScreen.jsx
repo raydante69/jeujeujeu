@@ -6,7 +6,7 @@ import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS } from '../data/types.js'
 import { frName } from '../data/frenchNames.js'
 import { CT_BY_ID } from '../data/ct.js'
-import { buildMoveset, movesetSize } from '../engine/combatEngine.js'
+import { buildMoveset, movesetSize, moveDamage, guardValue, healValue } from '../engine/combatEngine.js'
 import StatBars from '../components/StatBars.jsx'
 import TypeBadge from '../components/TypeBadge.jsx'
 
@@ -171,6 +171,19 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
             <div className="space-y-1">
               {moves.map((mv, i) => {
                 const mc = TYPE_COLORS[mv.type] || '#64748b'
+                const fakeEnemy = { types: ['normal'], stats: { def: 50, spDef: 50 } }
+                let valLabel = ''; let valColor = '#94a3b8'
+                try {
+                  if (mv.kind === 'attack' || mv.kind === 'drain') {
+                    const { dmg } = moveDamage(mv, synthMon, fakeEnemy, {})
+                    valLabel = `-${Math.round(dmg)}`; valColor = '#f87171'
+                  } else if (mv.kind === 'heal') {
+                    valLabel = `+${Math.round(healValue(mv, synthMon, {}))}`; valColor = '#4ade80'
+                  } else if (mv.kind === 'guard') {
+                    const g = guardValue(mv, synthMon, {})
+                    valLabel = `🛡️${g}`; valColor = '#38bdf8'
+                  }
+                } catch {}
                 return (
                   <div key={i} className="flex items-center gap-2 rounded-lg p-1.5 border" style={{ background: mc + '14', borderColor: mc + '44' }}>
                     <span className="text-sm flex-shrink-0">{mv.emoji || MOVE_KIND_ICON[mv.kind]}</span>
@@ -181,7 +194,11 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
                       </div>
                       <p className="text-[8px] text-gray-400 leading-snug truncate">{mv.desc}</p>
                     </div>
-                    <span className="text-[7px] font-bold text-gray-500 flex-shrink-0">{MOVE_KIND_LABEL[mv.kind]}</span>
+                    {valLabel ? (
+                      <span className="text-[10px] font-black tabular-nums flex-shrink-0" style={{ color: valColor }}>{valLabel}</span>
+                    ) : (
+                      <span className="text-[7px] font-bold text-gray-500 flex-shrink-0">{MOVE_KIND_LABEL[mv.kind]}</span>
+                    )}
                   </div>
                 )
               })}
@@ -254,6 +271,7 @@ export default function CollectionScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [detailId, setDetailId] = useState(null)
   const [toast, setToast] = useState(null)
+  const [showCTView, setShowCTView] = useState(false)
   const scrollRef = useRef(null)
   const cardRefs = useRef({})
   const species = allSpecies()
@@ -362,6 +380,10 @@ export default function CollectionScreen() {
               <h2 className="font-game text-sm text-white">Pokédex</h2>
               <p className="text-xs text-gray-500">{ownedCount} / {species.length} capturés</p>
             </div>
+            <button onClick={() => setShowCTView(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black bg-purple-900/40 border border-purple-700/50 text-purple-300 hover:bg-purple-800/50 active:scale-95 transition-all">
+              💿 Mes CT ({ctInventory?.length || 0})
+            </button>
           </div>
 
           <div className="h-1.5 bg-gray-900 rounded-full overflow-hidden">
@@ -417,6 +439,61 @@ export default function CollectionScreen() {
           ))}
         </div>
       </div>
+
+      {/* ── "Mes CT" overlay ─────────────────────────────────────── */}
+      {showCTView && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(8,8,16,0.96)' }}>
+          <div className="flex items-center justify-between px-4 pt-10 pb-3 border-b border-white/10">
+            <p className="font-game text-white text-sm">💿 Mes Capsules Techniques</p>
+            <button onClick={() => setShowCTView(false)}
+              className="text-gray-400 hover:text-white text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full bg-white/10">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            {(!ctInventory || ctInventory.length === 0) ? (
+              <p className="text-center text-xs text-gray-500 mt-10">Aucune CT dans ton inventaire. Les CT méta s'obtiennent dans les boosters.</p>
+            ) : (() => {
+              // Reverse-map attachedCTs: ctId → speciesId
+              const ctToSpecies = {}
+              Object.entries(attachedCTs || {}).forEach(([spId, ctId]) => { ctToSpecies[ctId] = Number(spId) })
+              // Group by ctId → count
+              const ctCounts = ctInventory.reduce((acc, id) => { acc[id] = (acc[id] || 0) + 1; return acc }, {})
+              return (
+                <div className="space-y-2">
+                  {Object.entries(ctCounts).map(([id, n]) => {
+                    const ct = CT_BY_ID[id]
+                    if (!ct) return null
+                    const tc = TYPE_COLORS[ct.type] || '#64748b'
+                    const holderSpId = ctToSpecies[id]
+                    const holderSp = holderSpId ? speciesById(holderSpId) : null
+                    return (
+                      <div key={id} className="flex items-center gap-3 rounded-xl p-2.5 border"
+                        style={{ background: tc + '14', borderColor: tc + '33' }}>
+                        <span className="text-xl flex-shrink-0">💿</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-[11px] font-black text-white">{ct.name}</p>
+                            <span className="text-[7px] font-bold rounded px-1" style={{ background: tc + '33', color: tc }}>{ct.type?.toUpperCase().slice(0, 3)}</span>
+                            {n > 1 && <span className="text-[9px] text-gray-400">×{n}</span>}
+                          </div>
+                          <p className="text-[8px] text-gray-400 truncate">{ct.desc}</p>
+                        </div>
+                        {holderSp ? (
+                          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                            <img src={sprite(holderSp.id, false)} alt={holderSp.name} className="w-9 h-9 object-contain pixelated" />
+                            <p className="text-[7px] text-purple-300 text-center">{frName(holderSp.id, holderSp.name)}</p>
+                          </div>
+                        ) : (
+                          <span className="text-[8px] text-gray-600 flex-shrink-0 italic">libre</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

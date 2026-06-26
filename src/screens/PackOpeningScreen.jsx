@@ -112,6 +112,7 @@ export default function PackOpeningScreen() {
   const [revealed, setRevealed] = useState(false)
   const [flash, setFlash] = useState(null)
   const [done, setDone] = useState(false)  // all cards shown
+  const [revealAll, setRevealAll] = useState(false)  // show all at once in grid
   const [ownedAtOpen] = useState(() => new Set(collection.map(c => c.id)))
 
   const cards = pendingBoosters || []
@@ -147,7 +148,13 @@ export default function PackOpeningScreen() {
     const next = index + 1
     if (next >= cards.length) { setDone(true); return }
     setIndex(next)
-    setRevealed(false)  // next card starts face-down
+    setRevealed(true)  // auto-flip next card
+    triggerFlash(cards[next])
+  }
+
+  const handleRevealAll = () => {
+    cards.forEach(c => triggerFlash(c))
+    setRevealAll(true)
   }
 
   const handleViewPokedex = () => { addToCollection(cards); clearPendingBoosters(); setScrollToNew(true); navigate('collection') }
@@ -184,7 +191,7 @@ export default function PackOpeningScreen() {
           </div>
         )}
 
-        {phase === 'reveal' && !done && cards[index] && (
+        {phase === 'reveal' && !done && !revealAll && cards[index] && (
           <div className="flex flex-col items-center gap-5 pt-2">
             <div className="flex gap-1.5 flex-wrap justify-center max-w-[280px]">
               {cards.map((c, i) => (
@@ -196,12 +203,48 @@ export default function PackOpeningScreen() {
             </div>
             <div className="w-full max-w-[280px] space-y-2.5">
               {revealed ? (
-                <button onClick={nextCard} className="w-full py-3.5 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black rounded-xl transition-all">
-                  {index + 1 >= cards.length ? 'Terminer →' : 'Carte suivante →'}
-                </button>
+                <>
+                  <button onClick={nextCard} className="w-full py-3.5 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black rounded-xl transition-all">
+                    {index + 1 >= cards.length ? 'Terminer →' : 'Carte suivante →'}
+                  </button>
+                  {index + 1 < cards.length && (
+                    <button onClick={handleRevealAll} className="w-full py-2.5 bg-white/10 hover:bg-white/15 active:scale-95 text-gray-300 font-bold rounded-xl transition-all text-xs">
+                      ⚡ Tout dévoiler
+                    </button>
+                  )}
+                </>
               ) : (
                 <p className="text-center text-xs text-gray-500 animate-pulse">👆 Appuie sur la carte pour la révéler</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {phase === 'reveal' && !done && revealAll && (
+          <div className="flex flex-col items-center gap-4 pt-2">
+            <p className="text-[11px] text-gray-400 font-bold">Toutes tes cartes</p>
+            <div className="grid grid-cols-5 gap-1.5 w-full max-w-sm">
+              {cards.map((c) => {
+                const st = styleFor(c)
+                const isNew = !ownedAtOpen.has(c.id)
+                return (
+                  <div key={c.uid} className={`relative rounded-xl flex flex-col items-center p-1.5 border bg-gradient-to-b ${st.bg}`}
+                    style={{ borderColor: st.color + '88', boxShadow: `0 0 8px ${st.color}44` }}>
+                    {isNew && <span className="absolute -top-1 -right-1 text-[9px]">⭐</span>}
+                    {c.shiny && <span className="absolute -top-1 -left-1 text-[9px]">✨</span>}
+                    <img src={sprite(c.id, c.shiny)} alt={c.name} className="w-10 h-10 object-contain" />
+                    <p className="text-[7px] font-bold text-white text-center truncate w-full mt-0.5">{c.name}</p>
+                    <span className="text-[6px] font-bold" style={{ color: st.color }}>{st.particle}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="w-full max-w-sm space-y-2 mt-2">
+              {newCount > 0 && (
+                <p className="text-yellow-400 font-bold text-xs text-center">✨ {newCount} nouvelle{newCount > 1 ? 's' : ''} espèce{newCount > 1 ? 's' : ''} !</p>
+              )}
+              <button onClick={handleViewPokedex} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-xl transition-all text-sm">📕 Voir dans le pokédex</button>
+              <button onClick={handleGoHome} className="w-full py-3 bg-white/10 hover:bg-white/15 active:scale-95 text-gray-300 font-bold rounded-xl transition-all text-xs">Retour</button>
             </div>
           </div>
         )}

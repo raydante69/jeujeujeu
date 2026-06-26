@@ -2,9 +2,10 @@ import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { allSpecies, makeInstance } from '../data/pokemon.js'
-import { buildMoveset, movesetSize } from '../engine/combatEngine.js'
+import { buildMoveset, movesetSize, moveDamage, guardValue, healValue } from '../engine/combatEngine.js'
 import { makeRunMon } from '../engine/runEngine.js'
 import { TYPE_COLORS } from '../data/types.js'
+import { CT_LIST, canLearnCT } from '../data/ct.js'
 
 // Available encounters (randomly one is chosen per visit)
 const ENCOUNTERS = ['prof_shen']
@@ -123,25 +124,43 @@ function ProfShenSwapPokemon({ team, onConfirm, onBack }) {
   )
 }
 
-// Slot-machine attack swap: a random new attack is drawn for a randomly chosen
-// team Pokémon. You can only accept (the draw IS the choice).
+// Compute a simple display value for a CT move applied to a target Pokémon.
+function ctMoveValue(ct, target) {
+  if (!ct || !target) return ''
+  const fakeEnemy = { types: ['normal'], stats: { def: 50, spDef: 50 } }
+  const card = { ...ct, key: 'preview', ownerUid: target.uid, ownerId: target.id, ownerRarity: target.rarity, ownerName: target.name }
+  if (ct.kind === 'attack' || ct.kind === 'drain') {
+    try { const { dmg } = moveDamage(card, target, fakeEnemy, {}); return `-${Math.round(dmg)}` } catch { return '' }
+  }
+  if (ct.kind === 'heal') {
+    try { return `+${Math.round(healValue(card, target, {}))}` } catch { return '' }
+  }
+  if (ct.kind === 'guard') {
+    try { const g = guardValue(card, target, {}); return `🛡️${g}` } catch { return '' }
+  }
+  return ''
+}
+
+// Slot-machine attack swap: full CT catalog filtered by canLearnCT, 3 random candidates.
+// You can only accept (the draw IS the choice).
 function ProfShenSwapAttack({ team, onConfirm, onBack }) {
   const [spinPhase, setSpinPhase] = useState('idle')  // 'idle' | 'spinning' | 'done'
   const [spinPos, setSpinPos] = useState(0)
   const spinRef = useRef(null)
 
-  // Candidate attacks = unique moves drawn from the whole team's movesets.
-  const pool = useMemo(() => {
-    const seen = new Set(); const arr = []
-    for (const mon of team) for (const m of buildMoveset(mon)) {
-      const sig = m.type + '|' + m.name
-      if (!seen.has(sig)) { seen.add(sig); arr.push(m) }
-    }
-    return arr.slice(0, 8)
-  }, [team])
+  // The Pokémon that will receive the drawn attack (chosen at random, must be alive).
+  const target = useMemo(() => {
+    const alive = team.filter(m => m.hp > 0)
+    return alive[Math.floor(Math.random() * Math.max(1, alive.length))] || team[0]
+  }, []) // eslint-disable-line
 
-  // The Pokémon that will receive the drawn attack (chosen at random).
-  const target = useMemo(() => team[Math.floor(Math.random() * team.length)], []) // eslint-disable-line
+  // 3 random candidates from full CT catalog filtered by canLearnCT(target, ct)
+  const pool = useMemo(() => {
+    if (!target) return []
+    const eligible = CT_LIST.filter(ct => canLearnCT(target, ct))
+    const shuffled = [...eligible].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, 3)
+  }, [target]) // eslint-disable-line
 
   useEffect(() => () => clearInterval(spinRef.current), [])
   const highlighted = Math.round(spinPos) % Math.max(1, pool.length)
@@ -160,7 +179,7 @@ function ProfShenSwapAttack({ team, onConfirm, onBack }) {
         clearInterval(spinRef.current)
         setSpinPhase('done')
         const chosen = pool[winner]
-        const newMove = { ...chosen, key: `${target.uid}-swap`, ownerUid: target.uid, ownerName: target.name, ownerId: target.id, ownerRarity: target.rarity }
+        const newMove = { ...chosen, key: `${target.uid}-swap`, ownerUid: target.uid, ownerName: target.name, ownerId: target.id, ownerRarity: target.rarity, fromCT: false }
         setTimeout(() => onConfirm({ monUid: target.uid, customMoves: [newMove] }), 900)
       }
     }, 16)
@@ -172,36 +191,43 @@ function ProfShenSwapAttack({ team, onConfirm, onBack }) {
       <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3">
         <p className="text-[10px] text-gray-400 mb-1 font-bold uppercase">Pokémon qui reçoit l'attaque</p>
         <div className="flex items-center gap-3">
-          <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${target.shiny ? 'shiny/' : ''}${target.id}.png`}
-            alt={target.name} className="w-12 h-12 object-contain pixelated" />
+          <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${target?.shiny ? 'shiny/' : ''}${target?.id}.png`}
+            alt={target?.name} className="w-12 h-12 object-contain pixelated" />
           <div>
-            <p className="font-black text-white text-sm">{target.name}</p>
-            <p className="text-[10px] text-gray-400">Niv.{target.level}</p>
+            <p className="font-black text-white text-sm">{target?.name}</p>
+            <p className="text-[10px] text-gray-400">Niv.{target?.level} · {(target?.types || []).join('/')}</p>
             <p className="text-[9px] text-yellow-500/70 italic mt-0.5">L'attaque tirée remplacera son attaque.</p>
           </div>
         </div>
       </div>
 
-      {/* Slot machine over attacks */}
+      {/* Slot machine over 3 candidates */}
       <div className="rounded-xl border border-blue-700/30 bg-black/30 p-3">
         <p className="text-[10px] text-gray-500 text-center mb-2 uppercase font-bold">Tirage au sort de l'attaque</p>
-        <div className="relative h-6 mb-1">
-          <span className="absolute text-yellow-400 text-base leading-none"
-            style={{ left: `calc(${(highlighted / pool.length) * 100}% + ${(1 / pool.length / 2) * 100}% - 8px)` }}>▼</span>
-        </div>
-        <div className="flex justify-around gap-1">
-          {pool.map((move, i) => {
-            const tc = TYPE_COLORS[move.type] || '#64748b'
-            const isHl = highlighted === i && spinPhase !== 'idle'
-            return (
-              <div key={i} className="flex flex-col items-center rounded-lg p-1.5 border transition-all flex-1 min-w-0"
-                style={{ background: isHl ? tc + '33' : 'rgba(0,0,0,0.4)', borderColor: isHl ? tc + 'cc' : tc + '22', transform: isHl ? 'scale(1.1)' : 'scale(1)', boxShadow: isHl ? `0 0 14px ${tc}88` : 'none' }}>
-                <span className="text-lg">{move.emoji}</span>
-                <p className="text-[7px] text-gray-300 font-bold text-center truncate w-full mt-0.5">{move.name}</p>
-              </div>
-            )
-          })}
-        </div>
+        {pool.length === 0 ? (
+          <p className="text-center text-xs text-gray-500 py-2">Aucune attaque disponible.</p>
+        ) : (
+          <>
+            <div className="relative h-6 mb-1">
+              <span className="absolute text-yellow-400 text-base leading-none"
+                style={{ left: `calc(${(highlighted / pool.length) * 100}% + ${(1 / pool.length / 2) * 100}% - 8px)` }}>▼</span>
+            </div>
+            <div className="flex justify-around gap-2">
+              {pool.map((ct, i) => {
+                const tc = TYPE_COLORS[ct.type] || '#64748b'
+                const isHl = highlighted === i && spinPhase !== 'idle'
+                const val = ctMoveValue(ct, target)
+                return (
+                  <div key={ct.id} className="flex flex-col items-center rounded-lg p-2 border transition-all flex-1 min-w-0"
+                    style={{ background: isHl ? tc + '33' : 'rgba(0,0,0,0.4)', borderColor: isHl ? tc + 'cc' : tc + '22', transform: isHl ? 'scale(1.1)' : 'scale(1)', boxShadow: isHl ? `0 0 14px ${tc}88` : 'none' }}>
+                    <p className="text-[10px] text-white font-black text-center truncate w-full">{ct.name}</p>
+                    {val && <p className="text-[9px] font-bold mt-0.5" style={{ color: ct.kind === 'attack' || ct.kind === 'drain' ? '#f87171' : ct.kind === 'heal' ? '#4ade80' : '#38bdf8' }}>{val}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {spinPhase === 'idle' ? (
@@ -215,7 +241,7 @@ function ProfShenSwapAttack({ team, onConfirm, onBack }) {
       ) : spinPhase === 'spinning' ? (
         <p className="text-center text-blue-300 font-bold animate-pulse text-sm py-2">🎲 Tirage en cours…</p>
       ) : (
-        <p className="text-center text-yellow-300 font-black text-sm py-2">🎉 {pool[highlighted]?.name} pour {target.name} !</p>
+        <p className="text-center text-yellow-300 font-black text-sm py-2">🎉 {pool[highlighted]?.name} pour {target?.name} !</p>
       )}
     </div>
   )
