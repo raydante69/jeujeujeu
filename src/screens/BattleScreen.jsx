@@ -5,7 +5,9 @@ import {
   buildEnemy, xpForWin, goldForWin, gainXp, waveKind, xpToNext,
 } from '../engine/runEngine.js'
 import { sfx } from '../lib/sfx.js'
-import { recomputeStats } from '../data/pokemon.js'
+import { recomputeStats, speciesById } from '../data/pokemon.js'
+import { starterCost } from '../data/cardModel.js'
+import { rollDrop } from '../data/drops.js'
 import {
   drawHand, moveDamage, guardValue, healValue, computeIntent, STATUS_DEF, buildMoveset, movesetSize,
 } from '../engine/combatEngine.js'
@@ -16,7 +18,6 @@ import { getTrait } from '../data/signatureTraits.js'
 import { TYPE_COLORS, TYPE_LABELS_FR, typeMatchups } from '../data/types.js'
 import { MODIFIER_DEF } from '../data/enemyModifiers.js'
 import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
-import { rollRandomCT } from '../data/ct.js'
 import TypeBadge from '../components/TypeBadge.jsx'
 import HPBar from '../components/HPBar.jsx'
 import ItemSprite from '../components/ItemSprite.jsx'
@@ -761,36 +762,24 @@ export default function BattleScreen() {
     const g = useGameStore.getState()
     g.recordStat('battlesWon'); g.reportQuest('win', 1); g.reportQuest('wave', wave)
 
-    // Random combat drops (~30% chance of something). Returns {itemId|ball|ct, n, label}.
+    // Combat drops — only source of items now. Drop chance = 5% per point of
+    // the defeated species' value (starterCost). Type & rarity rolled in drops.js.
     const drops = []
-    const dropTable = [
-      { w: 3,  ct: true },
-      { w: 8,  item: 'potion',       n: 1 },
-      { w: 5,  item: 'super-potion', n: 1 },
-      { w: 3,  item: 'revive',       n: 1 },
-      { w: 2,  item: 'nugget',       n: 1 },
-      { w: 2,  item: 'hp-up',        n: 1 },
-      { w: 2,  item: 'protein',      n: 1 },
-      { w: 2,  item: 'carbos',       n: 1 },
-      { w: 4,  ball: 'poke-ball',    n: 1 },
-      { w: 3,  ball: 'great-ball',   n: 1 },
-    ]
-    if (eventRef.current.forceDrop || Math.random() < 0.30) {
-      const total = dropTable.reduce((s, d) => s + d.w, 0)
-      let roll = Math.random() * total
-      const d = dropTable.find(x => (roll -= x.w) <= 0) || dropTable[0]
-      if (d.ct) {
-        const ct = rollRandomCT()
-        g.addCT(ct.id)
-        drops.push({ slug: null, emoji: '🎴', label: `CT${ct.num} ${ct.name}` })
-      } else if (d.item) {
-        const c = CONSUMABLE_BY_ID[d.item]
-        run.addItem(d.item, d.n)
-        drops.push({ slug: c.slug, emoji: c.emoji, label: `${c.name} ×${d.n}` })
-      } else if (d.ball) {
-        const b = BALL_BY_ID[d.ball]
-        run.addBall(d.ball, d.n)
+    const dropPoints = starterCost(speciesById(enemy.id))
+    const dropChance = Math.min(0.95, 0.05 * dropPoints)
+    if (eventRef.current.forceDrop || Math.random() < dropChance) {
+      const d = rollDrop(wave)
+      if (d.kind === 'ct') {
+        run.addCT(d.id)                     // run-scoped CT bag (lost at run end)
+        drops.push({ slug: null, emoji: '💿', label: `CT ${d.ct.name}` })
+      } else if (d.kind === 'ball') {
+        const b = BALL_BY_ID[d.id]
+        run.addBall(d.id, d.n)
         drops.push({ slug: b.slug, emoji: b.emoji, label: `${b.name} ×${d.n}` })
+      } else {
+        const c = CONSUMABLE_BY_ID[d.id]    // potion or stone
+        run.addItem(d.id, d.n)
+        drops.push({ slug: c.slug, emoji: c.emoji, label: `${c.name} ×${d.n}` })
       }
     }
 

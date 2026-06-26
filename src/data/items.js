@@ -37,8 +37,17 @@ export const CONSUMABLES = [
   { id: 'calcium',      name: 'Calcium',       slug: 'calcium',       emoji: '🔮', color: '#c084fc', effect: { kind: 'vitamin', stat: 'spa', value: 10 }, desc: '+Atq. Spé. permanente à toute l\'équipe.' },
   { id: 'zinc',         name: 'Zinc',          slug: 'zinc',          emoji: '🧿', color: '#38bdf8', effect: { kind: 'vitamin', stat: 'spd', value: 10 }, desc: '+Déf. Spé. permanente à toute l\'équipe.' },
   { id: 'carbos',       name: 'Carbone',       slug: 'carbos',        emoji: '⚡', color: '#fde047', effect: { kind: 'vitamin', stat: 'spe', value: 10 }, desc: '+Vitesse permanente à toute l\'équipe.' },
+  // Pierres d'évolution — à utiliser sur un Pokémon compatible pour le faire évoluer.
+  { id: 'fire-stone',    name: 'Pierre Feu',    slug: 'fire-stone',    emoji: '🔥', color: '#f97316', effect: { kind: 'stone', stone: 'fire-stone' },    desc: 'Fait évoluer certains Pokémon de type Feu.' },
+  { id: 'water-stone',   name: 'Pierre Eau',    slug: 'water-stone',   emoji: '💧', color: '#3b82f6', effect: { kind: 'stone', stone: 'water-stone' },   desc: 'Fait évoluer certains Pokémon de type Eau.' },
+  { id: 'thunder-stone', name: 'Pierre Foudre', slug: 'thunder-stone', emoji: '⚡', color: '#eab308', effect: { kind: 'stone', stone: 'thunder-stone' }, desc: 'Fait évoluer certains Pokémon de type Électrik.' },
+  { id: 'leaf-stone',    name: 'Pierre Plante', slug: 'leaf-stone',    emoji: '🍃', color: '#22c55e', effect: { kind: 'stone', stone: 'leaf-stone' },    desc: 'Fait évoluer certains Pokémon de type Plante.' },
+  { id: 'moon-stone',    name: 'Pierre Lune',   slug: 'moon-stone',    emoji: '🌙', color: '#a855f7', effect: { kind: 'stone', stone: 'moon-stone' },    desc: 'Fait évoluer certains Pokémon (Mélofée, Rondoudou, Nidoran…).' },
 ]
 export const CONSUMABLE_BY_ID = Object.fromEntries(CONSUMABLES.map(c => [c.id, c]))
 
+export const STONE_IDS = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'moon-stone']
+
 export function isBall(id) { return !!BALL_BY_ID[id] }
 export function isConsumable(id) { return !!CONSUMABLE_BY_ID[id] }
+export function isStone(id) { return STONE_IDS.includes(id) }

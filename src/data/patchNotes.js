@@ -12,6 +12,8 @@ export const PATCH_NOTES = [
       { type: 'balance', text: 'Chaque Pokémon n\'a plus qu\'une seule attaque (deux pour les légendaires) ; sa puissance dépend de la force de l\'espèce — fini les petits Pokémon avec des attaques surpuissantes.' },
       { type: 'content', text: 'Gros catalogue de CT (~100) couvrant tous les types ; les soins et boucliers passent désormais par les CT ou les légendaires.' },
       { type: 'feat', text: 'Apprends une CT à un Pokémon compatible pendant l\'expédition (CT Normal pour tous, sinon même type).' },
+      { type: 'balance', text: 'Les objets ne s\'achètent plus en masse : ils se DROPENT en combat. Plus le Pokémon vaincu vaut de points, plus la chance de butin est élevée.' },
+      { type: 'content', text: 'Nouvelles pierres d\'évolution (Feu, Eau, Foudre, Plante, Lune) à dénicher.' },
     ],
   },
   {
