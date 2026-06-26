@@ -3,15 +3,152 @@ import { useGameStore } from '../store/gameStore.js'
 import { allSpecies, speciesById } from '../data/pokemon.js'
 import { speciesRarity, rarityColor, rarityLabel, rarityTier, starterCost, isHoloEligible } from '../data/cardModel.js'
 import { getTrait } from '../data/signatureTraits.js'
-import { TYPE_COLORS } from '../data/types.js'
+import { TYPE_COLORS, TYPE_LABELS_FR, effectiveness } from '../data/types.js'
 import { frName } from '../data/frenchNames.js'
-import { CT_BY_ID } from '../data/ct.js'
+import { CT_BY_ID, canLearnCT } from '../data/ct.js'
 import { buildMoveset, movesetSize, moveDamage, guardValue, healValue } from '../engine/combatEngine.js'
 import StatBars from '../components/StatBars.jsx'
 import TypeBadge from '../components/TypeBadge.jsx'
 
 const MOVE_KIND_ICON = { attack: '⚔️', guard: '🛡️', heal: '➕', drain: '🌿', status: '✨', buff: '💪' }
 const MOVE_KIND_LABEL = { attack: 'Attaque', guard: 'Bouclier', heal: 'Soin', drain: 'Drain', status: 'Statut', buff: 'Boost' }
+
+const ALL_TYPES = Object.keys(TYPE_LABELS_FR)
+const GENERIC_CASTER = { id: 1, types: ['normal'], rarity: 'common' }
+const FAKE_ENEMY = { types: ['normal'], stats: { def: 50, spDef: 50 } }
+
+// Computed display value of a move for a given caster (vs a neutral enemy).
+function moveValueLabel(move, caster) {
+  const c = caster || GENERIC_CASTER
+  try {
+    if (move.kind === 'attack' || move.kind === 'drain') {
+      const { dmg } = moveDamage(move, c, FAKE_ENEMY, {})
+      const rows = [{ label: `-${Math.round(dmg)}`, color: '#f87171' }]
+      if (move.kind === 'drain') rows.push({ label: `+${Math.round(healValue(move, c, {}))}`, color: '#4ade80' })
+      return rows
+    }
+    if (move.kind === 'heal') return [{ label: `+${Math.round(healValue(move, c, {}))}`, color: '#4ade80' }]
+    if (move.kind === 'guard') return [{ label: `🛡️${guardValue(move, c, {})}`, color: '#38bdf8' }]
+    if (move.kind === 'buff') return [{ label: `+${Math.round((move.bonus || 0.7) * 100)}%`, color: '#f97316' }]
+  } catch {}
+  return []
+}
+
+// Offensive type coverage: which defending types this attack is strong / weak / null against.
+function offensiveMatchups(type) {
+  const strong = [], weak = [], immune = []
+  for (const t of ALL_TYPES) {
+    const e = effectiveness(type, [t])
+    if (e === 0) immune.push(t)
+    else if (e > 1) strong.push(t)
+    else if (e < 1) weak.push(t)
+  }
+  return { strong, weak, immune }
+}
+
+// Reusable detailed attack/CT card. When `ct` is set, shows a learn/detach flow.
+function AttackDetailCard({ move, caster, ct, compatibleOwned, holder, onLearn, onDetach, onClose }) {
+  const [picking, setPicking] = useState(false)
+  const tc = TYPE_COLORS[move.type] || '#64748b'
+  const values = moveValueLabel(move, caster)
+  const isOffensive = move.kind === 'attack' || move.kind === 'drain'
+  const mu = isOffensive ? offensiveMatchups(move.type) : null
+
+  const typeRow = (label, types, color) => (
+    <div className="flex items-start gap-2 mb-1.5">
+      <span className="text-[9px] font-black uppercase tracking-wide w-20 flex-shrink-0 pt-1" style={{ color }}>{label}</span>
+      <div className="flex flex-wrap gap-1">
+        {types.length === 0 ? <span className="text-[9px] text-gray-600 pt-1">—</span>
+          : types.map(t => <TypeBadge key={t} type={t} size="img" />)}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="w-full max-w-sm rounded-2xl overflow-y-auto p-4"
+        style={{ background: `linear-gradient(160deg, ${tc}26, #0a0a14 70%)`, border: `2px solid ${tc}88`, maxHeight: '86vh', boxShadow: `0 0 40px ${tc}44` }}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {ct && <span className="text-base flex-shrink-0">💿</span>}
+            <span className="text-xl flex-shrink-0">{move.emoji || MOVE_KIND_ICON[move.kind]}</span>
+            <div className="min-w-0">
+              <p className="font-black text-white text-base leading-tight truncate">{move.name}</p>
+              <p className="text-[10px] font-bold" style={{ color: tc }}>{TYPE_LABELS_FR[move.type] || move.type} · {MOVE_KIND_LABEL[move.kind] || move.kind}</p>
+            </div>
+          </div>
+          <TypeBadge type={move.type} size="img" />
+        </div>
+
+        {/* Value */}
+        {values.length > 0 && (
+          <div className="flex items-center gap-3 mb-3">
+            {values.map((v, i) => (
+              <span key={i} className="text-2xl font-black tabular-nums" style={{ color: v.color }}>{v.label}</span>
+            ))}
+            {!caster && <span className="text-[9px] text-gray-500 self-center">valeur de base</span>}
+          </div>
+        )}
+
+        {/* Description */}
+        {move.desc && <p className="text-[11px] text-gray-300 leading-relaxed mb-3">{move.desc}</p>}
+
+        {/* Type effectiveness */}
+        <div className="rounded-xl bg-black/30 p-2.5 mb-3 border border-white/5">
+          <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-2">Efficacité de type</p>
+          {isOffensive ? (
+            <>
+              {typeRow('Fort contre', mu.strong, '#4ade80')}
+              {typeRow('Faible contre', mu.weak, '#f87171')}
+              {mu.immune.length > 0 && typeRow('Sans effet', mu.immune, '#94a3b8')}
+            </>
+          ) : (
+            <p className="text-[10px] text-gray-400 leading-snug">Capacité de soutien — non affectée par les types.</p>
+          )}
+        </div>
+
+        {/* CT learn / detach flow */}
+        {ct && (
+          <div className="mb-2">
+            {holder ? (
+              <div className="flex items-center gap-2 rounded-xl bg-purple-900/30 border border-purple-700/40 p-2.5">
+                <img src={sprite(holder.id, false)} alt={holder.name} className="w-10 h-10 object-contain pixelated" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[9px] text-purple-300 uppercase font-bold">Apprise par</p>
+                  <p className="text-[12px] font-black text-white truncate">{frName(holder.id, holder.name)}</p>
+                </div>
+                <button onClick={onDetach} className="px-3 py-2 rounded-lg text-[11px] font-black bg-red-900/40 text-red-300 border border-red-700/40 active:scale-95">Retirer</button>
+              </div>
+            ) : !picking ? (
+              <button onClick={() => setPicking(true)} disabled={compatibleOwned.length === 0}
+                className="w-full py-3 rounded-xl font-black text-sm text-white transition-all active:scale-95 disabled:opacity-40"
+                style={{ background: compatibleOwned.length ? `linear-gradient(90deg, ${tc}, #7c3aed)` : '#1e293b' }}>
+                {compatibleOwned.length ? '💿 Apprendre' : 'Aucun Pokémon compatible possédé'}
+              </button>
+            ) : (
+              <div>
+                <p className="text-[10px] text-cyan-300 font-bold mb-2">Choisis un Pokémon compatible :</p>
+                <div className="grid grid-cols-3 gap-2 max-h-44 overflow-y-auto">
+                  {compatibleOwned.map(sp => (
+                    <button key={sp.id} onClick={() => onLearn(sp.id)}
+                      className="flex flex-col items-center rounded-lg p-1.5 border active:scale-95 transition-all"
+                      style={{ background: '#0f172a', borderColor: '#22d3ee66' }}>
+                      <img src={sprite(sp.id, false)} alt={sp.name} className="w-10 h-10 object-contain pixelated" />
+                      <p className="text-[7px] text-gray-300 font-bold text-center truncate w-full mt-0.5">{frName(sp.id, sp.name)}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button onClick={onClose} className="w-full mt-2 py-2 rounded-xl font-black text-sm text-white bg-white/10 hover:bg-white/20 transition-all">Fermer</button>
+      </div>
+    </div>
+  )
+}
 
 const GEN_RANGES = {
   1: [1, 151], 2: [152, 251], 3: [252, 386], 4: [387, 493],
@@ -81,7 +218,7 @@ function DexSlot({ species, ownedCards, isNew, onClick, cardRef }) {
   )
 }
 
-function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClose, onFuse, onLevelUp, onAttachCT, onDetachCT }) {
+function DetailModal({ species, cards, cardLevel, attachedCT, onClose, onFuse, onLevelUp }) {
   const rarity = speciesRarity(species)
   const rc = rarityColor(rarity)
   const typeColor = TYPE_COLORS[species.types?.[0]] || '#1e293b'
@@ -98,9 +235,14 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
     ? Object.fromEntries(Object.keys(species.stats).map(k => [k, bonus]))
     : {}
   const [viewShiny, setViewShiny] = useState(hasShiny)
+  const [moveCard, setMoveCard] = useState(null)   // clicked attack → detail card
 
-  // Full signature moveset this Pokémon can use in combat.
-  const synthMon = { uid: `dex-${species.id}`, id: species.id, name: frName(species.id, species.name), types: species.types, rarity, shiny: viewShiny, holo: hasHolo }
+  // Full signature moveset this Pokémon can use in combat, including its attached CT.
+  const synthMon = {
+    uid: `dex-${species.id}`, id: species.id, name: frName(species.id, species.name),
+    types: species.types, rarity, shiny: viewShiny, holo: hasHolo,
+    learnedCTs: attachedCT ? [attachedCT.id] : [],
+  }
   const moveCount = movesetSize(synthMon)
   const moves = buildMoveset(synthMon).slice(0, moveCount)
 
@@ -165,27 +307,18 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
             <p className="text-[9px] text-gray-400 leading-snug">{trait.desc}</p>
           </div>
 
-          {/* All combat moves this Pokémon knows */}
+          {/* All combat moves this Pokémon knows — tap for the detailed card */}
           <div className="mt-2.5 relative z-10">
-            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Attaques ({moves.length})</p>
+            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Attaques ({moves.length}) · appuie pour les détails</p>
             <div className="space-y-1">
               {moves.map((mv, i) => {
                 const mc = TYPE_COLORS[mv.type] || '#64748b'
-                const fakeEnemy = { types: ['normal'], stats: { def: 50, spDef: 50 } }
-                let valLabel = ''; let valColor = '#94a3b8'
-                try {
-                  if (mv.kind === 'attack' || mv.kind === 'drain') {
-                    const { dmg } = moveDamage(mv, synthMon, fakeEnemy, {})
-                    valLabel = `-${Math.round(dmg)}`; valColor = '#f87171'
-                  } else if (mv.kind === 'heal') {
-                    valLabel = `+${Math.round(healValue(mv, synthMon, {}))}`; valColor = '#4ade80'
-                  } else if (mv.kind === 'guard') {
-                    const g = guardValue(mv, synthMon, {})
-                    valLabel = `🛡️${g}`; valColor = '#38bdf8'
-                  }
-                } catch {}
+                const vals = moveValueLabel(mv, synthMon)
                 return (
-                  <div key={i} className="flex items-center gap-2 rounded-lg p-1.5 border" style={{ background: mc + '14', borderColor: mc + '44' }}>
+                  <button key={i} onClick={() => setMoveCard(mv)}
+                    className="w-full flex items-center gap-2 rounded-lg p-1.5 border text-left active:scale-[0.99] transition-all"
+                    style={{ background: mc + '14', borderColor: mc + '44' }}>
+                    {mv.fromCT && <span className="text-[10px] flex-shrink-0">💿</span>}
                     <span className="text-sm flex-shrink-0">{mv.emoji || MOVE_KIND_ICON[mv.kind]}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -194,60 +327,25 @@ function DetailModal({ species, cards, cardLevel, attachedCT, ctInventory, onClo
                       </div>
                       <p className="text-[8px] text-gray-400 leading-snug truncate">{mv.desc}</p>
                     </div>
-                    {valLabel ? (
-                      <span className="text-[10px] font-black tabular-nums flex-shrink-0" style={{ color: valColor }}>{valLabel}</span>
+                    {vals.length > 0 ? (
+                      <span className="flex items-center gap-1 flex-shrink-0">
+                        {vals.map((v, k) => <span key={k} className="text-[10px] font-black tabular-nums" style={{ color: v.color }}>{v.label}</span>)}
+                      </span>
                     ) : (
                       <span className="text-[7px] font-bold text-gray-500 flex-shrink-0">{MOVE_KIND_LABEL[mv.kind]}</span>
                     )}
-                  </div>
+                    <span className="text-gray-500 text-[10px] flex-shrink-0">›</span>
+                  </button>
                 )
               })}
             </div>
+            <p className="text-[8px] text-gray-600 mt-1.5">Pour apprendre une CT, ouvre <span className="text-purple-400 font-bold">💿 Mes CT</span> depuis le Pokédex.</p>
           </div>
 
-          {/* CT slot */}
-          <div className="mt-2.5 relative z-10">
-            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Capacité Technique (CT)</p>
-            {attachedCT ? (
-              <div className="flex items-center gap-2 rounded-lg bg-purple-900/30 border border-purple-700/40 p-2">
-                <span className="text-lg">{attachedCT.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-purple-300">CT{attachedCT.num} {attachedCT.name}</p>
-                  <p className="text-[8px] text-gray-500">{attachedCT.desc}</p>
-                </div>
-                <button onClick={onDetachCT} className="text-[9px] text-gray-500 hover:text-red-400 font-bold px-1.5 py-1 rounded active:scale-95">✕</button>
-              </div>
-            ) : (
-              <div>
-                <button
-                  onClick={() => {}}
-                  className="w-full py-2.5 rounded-lg border border-dashed border-gray-700 text-gray-600 text-[10px] font-bold transition-all hover:border-purple-600/50 hover:text-purple-400 active:scale-95"
-                  disabled={!ctInventory?.length}
-                  style={{ cursor: ctInventory?.length ? 'pointer' : 'not-allowed' }}
-                >
-                  {ctInventory?.length ? '+ Attacher une CT' : 'Aucune CT dans l\'inventaire'}
-                </button>
-                {ctInventory?.length > 0 && (
-                  <div className="mt-1.5 space-y-1 max-h-28 overflow-y-auto">
-                    {ctInventory.map((ctId, i) => {
-                      const ct = CT_BY_ID[ctId]
-                      if (!ct) return null
-                      return (
-                        <button key={i} onClick={() => onAttachCT(ctId)}
-                          className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 bg-black/40 border border-gray-800 hover:border-purple-600/50 text-left active:scale-95 transition-all">
-                          <span>{ct.emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-black text-white">CT{ct.num} {ct.name}</p>
-                            <p className="text-[7px] text-gray-500">{ct.desc}</p>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Move detail card */}
+          {moveCard && (
+            <AttackDetailCard move={moveCard} caster={synthMon} onClose={() => setMoveCard(null)} />
+          )}
 
           <button onClick={onClose} className="w-full mt-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white text-xs font-bold transition-all relative z-10">Fermer</button>
         </div>
@@ -272,6 +370,7 @@ export default function CollectionScreen() {
   const [detailId, setDetailId] = useState(null)
   const [toast, setToast] = useState(null)
   const [showCTView, setShowCTView] = useState(false)
+  const [ctCardId, setCtCardId] = useState(null)   // CT id opened as a detail card
   const scrollRef = useRef(null)
   const cardRefs = useRef({})
   const species = allSpecies()
@@ -364,12 +463,9 @@ export default function CollectionScreen() {
           cards={detailCards}
           cardLevel={cardLevels?.[detailId] || 1}
           attachedCT={attachedCTs?.[detailId] ? CT_BY_ID[attachedCTs[detailId]] : null}
-          ctInventory={ctInventory || []}
           onClose={() => setDetailId(null)}
           onFuse={handleFuse}
           onLevelUp={handleLevelUp}
-          onAttachCT={(ctId) => attachCT(detailId, ctId)}
-          onDetachCT={() => detachCT(detailId)}
         />
       )}
 
@@ -466,7 +562,8 @@ export default function CollectionScreen() {
                     const holderSpId = ctToSpecies[id]
                     const holderSp = holderSpId ? speciesById(holderSpId) : null
                     return (
-                      <div key={id} className="flex items-center gap-3 rounded-xl p-2.5 border"
+                      <button key={id} onClick={() => setCtCardId(id)}
+                        className="w-full flex items-center gap-3 rounded-xl p-2.5 border text-left active:scale-[0.99] transition-all"
                         style={{ background: tc + '14', borderColor: tc + '33' }}>
                         <span className="text-xl flex-shrink-0">💿</span>
                         <div className="flex-1 min-w-0">
@@ -485,13 +582,37 @@ export default function CollectionScreen() {
                         ) : (
                           <span className="text-[8px] text-gray-600 flex-shrink-0 italic">libre</span>
                         )}
-                      </div>
+                        <span className="text-gray-500 text-[11px] flex-shrink-0">›</span>
+                      </button>
                     )
                   })}
                 </div>
               )
             })()}
           </div>
+
+          {/* CT detail card with learn / detach flow */}
+          {ctCardId && (() => {
+            const ct = CT_BY_ID[ctCardId]
+            if (!ct) return null
+            const holderSpId = Object.entries(attachedCTs || {}).find(([, cid]) => cid === ctCardId)?.[0]
+            const holder = holderSpId ? speciesById(Number(holderSpId)) : null
+            const compatibleOwned = Object.keys(ownedBySpecies)
+              .map(id => speciesById(Number(id)))
+              .filter(sp => sp && canLearnCT(sp, ct))
+            const move = { ...ct, key: 'ctcard', ownerId: 1, ownerRarity: 'common' }
+            return (
+              <AttackDetailCard
+                move={move}
+                ct={ct}
+                holder={holder}
+                compatibleOwned={compatibleOwned}
+                onLearn={(spId) => { attachCT(spId, ctCardId); setCtCardId(null) }}
+                onDetach={() => { if (holder) detachCT(holder.id); setCtCardId(null) }}
+                onClose={() => setCtCardId(null)}
+              />
+            )
+          })()}
         </div>
       )}
     </div>

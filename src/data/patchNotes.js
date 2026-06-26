@@ -4,6 +4,18 @@
 
 export const PATCH_NOTES = [
   {
+    version: '0.6.2',
+    date: '2026-06-26',
+    title: 'Carte d\'attaque détaillée & CT au Pokédex',
+    highlight: true,
+    changes: [
+      { type: 'feat', text: 'Carte d\'attaque détaillée : description, dégâts/soin/bouclier, et efficacité de type (fort / faible / sans effet). Accessible en cliquant une attaque dans le détail d\'un Pokémon.' },
+      { type: 'feat', text: 'Apprentissage des CT centralisé dans « 💿 Mes CT » : clique une CT, vois sa carte détaillée, puis « Apprendre » → choisis un Pokémon possédé compatible (même type, ou tous pour les CT Normal).' },
+      { type: 'feat', text: 'La CT attachée à un Pokémon apparaît désormais comme une de ses attaques (badge 💿) dans le Pokédex.' },
+      { type: 'balance', text: 'Le sélecteur d\'attache de CT a été retiré du détail Pokémon : on apprend/retire une CT uniquement depuis « Mes CT ».' },
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-06-26',
     title: 'Polissage & immersion',
