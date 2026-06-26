@@ -20,13 +20,13 @@ export const DEFAULT_BALLS = { 'poke-ball': 5 }
 // `effect` is read by runStore.useItem().
 export const CONSUMABLES = [
   // Soins
-  { id: 'potion',       name: 'Potion',        slug: 'potion',        emoji: '🧪', color: '#f87171', effect: { kind: 'heal',   value: 30 },  desc: 'Rend 30% PV à toute l\'équipe.' },
-  { id: 'super-potion', name: 'Super Potion',  slug: 'super-potion',  emoji: '🧪', color: '#fb7185', effect: { kind: 'heal',   value: 60 },  desc: 'Rend 60% PV à toute l\'équipe.' },
-  { id: 'hyper-potion', name: 'Hyper Potion',  slug: 'hyper-potion',  emoji: '💉', color: '#f43f5e', effect: { kind: 'heal',   value: 100 }, desc: 'Soigne complètement l\'équipe.' },
-  { id: 'full-restore', name: 'Guérison',      slug: 'full-restore',  emoji: '✨', color: '#fda4af', effect: { kind: 'fullrestore' },        desc: 'Soigne ET ranime toute l\'équipe à fond.' },
-  { id: 'revive',       name: 'Rappel',        slug: 'revive',        emoji: '🪽', color: '#a3e635', effect: { kind: 'revive', value: 50 },  desc: 'Ranime les K.O. à 50% PV.' },
-  { id: 'max-revive',   name: 'Rappel Max',    slug: 'max-revive',    emoji: '🪽', color: '#84cc16', effect: { kind: 'revive', value: 100 }, desc: 'Ranime les K.O. à 100% PV.' },
-  { id: 'rare-candy',   name: 'Super Bonbon',  slug: 'rare-candy',    emoji: '🍬', color: '#60a5fa', effect: { kind: 'candy',  value: 1 },   desc: 'Fait gagner 1 niveau au Pokémon le plus faible.' },
+  { id: 'potion',       name: 'Potion',        slug: 'potion',        emoji: '🧪', color: '#f87171', effect: { kind: 'heal',   value: 30 },  desc: 'Rend 30% PV à 1 Pokémon.' },
+  { id: 'super-potion', name: 'Super Potion',  slug: 'super-potion',  emoji: '🧪', color: '#fb7185', effect: { kind: 'heal',   value: 60 },  desc: 'Rend 60% PV à 1 Pokémon.' },
+  { id: 'hyper-potion', name: 'Hyper Potion',  slug: 'hyper-potion',  emoji: '💉', color: '#f43f5e', effect: { kind: 'heal',   value: 100 }, desc: 'Soigne complètement 1 Pokémon.' },
+  { id: 'full-restore', name: 'Guérison',      slug: 'full-restore',  emoji: '✨', color: '#fda4af', effect: { kind: 'fullrestore' },        desc: 'Soigne 1 Pokémon à fond.' },
+  { id: 'revive',       name: 'Rappel',        slug: 'revive',        emoji: '🪽', color: '#a3e635', effect: { kind: 'revive', value: 50 },  desc: 'Ranime 1 Pokémon K.O. à 50% PV.' },
+  { id: 'max-revive',   name: 'Rappel Max',    slug: 'max-revive',    emoji: '🪽', color: '#84cc16', effect: { kind: 'revive', value: 100 }, desc: 'Ranime 1 Pokémon K.O. à 100% PV.' },
+  { id: 'rare-candy',   name: 'Super Bonbon',  slug: 'rare-candy',    emoji: '🍬', color: '#60a5fa', effect: { kind: 'candy',  value: 1 },   desc: 'Fait gagner 1 niveau à 1 Pokémon.' },
   // Or
   { id: 'nugget',       name: 'Pépite',        slug: 'nugget',        emoji: '🟡', color: '#facc15', effect: { kind: 'gold',   value: 300 }, desc: 'Donne 300 or.' },
   { id: 'big-nugget',   name: 'Maxi Pépite',   slug: 'big-nugget',    emoji: '🪙', color: '#f59e0b', effect: { kind: 'gold',   value: 1200 },desc: 'Donne 1200 or.' },
@@ -51,3 +51,10 @@ export const STONE_IDS = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-st
 export function isBall(id) { return !!BALL_BY_ID[id] }
 export function isConsumable(id) { return !!CONSUMABLE_BY_ID[id] }
 export function isStone(id) { return STONE_IDS.includes(id) }
+
+// Items that must be applied to ONE chosen Pokémon (tap item → tap a mon).
+const TARGETED_KINDS = new Set(['heal', 'revive', 'candy', 'fullrestore', 'stone'])
+export function itemNeedsTarget(id) {
+  const c = CONSUMABLE_BY_ID[id]
+  return !!c && TARGETED_KINDS.has(c.effect?.kind)
+}

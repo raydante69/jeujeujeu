@@ -15,6 +15,7 @@ export const PATCH_NOTES = [
       { type: 'balance', text: 'Les objets ne s\'achètent plus en masse : ils se DROPENT en combat. Plus le Pokémon vaincu vaut de points, plus la chance de butin est élevée.' },
       { type: 'content', text: 'Nouvelles pierres d\'évolution (Feu, Eau, Foudre, Plante, Lune) à dénicher.' },
       { type: 'feat', text: 'Les Pokémon à pierre (Pikachu, Évoli, Goupix…) évoluent en utilisant la bonne pierre sur eux.' },
+      { type: 'balance', text: 'Les objets de soin (potion, rappel, super bonbon, pierre) s\'utilisent maintenant sur UN seul Pokémon : appuie sur l\'objet puis sur le Pokémon.' },
     ],
   },
   {

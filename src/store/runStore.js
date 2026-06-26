@@ -180,27 +180,31 @@ export const useRunStore = create(
         const eff = def.effect
         let msg = ''
         if (eff.kind === 'heal') {
-          set({ team: s.team.map(m => (m.hp > 0 ? { ...m, hp: Math.min(m.maxHp, Math.round(m.hp + m.maxHp * eff.value / 100)) } : m)) })
-          msg = `${def.name} : +${eff.value}% PV`
+          if (!targetUid) return null
+          const mon = s.team.find(m => m.uid === targetUid)
+          if (!mon) return null
+          if (mon.hp <= 0) return `${mon.name} est K.O. — utilise un Rappel.`
+          set({ team: s.team.map(m => (m.uid === targetUid ? { ...m, hp: Math.min(m.maxHp, Math.round(m.hp + m.maxHp * eff.value / 100)) } : m)) })
+          msg = `${mon.name} : +${eff.value}% PV`
         } else if (eff.kind === 'revive') {
-          set({ team: s.team.map(m => (m.hp <= 0 ? { ...m, hp: Math.round(m.maxHp * eff.value / 100) } : m)) })
-          msg = `${def.name} : K.O. ranimés`
+          if (!targetUid) return null
+          const mon = s.team.find(m => m.uid === targetUid)
+          if (!mon) return null
+          if (mon.hp > 0) return `${mon.name} n'est pas K.O.`
+          set({ team: s.team.map(m => (m.uid === targetUid ? { ...m, hp: Math.round(m.maxHp * eff.value / 100) } : m)) })
+          msg = `${mon.name} ranimé !`
         } else if (eff.kind === 'candy') {
-          const alive = [...s.team].sort((a, b) => a.level - b.level)
-          const target = alive[0]
-          if (target) {
-            const updated = s.team.map(m => {
-              if (m.uid !== target.uid) return { ...m }
-              const copy = { ...m }
-              gainXp(copy, xpToNext(copy.level))
-              return copy
-            })
-            set({ team: updated })
-            msg = `${target.name} gagne un niveau !`
-          }
+          if (!targetUid) return null
+          const target = s.team.find(m => m.uid === targetUid)
+          if (!target) return null
+          set({ team: s.team.map(m => { if (m.uid !== targetUid) return m; const copy = { ...m }; gainXp(copy, xpToNext(copy.level)); return copy }) })
+          msg = `${target.name} gagne un niveau !`
         } else if (eff.kind === 'fullrestore') {
-          set({ team: s.team.map(m => ({ ...m, hp: m.maxHp })) })
-          msg = `${def.name} : équipe au complet !`
+          if (!targetUid) return null
+          const mon = s.team.find(m => m.uid === targetUid)
+          if (!mon) return null
+          set({ team: s.team.map(m => (m.uid === targetUid ? { ...m, hp: m.maxHp } : m)) })
+          msg = `${mon.name} : PV au max !`
         } else if (eff.kind === 'gold') {
           set({ gold: s.gold + eff.value })
           msg = `${def.name} : +${eff.value} or`

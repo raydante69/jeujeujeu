@@ -7,7 +7,7 @@ import { biomeForWave } from '../data/biomes.js'
 import { eventForWave } from '../data/events.js'
 import { aggregateAscension } from '../data/ascension.js'
 import { getRelic, RELIC_RARITY_COLOR } from '../data/relics.js'
-import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
+import { BALLS, BALL_BY_ID, CONSUMABLE_BY_ID, itemNeedsTarget } from '../data/items.js'
 import { TYPE_COLORS } from '../data/types.js'
 import ItemSprite from '../components/ItemSprite.jsx'
 
@@ -26,6 +26,7 @@ export default function RunScreen() {
   const { wave, gold, balls, items, team, relics, setPendingEnemy, useItem, ascensionLevel } = run
   const biome = biomeForWave(wave)
   const [msg, setMsg] = useState(null)
+  const [pendingItem, setPendingItem] = useState(null)   // item awaiting a target Pokémon
 
   const path = Array.from({ length: 10 }, (_, i) => {
     const w = wave + i
@@ -70,8 +71,20 @@ export default function RunScreen() {
   function flash(m) { setMsg(m); setTimeout(() => setMsg(null), 1300) }
 
   function tapItem(id) {
+    if (itemNeedsTarget(id)) {
+      setPendingItem(pendingItem === id ? null : id)
+      return
+    }
     const res = useItem(id)
     if (res) flash(res)
+  }
+
+  function applyToMon(uid) {
+    if (!pendingItem) return
+    const res = useItem(pendingItem, uid)
+    if (res) flash(res)
+    // Keep targeting active only if more of the item remain (quick multi-use).
+    if ((run.items?.[pendingItem] || 0) <= 0) setPendingItem(null)
   }
 
   const alive = team.filter(m => m.hp > 0).length
@@ -151,10 +164,11 @@ export default function RunScreen() {
               {bagItems.map(([id, n]) => {
                 const c = CONSUMABLE_BY_ID[id]
                 if (!c) return null
+                const selected = pendingItem === id
                 return (
                   <button key={id} onClick={() => tapItem(id)} title={`${c.name} — ${c.desc}`}
                     className="relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 active:scale-95 transition-all"
-                    style={{ background: c.color + '1f', border: `1px solid ${c.color}55` }}>
+                    style={{ background: c.color + (selected ? '44' : '1f'), border: `2px solid ${selected ? c.color : c.color + '55'}`, boxShadow: selected ? `0 0 12px ${c.color}88` : 'none' }}>
                     <ItemSprite slug={c.slug} emoji={c.emoji} size={22} />
                     <span className="text-xs font-bold text-white tabular-nums">×{n}</span>
                   </button>
@@ -203,15 +217,27 @@ export default function RunScreen() {
         </div>
 
         {/* Team */}
-        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2">Ton équipe</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Ton équipe</p>
+          {pendingItem && (
+            <button onClick={() => setPendingItem(null)} className="text-[10px] font-bold text-red-300">Annuler ✕</button>
+          )}
+        </div>
+        {pendingItem && (
+          <div className="mb-2 rounded-lg px-3 py-2 border border-cyan-500/50 bg-cyan-500/10 flex items-center gap-2">
+            <ItemSprite slug={CONSUMABLE_BY_ID[pendingItem]?.slug} emoji={CONSUMABLE_BY_ID[pendingItem]?.emoji} size={18} />
+            <p className="text-[11px] font-bold text-cyan-200">Choisis un Pokémon pour {CONSUMABLE_BY_ID[pendingItem]?.name}</p>
+          </div>
+        )}
         <div className="space-y-2 pb-28">
           {team.map(m => {
             const color = TYPE_COLORS[m.types?.[0]] || '#1e293b'
             const dead = m.hp <= 0
             const xpNeed = xpToNext(m.level)
             return (
-              <div key={m.uid} className={`flex items-center gap-3 rounded-xl p-2.5 border ${dead ? 'opacity-40' : ''}`}
-                style={{ background: `linear-gradient(110deg, ${color}1f, #0f172a)`, borderColor: color + '33' }}>
+              <div key={m.uid} onClick={() => pendingItem && applyToMon(m.uid)}
+                className={`flex items-center gap-3 rounded-xl p-2.5 border ${dead ? 'opacity-40' : ''} ${pendingItem ? 'cursor-pointer active:scale-[0.99]' : ''}`}
+                style={{ background: `linear-gradient(110deg, ${color}1f, #0f172a)`, borderColor: pendingItem ? '#22d3ee99' : color + '33', boxShadow: pendingItem ? '0 0 10px #22d3ee44' : 'none' }}>
                 <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.id}.png`} alt={m.name}
                   className={`w-12 h-12 object-contain pixelated ${dead ? 'grayscale' : ''}`} />
                 <div className="flex-1 min-w-0">
