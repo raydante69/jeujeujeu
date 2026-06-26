@@ -1,172 +1,109 @@
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
-import { BALLS, BALL_BY_ID, CONSUMABLES, CONSUMABLE_BY_ID } from '../data/items.js'
-import ItemSprite from '../components/ItemSprite.jsx'
+import { speciesById } from '../data/pokemon.js'
+import { starterCost } from '../data/cardModel.js'
+import { TYPE_COLORS } from '../data/types.js'
 
-// Full reward pool with weights (higher = more common).
-const POOL = [
-  // Balls
-  { type: 'ball', id: 'poke-ball',   n: 3, weight: 28 },
-  { type: 'ball', id: 'great-ball',  n: 2, weight: 18 },
-  { type: 'ball', id: 'ultra-ball',  n: 1, weight: 8  },
-  { type: 'ball', id: 'master-ball', n: 1, weight: 1.2},
-  // Consumables — soins
-  { type: 'item', id: 'potion',       n: 2, weight: 24 },
-  { type: 'item', id: 'super-potion', n: 1, weight: 18 },
-  { type: 'item', id: 'hyper-potion', n: 1, weight: 7  },
-  { type: 'item', id: 'full-restore', n: 1, weight: 5  },
-  { type: 'item', id: 'revive',       n: 1, weight: 16 },
-  { type: 'item', id: 'max-revive',   n: 1, weight: 5  },
-  { type: 'item', id: 'rare-candy',   n: 1, weight: 12 },
-  { type: 'item', id: 'rare-candy',   n: 2, weight: 4  },
-  // Consumables — pépites & vitamines (boosts permanents)
-  { type: 'item', id: 'nugget',       n: 1, weight: 10 },
-  { type: 'item', id: 'big-nugget',   n: 1, weight: 2  },
-  { type: 'item', id: 'hp-up',        n: 1, weight: 8  },
-  { type: 'item', id: 'protein',      n: 1, weight: 7  },
-  { type: 'item', id: 'iron',         n: 1, weight: 7  },
-  { type: 'item', id: 'calcium',      n: 1, weight: 7  },
-  { type: 'item', id: 'zinc',         n: 1, weight: 7  },
-  { type: 'item', id: 'carbos',       n: 1, weight: 7  },
-  // Money
-  { type: 'money', value: 200,  label: '200 ₽',  emoji: '💰', color: '#eab308', weight: 22 },
-  { type: 'money', value: 500,  label: '500 ₽',  emoji: '💰', color: '#eab308', weight: 10 },
-  { type: 'money', value: 1000, label: '1 000 ₽',emoji: '💰', color: '#eab308', weight: 4  },
-  // Diamonds / Cristaux (rare)
-  { type: 'crystals', value: 15, label: '15 💎', emoji: '💎', color: '#67e8f9', weight: 9 },
-  { type: 'crystals', value: 40, label: '40 💎', emoji: '💎', color: '#67e8f9', weight: 3 },
-  // Rubis (very rare)
-  { type: 'rubies', value: 1, label: '1 Rubis', emoji: '🔴', color: '#f43f5e', weight: 1.5 },
-  { type: 'rubies', value: 3, label: '3 Rubis', emoji: '🔴', color: '#f43f5e', weight: 0.5 },
-]
+// Centre Pokémon — soin payant. Coût par Pokémon = 10 % de l'or actuel + un
+// surcoût selon la valeur en points de l'espèce. Total plafonné à 90 % de l'or.
+const BASE_PCT = 0.10
+const POINT_PCT = 0.015
+const CAP_PCT = 0.90
 
-const MAX_REROLLS = 1
-
-function resolveOption(entry) {
-  if (entry.type === 'ball') {
-    const b = BALL_BY_ID[entry.id]
-    return { ...entry, slug: b.slug, emoji: b.emoji, color: b.color, title: `${b.name} ×${entry.n}`, desc: b.desc }
-  }
-  if (entry.type === 'item') {
-    const c = CONSUMABLE_BY_ID[entry.id]
-    return { ...entry, slug: c.slug, emoji: c.emoji, color: c.color, title: `${c.name} ×${entry.n}`, desc: c.desc }
-  }
-  if (entry.type === 'money') {
-    return { ...entry, slug: null, title: entry.label, desc: 'À dépenser au prochain marché du Rift.' }
-  }
-  if (entry.type === 'crystals') {
-    return { ...entry, slug: null, title: entry.label, desc: 'Cristaux : achète de la capacité ou des boosts.' }
-  }
-  if (entry.type === 'rubies') {
-    return { ...entry, slug: null, title: entry.label, desc: 'Rubis : monnaie précieuse, très rare.' }
-  }
-  return entry
-}
-
-function pickThree() {
-  const total = POOL.reduce((s, e) => s + e.weight, 0)
-  const picked = []
-  const used = new Set()
-  const attempts = POOL.length * 3
-  let tries = 0
-  while (picked.length < 3 && tries < attempts) {
-    tries++
-    let roll = Math.random() * total
-    for (const entry of POOL) {
-      roll -= entry.weight
-      if (roll <= 0 && !used.has(entry)) {
-        used.add(entry)
-        picked.push(resolveOption(entry))
-        break
-      }
-    }
-  }
-  // Fallback: fill remaining with first unselected entries
-  for (const entry of POOL) {
-    if (picked.length >= 3) break
-    if (!used.has(entry)) { used.add(entry); picked.push(resolveOption(entry)) }
-  }
-  return picked
+function monCost(mon, goldRef) {
+  const pts = starterCost(speciesById(mon.id))
+  return Math.round(goldRef * (BASE_PCT + pts * POINT_PCT))
 }
 
 export default function MilestoneRewardScreen() {
-  const { navigate, addMoney, addCrystals, addRubies } = useGameStore()
+  const { navigate } = useGameStore()
   const run = useRunStore()
+  const team = run.team
 
-  const [options, setOptions] = useState(() => pickThree())
-  const [rerolls, setRerolls] = useState(MAX_REROLLS)
-  const [chosen, setChosen] = useState(false)
+  // Gold reference is frozen at entry so selection costs don't shift live.
+  const goldRef = useMemo(() => run.gold, []) // eslint-disable-line
+  const cap = Math.floor(goldRef * CAP_PCT)
 
-  const reroll = useCallback(() => {
-    if (rerolls <= 0 || chosen) return
-    setRerolls(r => r - 1)
-    setOptions(pickThree())
-  }, [rerolls, chosen])
+  const [selected, setSelected] = useState(() => new Set())
+  const [done, setDone] = useState(false)
+  const [msg, setMsg] = useState(null)
 
-  function pick(opt) {
-    if (chosen) return
-    setChosen(true)
-    switch (opt.type) {
-      case 'ball':     run.addBall(opt.id, opt.n); break
-      case 'item':     run.addItem(opt.id, opt.n); break
-      case 'money':    addMoney(opt.value); break
-      case 'crystals': addCrystals(opt.value); break
-      case 'rubies':   addRubies(opt.value); break
-    }
-    setTimeout(() => navigate('run'), 550)
+  const hurt = team.filter(m => m.hp < m.maxHp)
+  const rawCost = team.filter(m => selected.has(m.uid)).reduce((s, m) => s + monCost(m, goldRef), 0)
+  const cost = Math.min(rawCost, cap)
+  const canPay = selected.size > 0 && run.gold >= cost
+
+  function toggle(uid) {
+    if (done) return
+    setSelected(s => { const n = new Set(s); n.has(uid) ? n.delete(uid) : n.add(uid); return n })
+  }
+
+  function heal() {
+    if (!canPay) return
+    const ok = run.healAtCenter([...selected], cost)
+    if (ok) { setDone(true); setMsg('Pokémon soignés !'); setTimeout(() => navigate('run'), 800) }
+    else setMsg('Pas assez d\'or.')
   }
 
   return (
     <div className="min-h-screen bg-game-bg flex flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
-
         {/* Header */}
-        <div className="text-center mb-6">
-          <p className="text-5xl mb-3">🏅</p>
-          <h2 className="font-game text-sm text-yellow-400">Récompense ×5 Victoires</h2>
-          <p className="text-xs text-gray-500 mt-2">Choisis parmi ces 3 récompenses.</p>
+        <div className="text-center mb-5">
+          <p className="text-5xl mb-3">🏥</p>
+          <h2 className="font-game text-sm text-red-400">Centre Pokémon</h2>
+          <p className="text-xs text-gray-500 mt-2">Soigne tes Pokémon contre de l'or. Choisis qui soigner.</p>
           <div className="mt-3 inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 rounded-full px-3 py-1">
-            <span className="text-[10px] text-yellow-300 font-bold">✨ Toutes les 5 victoires</span>
+            <span className="text-[11px] text-yellow-300 font-bold">💰 {run.gold} or</span>
           </div>
         </div>
 
-        {/* Options */}
-        <div className="space-y-3">
-          {options.map((opt, i) => (
-            <button key={i} onClick={() => pick(opt)} disabled={chosen}
-              className={`w-full flex items-center gap-3 rounded-2xl p-4 border-2 text-left transition-all ${chosen ? 'opacity-40' : 'hover:scale-[1.02] active:scale-95'}`}
-              style={{ background: `linear-gradient(110deg, ${opt.color}18, #0f172a)`, borderColor: opt.color + '77' }}>
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
-                style={{ background: opt.color + '22', border: `1px solid ${opt.color}44` }}>
-                {opt.slug
-                  ? <ItemSprite slug={opt.slug} emoji={opt.emoji} size={32} />
-                  : opt.emoji
-                }
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-white text-sm">{opt.title}</p>
-                <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{opt.desc}</p>
-              </div>
-              {(opt.type === 'rubies' || opt.type === 'crystals') && (
-                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border flex-shrink-0"
-                  style={{ color: opt.color, background: opt.color + '22', borderColor: opt.color + '55' }}>
-                  {opt.type === 'rubies' ? 'Rare' : ''}
+        {msg && <div className="text-center mb-3 text-xs font-bold text-green-300">{msg}</div>}
+
+        {/* Team selection */}
+        <div className="space-y-2 mb-4">
+          {team.map(m => {
+            const tc = TYPE_COLORS[m.types?.[0]] || '#1e293b'
+            const full = m.hp >= m.maxHp
+            const sel = selected.has(m.uid)
+            const c = monCost(m, goldRef)
+            return (
+              <button key={m.uid} onClick={() => !full && toggle(m.uid)} disabled={full || done}
+                className={`w-full flex items-center gap-3 rounded-xl p-2.5 border-2 text-left transition-all ${full ? 'opacity-40' : 'active:scale-[0.99]'}`}
+                style={{ background: `linear-gradient(110deg, ${tc}1f, #0f172a)`, borderColor: sel ? '#22d3ee' : tc + '33', boxShadow: sel ? '0 0 10px #22d3ee55' : 'none' }}>
+                <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.id}.png`} alt={m.name}
+                  className={`w-11 h-11 object-contain pixelated ${m.hp <= 0 ? 'grayscale' : ''}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-white font-bold text-sm truncate">{m.name}</p>
+                    <p className="text-[11px] text-gray-400 tabular-nums">{m.hp}/{m.maxHp} PV</p>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-black/50 mt-1 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%`, background: m.hp / m.maxHp > 0.5 ? '#4ade80' : m.hp / m.maxHp > 0.25 ? '#fbbf24' : '#ef4444' }} />
+                  </div>
+                </div>
+                <span className="text-[11px] font-black flex-shrink-0" style={{ color: full ? '#4ade80' : sel ? '#22d3ee' : '#facc15' }}>
+                  {full ? '✓' : `${c} 💰`}
                 </span>
-              )}
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
 
-        {/* Reroll + skip */}
-        {!chosen && (
-          <div className="mt-5 flex items-center gap-3">
-            <button onClick={reroll} disabled={rerolls <= 0}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${rerolls > 0 ? 'bg-blue-900/50 hover:bg-blue-800/70 active:scale-95 text-blue-300 border border-blue-700/50' : 'bg-gray-900 text-gray-700 border border-gray-800'}`}>
-              🔄 Relancer ({rerolls} restante{rerolls !== 1 ? 's' : ''})
+        {hurt.length > 0 && (
+          <p className="text-center text-[10px] text-gray-600 mb-2">Total plafonné à 90 % de ton or ({cap} 💰 max).</p>
+        )}
+
+        {/* Actions */}
+        {!done && (
+          <div className="flex items-center gap-3">
+            <button onClick={heal} disabled={!canPay}
+              className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${canPay ? 'bg-red-500 text-white hover:brightness-110 active:scale-95' : 'bg-gray-900 text-gray-600 border border-gray-800'}`}>
+              {selected.size > 0 ? `Soigner (${cost} 💰)` : 'Choisis un Pokémon'}
             </button>
-            <button onClick={() => { setChosen(true); setTimeout(() => navigate('run'), 200) }}
-              className="flex-1 py-2.5 text-gray-600 text-sm hover:text-gray-400 transition-all border border-gray-800 rounded-xl">
+            <button onClick={() => navigate('run')}
+              className="flex-1 py-3 text-gray-500 text-sm hover:text-gray-300 transition-all border border-gray-800 rounded-xl">
               Passer →
             </button>
           </div>

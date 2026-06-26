@@ -17,6 +17,8 @@ export const PATCH_NOTES = [
       { type: 'feat', text: 'Les Pokémon à pierre (Pikachu, Évoli, Goupix…) évoluent en utilisant la bonne pierre sur eux.' },
       { type: 'balance', text: 'Les objets de soin (potion, rappel, super bonbon, pierre) s\'utilisent maintenant sur UN seul Pokémon : appuie sur l\'objet puis sur le Pokémon.' },
       { type: 'fix', text: 'Capturer avec une équipe pleine : on choisit désormais quel Pokémon échanger au lieu de perdre la capture.' },
+      { type: 'feat', text: 'Centre Commercial (après chaque boss) : articles débloqués au fil des vagues, max 5 achats, prix croissants, CT à partir de la vague 100.' },
+      { type: 'feat', text: 'Centre Pokémon (toutes les 5 victoires) : soigne tes Pokémon contre de l\'or (10 % par Pokémon + selon sa puissance, plafonné à 90 %).' },
     ],
   },
   {

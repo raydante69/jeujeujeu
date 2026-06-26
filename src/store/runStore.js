@@ -286,6 +286,16 @@ export const useRunStore = create(
         }),
       })),
       fullHeal: () => set(s => ({ team: s.team.map(m => ({ ...m, hp: m.maxHp })) })),
+      // Centre Pokémon: pay `cost` gold to fully heal the chosen Pokémon.
+      healAtCenter: (uids, cost) => {
+        const s = get()
+        if (s.gold < cost || !uids?.length) return false
+        set({
+          gold: s.gold - cost,
+          team: s.team.map(m => (uids.includes(m.uid) ? { ...m, hp: m.maxHp } : m)),
+        })
+        return true
+      },
       reviveAll: () => set(s => ({
         team: s.team.map(m => (m.hp <= 0 ? { ...m, hp: Math.round(m.maxHp * 0.5) } : m)),
       })),
