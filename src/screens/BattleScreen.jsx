@@ -1172,11 +1172,35 @@ export default function BattleScreen() {
             {!run.trainerName && (
               <div className="mt-3">
                 {caught ? (
-                  <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
-                    {caught.ok
-                      ? (caught.benched ? `🎉 ${caught.name} capturé (Pokédex) !` : `🎉 ${caught.name} rejoint l'équipe !`)
-                      : `💨 ${caught.name} s'est échappé…`}
-                  </p>
+                  caught.ok && caught.full && run.pendingCatch ? (
+                    <div>
+                      <p className="text-xs font-bold text-green-300 mb-1.5">🎉 {caught.name} capturé ! Équipe pleine — qui remplacer ?</p>
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {run.team.map(m => (
+                          <button key={m.uid}
+                            onClick={() => { const r = run.swapCaught(m.uid); setCaught({ ok: true, name: caught.name, released: r?.released }) }}
+                            className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 active:scale-95 transition-all"
+                            style={{ background: '#1e293b', border: '1px solid #334155' }}>
+                            <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.id}.png`}
+                              alt={m.name} className="w-9 h-9 object-contain pixelated" />
+                            <span className="text-[8px] font-bold text-white truncate max-w-[52px]">{m.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <button onClick={() => { run.cancelCatchSwap(); setCaught({ ok: true, name: caught.name, kept: true }) }}
+                        className="mt-2 text-[10px] text-gray-400 underline">
+                        Garder mon équipe (relâcher {caught.name})
+                      </button>
+                    </div>
+                  ) : (
+                    <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
+                      {caught.ok
+                        ? (caught.released ? `🔄 ${caught.released} relâché — ${caught.name} rejoint l'équipe !`
+                          : caught.kept ? `📦 ${caught.name} laissé (ajouté au Pokédex).`
+                          : `🎉 ${caught.name} rejoint l'équipe !`)
+                        : `💨 ${caught.name} s'est échappé…`}
+                    </p>
+                  )
                 ) : (
                   <>
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">

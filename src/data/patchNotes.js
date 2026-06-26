@@ -16,6 +16,7 @@ export const PATCH_NOTES = [
       { type: 'content', text: 'Nouvelles pierres d\'évolution (Feu, Eau, Foudre, Plante, Lune) à dénicher.' },
       { type: 'feat', text: 'Les Pokémon à pierre (Pikachu, Évoli, Goupix…) évoluent en utilisant la bonne pierre sur eux.' },
       { type: 'balance', text: 'Les objets de soin (potion, rappel, super bonbon, pierre) s\'utilisent maintenant sur UN seul Pokémon : appuie sur l\'objet puis sur le Pokémon.' },
+      { type: 'fix', text: 'Capturer avec une équipe pleine : on choisit désormais quel Pokémon échanger au lieu de perdre la capture.' },
     ],
   },
   {

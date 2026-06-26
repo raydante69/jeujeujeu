@@ -291,6 +291,9 @@ export const useRunStore = create(
       })),
 
       // Catch the current enemy with a chosen ball. Joins run team + Pokédex.
+      // If the team is full, the caught mon is stashed in pendingCatch so the
+      // player can choose which team member to swap out (see swapCaught).
+      pendingCatch: null,
       catchEnemy: (enemy, ballId = 'poke-ball') => {
         const s = get()
         const lvl = Math.max(5, Math.round((enemy.level || 5) * 0.85))
@@ -301,8 +304,23 @@ export const useRunStore = create(
           set({ team: [...s.team, caught] })
           return { added: true, name: caught.name }
         }
-        return { added: false, name: caught.name, benched: true }
+        set({ pendingCatch: caught })
+        return { added: false, full: true, name: caught.name }
       },
+      // Resolve a full-team catch: replace `oldUid` with the stashed mon.
+      // The released mon stays in the meta collection (already added on catch).
+      swapCaught: (oldUid) => {
+        const s = get()
+        if (!s.pendingCatch) return null
+        const caught = s.pendingCatch
+        const old = s.team.find(m => m.uid === oldUid)
+        set({
+          team: s.team.map(m => (m.uid === oldUid ? caught : m)),
+          pendingCatch: null,
+        })
+        return { name: caught.name, released: old?.name }
+      },
+      cancelCatchSwap: () => set({ pendingCatch: null }),
     }),
     {
       name: 'pokebooster-run-v1',
