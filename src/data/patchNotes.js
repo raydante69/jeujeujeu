@@ -14,6 +14,7 @@ export const PATCH_NOTES = [
       { type: 'feat', text: 'Apprends une CT à un Pokémon compatible pendant l\'expédition (CT Normal pour tous, sinon même type).' },
       { type: 'balance', text: 'Les objets ne s\'achètent plus en masse : ils se DROPENT en combat. Plus le Pokémon vaincu vaut de points, plus la chance de butin est élevée.' },
       { type: 'content', text: 'Nouvelles pierres d\'évolution (Feu, Eau, Foudre, Plante, Lune) à dénicher.' },
+      { type: 'feat', text: 'Les Pokémon à pierre (Pikachu, Évoli, Goupix…) évoluent en utilisant la bonne pierre sur eux.' },
     ],
   },
   {

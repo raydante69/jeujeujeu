@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 import { makeRunMon, gainXp, xpToNext } from '../engine/runEngine.js'
 import { makeInstance, speciesById, recomputeStats } from '../data/pokemon.js'
 import { speciesRarity } from '../data/cardModel.js'
+import { stoneEvolution } from '../data/evolutions.js'
+import { frName } from '../data/frenchNames.js'
 import { aggregateRelics } from '../data/relics.js'
 import { DEFAULT_BALLS, BALL_BY_ID, CONSUMABLE_BY_ID } from '../data/items.js'
 import { CT_BY_ID, canLearnCT } from '../data/ct.js'
@@ -169,7 +171,8 @@ export const useRunStore = create(
         items: { ...s.items, [id]: (s.items[id] || 0) + n },
       })),
       // Use a consumable from the bag. Returns a result message or null.
-      useItem: (id) => {
+      // `targetUid` targets a single Pokémon (heal/revive/candy/stone).
+      useItem: (id, targetUid) => {
         const s = get()
         if ((s.items[id] || 0) <= 0) return null
         const def = CONSUMABLE_BY_ID[id]
@@ -212,6 +215,28 @@ export const useRunStore = create(
             }),
           })
           msg = `${def.name} : toute l'équipe renforcée !`
+        } else if (eff.kind === 'stone') {
+          // Evolution stone — targets ONE Pokémon; no effect (and no consume) if
+          // that Pokémon can't evolve with this stone.
+          if (!targetUid) return null
+          const mon = s.team.find(m => m.uid === targetUid)
+          if (!mon) return null
+          const toId = stoneEvolution(mon.id, eff.stone)
+          if (!toId) return `${def.name} : aucun effet sur ${mon.name}.`
+          const sp = speciesById(toId)
+          const evoName = frName(toId, sp?.name)
+          set({
+            team: s.team.map(m => {
+              if (m.uid !== targetUid) return m
+              const copy = { ...m, id: toId, name: evoName, species: evoName }
+              const ratio = copy.maxHp ? copy.hp / copy.maxHp : 1
+              recomputeStats(copy)
+              copy.hp = Math.max(1, Math.round(copy.maxHp * ratio))
+              return copy
+            }),
+          })
+          set(st => ({ items: { ...st.items, [id]: st.items[id] - 1 } }))
+          return `${mon.name} évolue en ${evoName} !`
         }
         // decrement
         set(st => ({ items: { ...st.items, [id]: st.items[id] - 1 } }))
