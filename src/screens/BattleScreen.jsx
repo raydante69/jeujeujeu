@@ -111,6 +111,9 @@ function AttackCard({ card, caster, enemy, relicAgg = {}, onClick, disabled }) {
       {/* Faint background glyph (behind the sprite) */}
       <span className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
         style={{ fontSize: 64, opacity: 0.10, lineHeight: 1 }}>{CARD_BG_ICON[card.kind] || '⚔️'}</span>
+      {/* Real element icon (top-left) + CT badge (top-right) */}
+      <span className="absolute top-1 left-1 z-20"><TypeBadge type={card.type} size="img" /></span>
+      {card.fromCT && <span className="absolute top-1 right-1 z-20 text-[10px]" title={`CT${card.ctNum || ''}`}>💿</span>}
       {/* Sprite */}
       <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${caster.shiny ? 'shiny/' : ''}${caster.id}.png`}
         alt={caster.name} className="relative z-10 w-14 h-14 object-contain pixelated" />
@@ -888,25 +891,29 @@ export default function BattleScreen() {
       {/* Header */}
       <div className="px-4 pt-10 pb-2 border-b border-white/5" style={{ background: 'rgba(10,10,20,0.55)' }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <div>
-            <p className="text-[11px] text-gray-500 font-bold uppercase">
-              Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'league' ? '🏆 LIGUE' : (kind === 'trainer' || run.trainerName) ? '🧢 Dresseur' : '🌿 Sauvage'}
-            </p>
-            {run.trainerName ? (
-              <p className="text-[10px] font-bold text-blue-300">
-                {run.trainerName}
-                {run.trainerTotalParty > 1 && (
-                  <span className="text-gray-500 ml-1">· Pokémon {run.trainerKilled + 1}/{run.trainerTotalParty}</span>
-                )}
-                {run.leagueQueue?.length > 0 && (
-                  <span className="text-amber-400 ml-1">· Dresseur {run.leagueIndex + 1}/{run.leagueQueue.length}</span>
-                )}
-              </p>
-            ) : (
-              <p className="text-[10px] text-gray-600">Tour {turn}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {run.trainerName && run.trainerSprite && (
+              <img src={run.trainerSprite} alt="Dresseur" className="w-12 h-12 object-contain pixelated drop-shadow flex-shrink-0"
+                onError={e => { e.target.style.display = 'none' }} />
             )}
+            <div className="min-w-0">
+              <p className="text-[11px] text-gray-500 font-bold uppercase">
+                Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'league' ? '🏆 LIGUE' : (kind === 'trainer' || run.trainerName) ? '🧢 Dresseur' : '🌿 Sauvage'}
+              </p>
+              {run.trainerName ? (
+                <>
+                  <p className="text-sm font-black text-blue-200 truncate">{run.trainerName}</p>
+                  <p className="text-[9px] text-gray-500">
+                    {run.trainerTotalParty > 1 && <span>Pokémon {run.trainerKilled + 1}/{run.trainerTotalParty}</span>}
+                    {run.leagueQueue?.length > 0 && <span className="text-amber-400 ml-1">· Dresseur {run.leagueIndex + 1}/{run.leagueQueue.length}</span>}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[10px] text-gray-600">Tour {turn}</p>
+              )}
+            </div>
           </div>
-          <div className="flex gap-1 items-center">
+          <div className="flex gap-1 items-center flex-shrink-0">
             {team.map(m => (
               <div key={m.uid} className="w-2.5 h-2.5 rounded-full" style={{ background: (hp[m.uid] ?? 0) > 0 ? '#4ade80' : '#374151' }} />
             ))}
@@ -1048,6 +1055,15 @@ export default function BattleScreen() {
         {phase === 'enemy' && (
           <div className="rounded-xl py-3 text-center border border-red-900/40 bg-red-900/10">
             <p className="text-sm font-bold text-red-400 animate-pulse">⚔️ {enemy.name} riposte…</p>
+          </div>
+        )}
+
+        {/* Clear separation between the enemy zone (above) and your team (below) */}
+        {phase !== 'win' && phase !== 'lose' && (
+          <div className="flex items-center gap-2 my-0.5 select-none">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-500/40 to-red-500/40" />
+            <span className="text-[9px] font-black text-red-300/80 tracking-widest">VS</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent via-green-500/40 to-green-500/40" />
           </div>
         )}
 
@@ -1346,12 +1362,10 @@ export default function BattleScreen() {
                   style={{ background: `linear-gradient(160deg, ${cardTc}22, #0f172a)`, borderColor: cardTc + '88' }}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{KIND_ICON[card.kind]}</span>
+                      {card.fromCT && <span className="text-base" title={`CT${card.ctNum || ''}`}>💿</span>}
                       <p className="font-black text-white text-base">{card.name}</p>
                     </div>
-                    <span className="text-[10px] font-bold rounded-full px-2 py-0.5" style={{ background: cardTc + '33', color: cardTc }}>
-                      {card.type?.toUpperCase()}
-                    </span>
+                    <TypeBadge type={card.type} size="img" />
                   </div>
                   {/* Stat row */}
                   {preview && (
@@ -1456,11 +1470,9 @@ export default function BattleScreen() {
                       return (
                         <div key={card.uid} className="flex items-center gap-2 rounded-lg px-2.5 py-2"
                           style={{ background: ct + '18', border: `1px solid ${ct}44` }}>
-                          <span className="text-sm flex-shrink-0">{KIND_ICON[card.kind]}</span>
+                          {card.fromCT && <span className="text-xs flex-shrink-0" title={`CT${card.ctNum || ''}`}>💿</span>}
                           <p className="text-[11px] font-bold text-white flex-1 truncate">{card.name}</p>
-                          <span className="text-[8px] font-bold rounded px-1 flex-shrink-0" style={{ background: ct + '33', color: ct }}>
-                            {card.type?.toUpperCase().slice(0, 3)}
-                          </span>
+                          <span className="flex-shrink-0"><TypeBadge type={card.type} size="img" /></span>
                           {preview?.map((p, i) => (
                             <span key={i} className="text-[10px] font-black tabular-nums flex-shrink-0" style={{ color: p.color }}>{p.label}</span>
                           ))}

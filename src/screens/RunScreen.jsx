@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useGameStore } from '../store/gameStore.js'
 import { useRunStore } from '../store/runStore.js'
 import { buildEnemy, waveKind, xpToNext } from '../engine/runEngine.js'
-import { pickTrainer, buildTrainerParty, pickLeagueTrainers } from '../data/trainers.js'
+import { pickTrainer, buildTrainerParty, pickLeagueTrainers, trainerSpriteUrl } from '../data/trainers.js'
 import { biomeForWave } from '../data/biomes.js'
 import { eventForWave } from '../data/events.js'
 import { aggregateAscension } from '../data/ascension.js'
@@ -41,7 +41,7 @@ export default function RunScreen() {
       const asc = aggregateAscension(ascensionLevel)
       const trainer = pickTrainer(wave, Math.random)
       const party = buildTrainerParty(trainer, wave, asc)
-      run.setTrainerBattle(`${trainer.icon} ${trainer.name}`, party.slice(1))
+      run.setTrainerBattle(`${trainer.icon} ${trainer.name}`, party.slice(1), trainerSpriteUrl(trainer.id))
       run.setPendingEnemy(party[0])
       navigate('battle')
     } else if (kind === 'league') {
@@ -51,10 +51,11 @@ export default function RunScreen() {
         name: `${t.icon} ${t.name} (${t.class})`,
         party: buildTrainerParty(t, wave, asc),
         trainer: t,
+        sprite: trainerSpriteUrl(t.id),
       }))
       run.setLeagueBattle(leagueEntries)
       const firstParty = leagueEntries[0].party
-      run.setTrainerBattle(leagueEntries[0].name, firstParty.slice(1))
+      run.setTrainerBattle(leagueEntries[0].name, firstParty.slice(1), leagueEntries[0].sprite)
       run.setPendingEnemy(firstParty[0])
       navigate('battle')
     } else {

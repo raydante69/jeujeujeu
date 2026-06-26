@@ -57,6 +57,20 @@ export const TRAINERS = [
     team: [{ id: 18, lv: 61 }, { id: 103, lv: 59 }, { id: 65, lv: 63 }, { id: 112, lv: 61 }, { id: 149, lv: 63 }, { id: 6, lv: 65 }] },
 ]
 
+// Pokémon Showdown trainer sprite slugs (real trainer headshots).
+const SHOWDOWN_SLUG = {
+  brock: 'brock', misty: 'misty', surge: 'lt-surge', erika: 'erika', koga: 'koga',
+  sabrina: 'sabrina', blaine: 'blaine', giovanni: 'giovanni', lorelei: 'lorelei',
+  bruno: 'bruno', agatha: 'agatha', lance: 'lance', blue: 'blue',
+  youngster: 'youngster', lass: 'lass',
+  'grunt-a': 'rocket', 'grunt-b': 'rocket', 'grunt-c': 'rocket', 'grunt-d': 'rocket', 'grunt-e': 'rocket',
+  'rival-a': 'blue', 'rival-b': 'blue', 'cooltrainer-a': 'cooltrainerm',
+}
+export function trainerSpriteUrl(id) {
+  const slug = SHOWDOWN_SLUG[id]
+  return slug ? `https://play.pokemonshowdown.com/sprites/trainers/${slug}.png` : null
+}
+
 function tierForWave(wave) {
   if (wave <= 30) return 1
   if (wave <= 60) return 2

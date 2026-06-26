@@ -40,14 +40,16 @@ export const useRunStore = create(
 
       // --- Trainer battle (session-only, not persisted) ---
       trainerName: '',         // displayed in combat header
+      trainerSprite: null,     // Showdown trainer sprite URL (or null)
       trainerQueue: [],        // remaining Enemy[] from the current trainer's party
       trainerTotalParty: 0,    // total party size (for progress display)
       trainerKilled: 0,        // how many defeated so far in this trainer battle
-      leagueQueue: [],         // [{ name, party, trainer }] for the League gauntlet
+      leagueQueue: [],         // [{ name, party, trainer, sprite }] for the League gauntlet
       leagueIndex: 0,
 
-      setTrainerBattle: (name, remainingParty) => set({
+      setTrainerBattle: (name, remainingParty, sprite = null) => set({
         trainerName: name,
+        trainerSprite: sprite,
         trainerQueue: remainingParty,
         trainerTotalParty: remainingParty.length + 1,
         trainerKilled: 0,
@@ -68,13 +70,14 @@ export const useRunStore = create(
         set({
           leagueIndex: nextIndex,
           trainerName: next.name,
+          trainerSprite: next.sprite || null,
           trainerQueue: next.party.slice(1),
           trainerTotalParty: next.party.length,
           trainerKilled: 0,
         })
         return next.party[0]
       },
-      clearTrainerBattle: () => set({ trainerName: '', trainerQueue: [], trainerTotalParty: 0, trainerKilled: 0, leagueQueue: [], leagueIndex: 0 }),
+      clearTrainerBattle: () => set({ trainerName: '', trainerSprite: null, trainerQueue: [], trainerTotalParty: 0, trainerKilled: 0, leagueQueue: [], leagueIndex: 0 }),
 
       // --- Derived ---
       relicAgg: () => aggregateRelics(get().relics),
