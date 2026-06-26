@@ -218,7 +218,9 @@ function DexSlot({ species, ownedCards, isNew, onClick, cardRef }) {
   )
 }
 
-function DetailModal({ species, cards, cardLevel, attachedCT, onClose, onFuse, onLevelUp }) {
+const DIAMOND_COSTS = [0, 15, 30, 50, 80]
+
+function DetailModal({ species, cards, cardLevel, attachedCT, onClose, onFuse, onLevelUp, onLevelUpDiamonds, crystals }) {
   const rarity = speciesRarity(species)
   const rc = rarityColor(rarity)
   const typeColor = TYPE_COLORS[species.types?.[0]] || '#1e293b'
@@ -274,11 +276,15 @@ function DetailModal({ species, cards, cardLevel, attachedCT, onClose, onFuse, o
               <div className="flex items-center gap-2">
                 <p className="text-white font-bold text-base leading-tight">{frName(species.id, species.name)}</p>
                 <span className="text-xs font-black text-gray-300">Nv.{level}</span>
-                {canLevelUp && (
+                {canLevelUp ? (
                   <button onClick={onLevelUp} className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 hover:bg-yellow-500/30 active:scale-95 transition-all">
                     ▲ Lvl
                   </button>
-                )}
+                ) : level < 5 ? (
+                  <button onClick={onLevelUpDiamonds} disabled={(crystals ?? 0) < DIAMOND_COSTS[level]} className="text-[9px] font-black px-1.5 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 active:scale-95 transition-all disabled:opacity-40">
+                    ▲ {DIAMOND_COSTS[level]} 💎
+                  </button>
+                ) : null}
               </div>
               <div className="flex gap-1 mt-1 flex-wrap">
                 {species.types.map(t => (
@@ -364,7 +370,7 @@ function DetailModal({ species, cards, cardLevel, attachedCT, onClose, onFuse, o
 }
 
 export default function CollectionScreen() {
-  const { collection, navigate, newCardUids, clearNewCards, fuseSpecies, cardLevels, levelUpCard, scrollToNew, setScrollToNew, ctInventory, attachedCTs, attachCT, detachCT } = useGameStore()
+  const { collection, navigate, newCardUids, clearNewCards, fuseSpecies, cardLevels, levelUpCard, levelUpCardWithDiamonds, crystals, scrollToNew, setScrollToNew, ctInventory, attachedCTs, attachCT, detachCT } = useGameStore()
   const [genFilter, setGenFilter] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [detailId, setDetailId] = useState(null)
@@ -449,6 +455,15 @@ export default function CollectionScreen() {
     }
   }
 
+  function handleLevelUpDiamonds() {
+    if (!detailId) return
+    const newLevel = levelUpCardWithDiamonds(detailId)
+    if (newLevel) {
+      setToast(`💎 ${speciesById(detailId)?.name} passe au niveau ${newLevel} !`)
+      setTimeout(() => setToast(null), 1800)
+    }
+  }
+
   const detailSp = detailId ? speciesById(detailId) : null
   const detailCards = detailId ? (ownedBySpecies[detailId] || []) : []
 
@@ -466,6 +481,8 @@ export default function CollectionScreen() {
           onClose={() => setDetailId(null)}
           onFuse={handleFuse}
           onLevelUp={handleLevelUp}
+          onLevelUpDiamonds={handleLevelUpDiamonds}
+          crystals={crystals}
         />
       )}
 

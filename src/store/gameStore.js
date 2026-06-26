@@ -185,6 +185,19 @@ export const useGameStore = create(
         return currentLevel + 1
       },
       setScrollToNew: (v) => set({ scrollToNew: v }),
+      levelUpCardWithDiamonds: (speciesId) => {
+        const COSTS = [0, 15, 30, 50, 80] // index = current level (1→2 costs 15)
+        const s = get()
+        const level = s.cardLevels?.[speciesId] ?? 1
+        if (level >= 5) return false
+        const cost = COSTS[level]
+        if (s.crystals < cost) return false
+        set(st => ({
+          crystals: st.crystals - cost,
+          cardLevels: { ...(st.cardLevels || {}), [speciesId]: level + 1 },
+        }))
+        return level + 1
+      },
 
       // --- Permanent training (Salle de dressage) ---
       trainerLevels: {},   // { [speciesId]: bonusLevels }
@@ -408,11 +421,12 @@ export const useGameStore = create(
     }),
     {
       name: 'pokebooster-save-v1',
-      version: 5,
+      version: 6,
       // v2: reset every caught/collected Pokémon (fresh Pokédex), keep economy.
       // v3: introduces training/quests/stats — new fields default in naturally.
       // v4: adds achievements + daily streak — new fields default in naturally.
       // v5: adds news (lastSeenVersion) + battle pokédex (seen/defeatedSpecies) — defaults in.
+      // v6: adds levelUpCardWithDiamonds — defaults in naturally.
       migrate: (state, version) => {
         if (!state) return state
         if (version < 2) {

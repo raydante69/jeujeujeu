@@ -209,7 +209,19 @@ export function computeIntent(enemy, team, hps, asc = null) {
   const lvl = enemy.level || 5
   const ascDmg = asc?.enemyDmgMult || 1
   const t0 = (enemy.types || ['normal'])[0]
-  const role = enemy.isBoss ? 1.3 : enemy.kind === 'elite' ? 1.1 : 1
+  const role = enemy.isBoss ? 1.3 : (enemy.isElite || enemy.kind === 'elite' || enemy.isTrainer) ? 1.15 : 1
+
+  // Bosses and elites can occasionally heal or raise their guard.
+  if ((enemy.isBoss || enemy.kind === 'elite' || enemy.isElite) && Math.random() < 0.15) {
+    const isHealOrGuard = Math.random() < 0.5
+    if (isHealOrGuard) {
+      const healAmount = Math.round(enemy.maxHp * 0.18)
+      return { isHeal: true, moveName: 'Récupération', healAmount }
+    } else {
+      const guardAmount = Math.round(lvl * 3)
+      return { isGuard: true, moveName: 'Bouclier', guardAmount }
+    }
+  }
   const heavy = (enemy.isBoss || enemy.kind === 'elite') && Math.random() < 0.3
   const mult = heavy ? 1.4 : 1
   // Late-game bite: enemy damage ramps super-linearly past level ~25 (≈ wave 23).

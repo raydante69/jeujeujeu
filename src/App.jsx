@@ -22,6 +22,7 @@ import AchievementsScreen from './screens/AchievementsScreen.jsx'
 import ProgressionScreen from './screens/ProgressionScreen.jsx'
 import BattleDexScreen from './screens/BattleDexScreen.jsx'
 import NewsScreen from './screens/NewsScreen.jsx'
+import MesPokemonScreen from './screens/MesPokemonScreen.jsx'
 import BottomNav from './components/BottomNav.jsx'
 
 const SCREENS = {
@@ -43,10 +44,11 @@ const SCREENS = {
   news:       NewsScreen,
   runshop:    RunShopScreen,
   runend:     RunEndScreen,
+  mespokemon: MesPokemonScreen,
 }
 
 // Only the meta hub screens show the bottom navigation.
-const NAV_SCREENS = ['title', 'home', 'shop', 'collection', 'training']
+const NAV_SCREENS = ['title', 'home', 'shop', 'collection', 'training', 'mespokemon']
 
 export default function App() {
   const { currentScreen } = useGameStore()

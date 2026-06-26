@@ -4,6 +4,25 @@
 
 export const PATCH_NOTES = [
   {
+    version: '0.6.3',
+    date: '2026-06-26',
+    title: 'Combat polish + Mes Pokémon + Diamants',
+    highlight: true,
+    changes: [
+      { type: 'feat', text: 'Nouvel écran « Mes Pokémon » (4e bouton de nav 🐾) : tri Niveau/Puissance/Favoris, puissance color-codée, bouton ▲ Lvl direct ou via diamants.' },
+      { type: 'feat', text: 'Échange Diamants : 3 paliers (40💎→100💰 / 80💎→220💰 / 155💎→450💰) depuis « Mes Pokémon ».' },
+      { type: 'feat', text: 'Level-up diamants dans le Pokédex : plus besoin de 2 doublons — paye en 💎 pour monter un Pokémon de niveau.' },
+      { type: 'feat', text: 'Les boss sont désormais capturable avec une Ball normale pendant ET après le combat.' },
+      { type: 'balance', text: 'Les Pokémon de Dresseur sont plus costauds (niveau +2, PV ×1.4) et tapent plus fort (+15% de dégâts).' },
+      { type: 'balance', text: 'Les élites et boss peuvent occasionnellement se soigner ou lever un bouclier.' },
+      { type: 'feat', text: 'Intention ennemie redessinée : nom du mouvement, couleur du type, efficacité (⚡ si super efficace).' },
+      { type: 'feat', text: 'Titre de combat au-dessus des sprites : « Dans les hautes herbes », « Dresseur », « Élite », « Boss », « Ligue ».' },
+      { type: 'fix', text: 'Journal d\'action supprimé — l\'écran de combat est plus épuré.' },
+      { type: 'feat', text: 'VS agrandi sans lignes décoratives.' },
+      { type: 'feat', text: 'Fin de run : détail de l\'or (base + 10 % de l\'or de la run).' },
+    ],
+  },
+  {
     version: '0.6.2',
     date: '2026-06-26',
     title: 'Carte d\'attaque détaillée & CT au Pokédex',

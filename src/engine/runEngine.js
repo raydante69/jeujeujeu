@@ -44,6 +44,10 @@ export function buildEnemy(wave, rng = Math.random, asc = null) {
     id = pickFrom(biome.pool, rng)
     level = baseLevel + 3
     hpFactor = 1.6
+  } else if (kind === 'trainer') {
+    id = pickFrom(biome.pool, rng)
+    level = baseLevel + 2
+    hpFactor = 1.4
   } else {
     id = pickFrom(biome.pool, rng)
     level = baseLevel
@@ -59,6 +63,8 @@ export function buildEnemy(wave, rng = Math.random, asc = null) {
   mon.hp = mon.maxHp
   mon.kind = kind
   mon.isBoss = kind === 'boss'
+  mon.isElite = kind === 'elite'
+  mon.isTrainer = kind === 'trainer'
   mon.isLegendary = LEGENDARY_IDS.has(sp.id)
   // Bosses carry a signature ability (enrage / shield / lifedrain) from the biome.
   if (mon.isBoss) mon.ability = biome.bossAbilities?.[sp.id] || null

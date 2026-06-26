@@ -116,10 +116,12 @@ export const useRunStore = create(
         const record = newBest > s.bestWave
         const crystals = 8 + reached * 3 + (record ? 25 : 0)
         // Money is intentionally scarce — harder to accumulate now.
-        const money = 12 + reached * 4 + (record ? 40 : 0)
+        const baseGold = 12 + reached * 4 + (record ? 40 : 0)
+        const bonusGold = Math.round(s.gold * 0.10)
+        const money = baseGold + bonusGold
         useGameStore.getState().addCrystals(crystals)
         useGameStore.getState().addMoney(money)
-        const summary = { reached, crystals, money, record }
+        const summary = { reached, crystals, money, baseGold, bonusGold, record }
         set({
           active: false,
           bestWave: newBest,

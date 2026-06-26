@@ -250,8 +250,6 @@ export default function BattleScreen() {
   const [phase, setPhase]         = useState('init')
   const [turn, setTurn]           = useState(1)
   const [floatDmg, setFloatDmg]   = useState(null)
-  const [log, setLog]             = useState([])
-  const logRef = useRef(null)
   const [shake, setShake]         = useState(null)
   const [winSummary, setWinSummary] = useState(null)
   const [caught, setCaught]       = useState(null)
@@ -273,11 +271,6 @@ export default function BattleScreen() {
   // True while both enemies (in a double battle) are down — or the single enemy is.
   const allEnemiesDead = (e1Hp, e2HpVal) => e1Hp <= 0 && (!live.current.enemy2 || e2HpVal <= 0)
 
-  // Auto-scroll the combat log to bottom on each new entry (Lot 8)
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-  }, [log])
-
   // Full moveset for all team members (used in "Mes Attaques" panel)
   const allTeamMoves = useMemo(() => {
     return team.map(m => ({
@@ -294,7 +287,6 @@ export default function BattleScreen() {
     return livingFiltered.length ? filtered : team
   }
 
-  const addLog = (m) => setLog(p => [...p.slice(-5), m])
   const doShake = (t, ms = 420) => { setShake(t); setTimeout(() => setShake(null), ms) }
 
   // ── Init ─────────────────────────────────────────────────────────────
@@ -332,13 +324,11 @@ export default function BattleScreen() {
         const pick = livingAtStart[Math.floor(Math.random() * livingAtStart.length)]
         setBenchedUid(pick.uid)
         live.current.benchedUid = pick.uid
-        addLog(`⛓️ ${pick.name} est indisponible (5 tours)`)
       }
     } else {
       setBenchedUid(null)
       live.current.benchedUid = null
     }
-    if (ev) addLog(`${ev.icon} Événement : ${ev.name}`)
     setEnemy(e); setEnemyHp(e.hp); setEnemyMax(e.maxHp); setHp(startHp)
     setTeamStatus({})
     reviveUsed.current = false
@@ -350,19 +340,12 @@ export default function BattleScreen() {
       setE2Intent(computeIntent(e2, team, startHp, asc))
       useGameStore.getState().markSpeciesSeen(e2.id)
       live.current.e2Hp = e2.hp
-      addLog(`⚔️ Deux ennemis : ${e.name} & ${e2.name} !`)
     }
     // Apply shield_start modifier
     const shieldMod = e.modifiers?.find(m => m.id === 'shield_start')
     setEnemyShield(shieldMod ? Math.round((e.level || 5) * 4) : 0)
     // Ascension 'Boss Enragés' : the boss starts in a rage.
-    if (e.isBoss && asc.bossRageFromStart) { setEnraged(true); addLog(`😡 ${e.name} démarre enragé (Ascension) !`) }
-    if (e.ability) addLog(`✨ Capacité du boss : ${ABILITY_LABEL[e.ability] || e.ability}`)
-
-    addLog(e.isBoss ? `💀 BOSS : ${e.name} (Niv.${e.level}) surgit !`
-      : kind === 'elite'   ? `⭐ ${e.name} d'élite apparaît !`
-      : kind === 'trainer' ? `🧢 Dresseur envoie ${e.name} !`
-      : `Un ${e.name} sauvage apparaît !`)
+    if (e.isBoss && asc.bossRageFromStart) { setEnraged(true) }
 
     setHand(drawHand(drawableTeam({}, startHp), startHp, handSize))
     setIntent(computeIntent(e, team, startHp, asc))
@@ -376,14 +359,12 @@ export default function BattleScreen() {
     if (phase !== 'player' || rerolls <= 0) return
     setRerolls(r => r - 1)
     setHand(drawHand(drawableTeam(live.current.teamStatus, live.current.hp), live.current.hp, handSize))
-    addLog(`🔄 Pokémon échangés`)
   }
 
   // Healing cleanses team afflictions (burn/poison/paralyze) — the counterplay.
   function cleanseStatuses() {
     if (Object.keys(live.current.teamStatus || {}).length === 0) return
     setTeamStatus({})
-    addLog('💧 Les soins purifient les statuts de l\'équipe')
   }
   // Cleanse a single Pokémon's affliction (the one that was healed).
   function cleanseStatus(uid) {
@@ -407,25 +388,23 @@ export default function BattleScreen() {
     let localHp = { ...teamHp }
     let status = st0
     let skipEnemy = false
-    const logs = []
 
     if (st0) {
       const def = STATUS_DEF[st0.type]
       if (st0.type === 'burn') {
         const d = Math.max(1, Math.round(enemyMax * def.tickPct))
-        localEHp = Math.max(0, localEHp - d); logs.push(`🔥 ${enemy.name} subit ${d} (brûlure)`)
+        localEHp = Math.max(0, localEHp - d)
       } else if (st0.type === 'poison') {
         const stacks = st0.stacks || 1
         const d = Math.max(1, Math.round(enemyMax * def.tickPct * stacks))
-        localEHp = Math.max(0, localEHp - d); logs.push(`☠️ ${enemy.name} subit ${d} (poison)`)
+        localEHp = Math.max(0, localEHp - d)
       } else if (st0.type === 'freeze') {
-        skipEnemy = true; logs.push(`❄️ ${enemy.name} est gelé : tour sauté`)
+        skipEnemy = true
       } else if (st0.type === 'paralyze' && Math.random() < def.skip) {
-        skipEnemy = true; logs.push(`⚡ ${enemy.name} paralysé : attaque ratée`)
+        skipEnemy = true
       }
       const turns = st0.turns - 1
       status = turns <= 0 ? null : { ...st0, turns, stacks: st0.type === 'poison' ? (st0.stacks || 1) + 1 : st0.stacks }
-      if (!status) logs.push(`${enemy.name} se rétablit`)
     }
 
     // ── Team status ticks (burn/poison/paralyze inflicted by elites/bosses) ──
@@ -439,15 +418,12 @@ export default function BattleScreen() {
         const stacks = tsm.type === 'poison' ? (tsm.stacks || 1) : 1
         const d = Math.max(1, Math.round((m.maxHp || 20) * tdef.tickPct * stacks))
         localHp[m.uid] = Math.max(0, (localHp[m.uid] || 0) - d)
-        logs.push(`${(tdef.label || '').split(' ')[0]} ${m.name} subit ${d}`)
       }
       const tt = tsm.turns - 1
       if (tt > 0) nextTeamStatus[m.uid] = { ...tsm, turns: tt, stacks: tsm.type === 'poison' ? (tsm.stacks || 1) + 1 : tsm.stacks }
-      else logs.push(`${m.name} se libère de ${(tdef.label || '').split(' ')[1] || 'son état'}`)
     }
 
     setEnemyHp(localEHp); setEStatus(status); setHp(localHp)
-    logs.forEach(addLog)
 
     // Win only when ALL enemies are down (primary may die to a DoT here).
     if (allEnemiesDead(localEHp, live.current.e2Hp)) { setTeamStatus(nextTeamStatus); setTimeout(() => win(localHp), 650); return }
@@ -456,6 +432,17 @@ export default function BattleScreen() {
       let remainingGuard = currentGuard  // tracks shield left after absorption (persists to next turn)
       // The primary enemy only attacks if it's still alive.
       if (!skipEnemy && localEHp > 0) {
+        // Handle heal/guard intents (non-damage turns for boss/elite).
+        if (intent0?.isHeal) {
+          const healed = Math.min(enemyMax, localEHp + (intent0.healAmount || Math.round(enemyMax * 0.18)))
+          localEHp = healed
+          setEnemyHp(localEHp)
+        } else if (intent0?.isGuard) {
+          const ga = intent0.guardAmount || Math.round((enemy.level || 5) * 3)
+          setGuard(g => g + ga)
+        }
+
+        if (!intent0?.isHeal && !intent0?.isGuard) {
         // Enemy may strike one OR several Pokémon this turn.
         const fallback = intent0?.targets?.length
           ? intent0.targets
@@ -483,14 +470,11 @@ export default function BattleScreen() {
           const tname = team.find(m => m.uid === targetUid)?.name
           localHp = { ...localHp, [targetUid]: Math.max(0, (localHp[targetUid] || 0) - dmg) }
           doShake(targetUid)
-          if (absorbed > 0) addLog(`🛡️ Bouclier absorbe ${absorbed}`)
-          addLog(`💥 ${enemy.name} inflige ${dmg} à ${tname}${(isRaged || enraged) ? ' [RAGE]' : ''}`)
 
           if ((localHp[targetUid] || 0) <= 0 && relicAgg.revive && !reviveUsed.current) {
             const m = team.find(t => t.uid === targetUid)
             localHp[targetUid] = Math.round(m.maxHp * relicAgg.revive / 100)
             reviveUsed.current = true
-            addLog(`🪶 La Plume Phénix ranime ${tname} !`)
           }
         }
 
@@ -499,13 +483,11 @@ export default function BattleScreen() {
           const heal = Math.round(dealtTotal * 0.25)
           localEHp = Math.min(enemyMax, localEHp + heal)
           setEnemyHp(localEHp)
-          addLog(`🩸 ${enemy.name} draine ${heal} PV`)
         }
         // Boss 'shield' ability: erect a periodic barrier on the next player burst.
         if (enemy.ability === 'shield' && turn % 3 === 0) {
           const sh = Math.round((enemy.level || 5) * 3)
           setEnemyShield(sh)
-          addLog(`🛡️ ${enemy.name} érige une carapace (absorbe ${sh})`)
         }
         // Apply a freshly inflicted status to the targeted team member.
         if (intent0?.applyStatus) {
@@ -513,9 +495,9 @@ export default function BattleScreen() {
           if ((localHp[as.targetUid] || 0) > 0) {
             const sdef = STATUS_DEF[as.type]
             nextTeamStatus[as.targetUid] = { type: as.type, turns: sdef.turns, stacks: 1 }
-            addLog(`${sdef.label} infligé à ${team.find(t => t.uid === as.targetUid)?.name} !`)
           }
         }
+        } // end if (!isHeal && !isGuard)
       }
 
       // ── Second enemy (double battle) attacks too, with its own intent ──
@@ -538,13 +520,10 @@ export default function BattleScreen() {
           const tname = team.find(m => m.uid === targetUid)?.name
           localHp = { ...localHp, [targetUid]: Math.max(0, (localHp[targetUid] || 0) - dmg) }
           doShake(targetUid)
-          if (absorbed > 0) addLog(`🛡️ Bouclier absorbe ${absorbed}`)
-          addLog(`💥 ${foe2.name} inflige ${dmg} à ${tname}`)
           if ((localHp[targetUid] || 0) <= 0 && relicAgg.revive && !reviveUsed.current) {
             const m = team.find(t => t.uid === targetUid)
             localHp[targetUid] = Math.round(m.maxHp * relicAgg.revive / 100)
             reviveUsed.current = true
-            addLog(`🪶 La Plume Phénix ranime ${tname} !`)
           }
         }
       }
@@ -562,7 +541,7 @@ export default function BattleScreen() {
           if (nt >= 6 && live.current.benchedUid) benchCleared = true
           return nt
         })
-        if (benchCleared) { setBenchedUid(null); live.current.benchedUid = null; addLog('⛓️ Ton Pokémon est de nouveau disponible !') }
+        if (benchCleared) { setBenchedUid(null); live.current.benchedUid = null }
         setGuard(remainingGuard)   // shield persists between turns (reset only in resetBattleState)
         setLastCardKind(null)      // allow guard again after one non-guard turn
         setHand(drawHand(drawableTeam(nextTeamStatus, localHp), localHp, handSize))
@@ -587,7 +566,6 @@ export default function BattleScreen() {
 
     // Prevent 2 consecutive guard plays in a row
     if (card.kind === 'guard' && lastCardKind === 'guard') {
-      addLog('🚫 Tu ne peux pas jouer 2 boucliers d\'affilé !')
       return
     }
     setLastCardKind(card.kind)
@@ -620,15 +598,13 @@ export default function BattleScreen() {
       setFloatDmg({ dmg, crit, color: TYPE_COLORS[card.type] || '#fff', eff, slot: 2 })
       doShake('enemy2')
       setTimeout(() => setFloatDmg(null), 900)
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → ${foe.name} ${dmg}${crit ? ' CRIT!' : ''}`)
       if (card.kind === 'drain') {
         const lifesteal = Math.max(1, Math.round(dmg * 0.5 * (caster.holo ? 1.20 : 1)))
         finalHp = { ...hp0, [caster.uid]: Math.min(caster.maxHp, (hp0[caster.uid] || 0) + lifesteal) }
-        cleanseStatus(caster.uid); addLog(`🌿 ${caster.name} draine ${lifesteal} PV`)
+        cleanseStatus(caster.uid)
       }
       if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
       if (finalHp !== hp0) setHp(finalHp)
-      if (newE2 <= 0) addLog(`✅ ${foe.name} vaincu !`)
       if (allEnemiesDead(eHp0, newE2)) { setTimeout(() => win(finalHp), 650); return }
       setTimeout(() => runEnemyTurn(finalHp, eHp0, finalGuard), 300)
       return
@@ -644,8 +620,8 @@ export default function BattleScreen() {
       // Enemy type modifiers: resist (×0.5) or weakness (×2)
       for (const mod of enemy.modifiers || []) {
         if (mod.param === card.type) {
-          if (mod.id === 'type_resist') { dmg = Math.round(dmg * 0.5); addLog(`🔒 Résistance ${TYPE_LABELS_FR[mod.param] || mod.param}`) }
-          if (mod.id === 'type_weak')   { dmg = Math.round(dmg * 2);   addLog(`💥 Fragilité ${TYPE_LABELS_FR[mod.param] || mod.param} !`) }
+          if (mod.id === 'type_resist') { dmg = Math.round(dmg * 0.5) }
+          if (mod.id === 'type_weak')   { dmg = Math.round(dmg * 2) }
         }
       }
       // Boss 'shield' ability absorbs part of this burst, then breaks.
@@ -653,7 +629,6 @@ export default function BattleScreen() {
         const blocked = Math.min(live.current.enemyShield, dmg)
         dmg = Math.max(0, dmg - blocked)
         setEnemyShield(0)
-        addLog(`🛡️ La carapace de ${enemy.name} absorbe ${blocked} !`)
       }
 
       const newE = Math.max(0, eHp0 - dmg)
@@ -662,22 +637,19 @@ export default function BattleScreen() {
       setFloatDmg({ dmg, crit, color: TYPE_COLORS[card.type] || '#fff', eff })
       doShake('enemy')
       setTimeout(() => setFloatDmg(null), 900)
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → ${dmg}${crit ? ' CRIT!' : ''}${eff >= 2 ? ' ⚡efficace' : eff < 1 ? ' ·peu efficace' : ''}`)
 
       if (card.kind === 'drain') {
         // Lifesteal: the CASTER recovers half the damage dealt (no team-wide heal).
         const lifesteal = Math.max(1, Math.round(dmg * 0.5 * (caster.holo ? 1.20 : 1)))
         finalHp = { ...hp0, [caster.uid]: Math.min(caster.maxHp, (hp0[caster.uid] || 0) + lifesteal) }
         cleanseStatus(caster.uid)
-        addLog(`🌿 ${caster.name} draine ${lifesteal} PV`)
       }
       if (relicAgg.lifestealPct) finalHp = healWeakest(finalHp, Math.round(dmg * relicAgg.lifestealPct / 100))
       if (finalHp !== hp0) setHp(finalHp)
 
       if (enemy.isBoss && newE <= enemyMax * 0.5 && !live.current.enraged) {
-        setEnraged(true); addLog(`😡 ${enemy.name} entre en RAGE !`)
+        setEnraged(true)
       }
-      if (newE <= 0 && live.current.enemy2) addLog(`✅ ${enemy.name} vaincu !`)
       if (allEnemiesDead(newE, live.current.e2Hp)) { setTimeout(() => win(finalHp), 650); return }
 
     } else if (card.kind === 'guard') {
@@ -685,9 +657,6 @@ export default function BattleScreen() {
       const newG = guard0 + g
       setGuard(newG)
       finalGuard = newG
-      addLog(g > 0
-        ? `${card.emoji} ${caster.name} · ${card.name} → bouclier +${g}`
-        : `🚫 ${caster.name} · ${card.name} → bouclier annulé (malédiction)`)
 
     } else if (card.kind === 'heal') {
       // Heals the single weakest living ally (no longer the whole team).
@@ -699,7 +668,6 @@ export default function BattleScreen() {
       finalHp = { ...hp0, [weakest.uid]: Math.min(weakest.maxHp, (hp0[weakest.uid] || 0) + h) }
       setHp(finalHp)
       cleanseStatus(weakest.uid)
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → +${h} PV à ${weakest.name}`)
 
     } else if (card.kind === 'status') {
       const def = STATUS_DEF[card.status]
@@ -709,12 +677,10 @@ export default function BattleScreen() {
         if (prev && prev.type === card.status) return { ...prev, turns }
         return { type: card.status, turns, stacks: card.status === 'poison' ? 1 : 0 }
       })
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → ${enemy.name} ${def.label} !`)
 
     } else if (card.kind === 'buff') {
       const trait = getTrait(caster.id, caster.types)
       setBuff((card.bonus || 0.7) + (trait.buffPlus || 0))
-      addLog(`${card.emoji} ${caster.name} · ${card.name} → prochaine attaque renforcée !`)
     }
 
     // Automatically trigger enemy turn after the card resolves
@@ -797,8 +763,6 @@ export default function BattleScreen() {
     setWinSummary({ xpEach, events, goldGain, drops, xpRows })
     setPhase('win')
     sfx('win')
-    addLog(`✅ ${enemy.name} vaincu !`)
-    drops.forEach(d => addLog(`🎁 ${d.label}`))
   }
 
   function lose(finalHp) {
@@ -813,7 +777,6 @@ export default function BattleScreen() {
     if (caught || throwUsed) return
     const b = BALL_BY_ID[ballId]
     if (!b) return
-    if (enemy.isBoss && b.rate < 1) return
     if ((run.balls?.[ballId] || 0) <= 0) return
     if (!run.useBall(ballId)) return
     setThrowUsed(true)
@@ -853,7 +816,6 @@ export default function BattleScreen() {
     const currentHp = live.current.hp
     setHand(drawHand(drawableTeam({}, currentHp), currentHp, handSize))
     setIntent(computeIntent(newEnemy, team, currentHp, asc))
-    addLog(`${run.trainerName ? run.trainerName + ' envoie ' : ''}${newEnemy.name} !`)
   }
 
   function continueAfterWin() {
@@ -901,9 +863,7 @@ export default function BattleScreen() {
                 onError={e => { e.target.style.display = 'none' }} />
             )}
             <div className="min-w-0">
-              <p className="text-[11px] text-gray-500 font-bold uppercase">
-                Vague {wave} · {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'league' ? '🏆 LIGUE' : (kind === 'trainer' || run.trainerName) ? '🧢 Dresseur' : '🌿 Sauvage'}
-              </p>
+              <p className="text-[11px] text-gray-500 font-bold uppercase">Vague {wave}</p>
               {run.trainerName ? (
                 <>
                   <p className="text-sm font-black text-blue-200 truncate">{run.trainerName}</p>
@@ -926,6 +886,14 @@ export default function BattleScreen() {
       </div>
 
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full px-3 py-3 flex flex-col gap-3 pb-72">
+
+        {/* Combat type title */}
+        {phase !== 'win' && phase !== 'lose' && (
+          <p className="text-center text-xs font-black text-gray-400 uppercase tracking-widest">
+            {kind === 'boss' ? '💀 BOSS' : kind === 'elite' ? '⭐ Élite' : kind === 'league' ? '🏆 Ligue' :
+             (kind === 'trainer' || run.trainerName) ? '🧢 Dresseur' : '🌿 Dans les hautes herbes'}
+          </p>
+        )}
 
         {/* Double battle: two enemy panels, tap to choose the attack target */}
         {enemy2 && (
@@ -1017,42 +985,68 @@ export default function BattleScreen() {
 
         {/* Intent */}
         {phase !== 'win' && phase !== 'lose' && intent && (
-          <div className="rounded-xl px-3 py-2.5 border flex items-center justify-between gap-2"
-            style={{ background: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '14', borderColor: (intent.kind === 'heavy' ? '#ef4444' : TYPE_COLORS[intent.type] || '#64748b') + '55' }}>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xl">{intent.kind === 'heavy' ? '🌋' : intent.multi ? '🎯' : '⚔️'}</span>
-              <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">
-                  Prochain coup ennemi{intent.multi ? ` · ${intent.targets.length} cibles` : ''}
-                </p>
-                <p className="text-xs text-white font-bold truncate">
-                  {intent.moveName || (intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque')}
-                  {' → '}
-                  {(intent.targets || []).map(t => t.targetName).join(', ')}
-                  {intent.eff >= 2 && <span className="text-red-300"> ⚡</span>}
-                </p>
-              </div>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="font-black text-lg" style={{ color: intent.kind === 'heavy' ? '#f87171' : '#e2e8f0' }}>
-                -{(intent.targets || []).reduce((s, t) => s + t.damage, 0)}
+          <div className="rounded-xl px-3 py-2 border border-gray-700/50 bg-black/30">
+            <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Dans 1 tour :</p>
+            {intent.isHeal ? (
+              <p className="text-sm font-bold">
+                <span className="text-white">{enemy.name}</span>
+                <span className="text-green-300"> se soigne</span>
+                {intent.moveName && <span className="text-xs text-gray-600"> · {intent.moveName}</span>}
               </p>
-              {guard > 0 && <p className="text-[9px] text-cyan-300">🛡️ {guard} absorbé</p>}
-            </div>
+            ) : intent.isGuard ? (
+              <p className="text-sm font-bold">
+                <span className="text-white">{enemy.name}</span>
+                <span className="text-cyan-300"> se renforce</span>
+                {intent.moveName && <span className="text-xs text-gray-600"> · {intent.moveName}</span>}
+              </p>
+            ) : (
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm text-white font-bold">{enemy.name}</span>
+                <span className="text-xs text-gray-400">attaque</span>
+                <span className="text-sm font-black" style={{ color: TYPE_COLORS[intent.type] || '#f87171' }}>
+                  {intent.moveName || (intent.kind === 'heavy' ? 'Charge puissante' : 'Attaque')}
+                </span>
+                <span className="text-xs text-gray-400">sur</span>
+                <span className="text-xs text-white">{(intent.targets || []).map(t => t.targetName).join(', ')}</span>
+                <span className="font-black text-sm" style={{ color: intent.eff >= 2 ? '#f87171' : (intent.eff > 0 && intent.eff < 1) ? '#60a5fa' : '#e2e8f0' }}>
+                  -{(intent.targets || []).reduce((s, t) => s + t.damage, 0)}
+                </span>
+                {intent.eff >= 2 && <span className="text-[10px] text-red-300">⚡</span>}
+                {guard > 0 && <span className="text-[9px] text-cyan-300 ml-1">🛡️{guard}</span>}
+              </div>
+            )}
           </div>
         )}
 
         {/* Second enemy intent (double battle) */}
         {phase !== 'win' && phase !== 'lose' && enemy2 && e2Hp > 0 && e2Intent && (
-          <div className="rounded-xl px-3 py-2 border flex items-center justify-between gap-2"
-            style={{ background: (TYPE_COLORS[e2Intent.type] || '#64748b') + '12', borderColor: (TYPE_COLORS[e2Intent.type] || '#64748b') + '44' }}>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base">⚔️</span>
-              <p className="text-[11px] text-white font-bold truncate">
-                {enemy2.name} → {(e2Intent.targets || []).map(t => t.targetName).join(', ')}
+          <div className="rounded-xl px-3 py-2 border border-gray-700/40 bg-black/20">
+            <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Dans 1 tour :</p>
+            {e2Intent.isHeal ? (
+              <p className="text-sm font-bold">
+                <span className="text-white">{enemy2.name}</span>
+                <span className="text-green-300"> se soigne</span>
+                {e2Intent.moveName && <span className="text-xs text-gray-600"> · {e2Intent.moveName}</span>}
               </p>
-            </div>
-            <p className="font-black text-sm text-gray-200">-{(e2Intent.targets || []).reduce((s, t) => s + t.damage, 0)}</p>
+            ) : e2Intent.isGuard ? (
+              <p className="text-sm font-bold">
+                <span className="text-white">{enemy2.name}</span>
+                <span className="text-cyan-300"> se renforce</span>
+              </p>
+            ) : (
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm text-white font-bold">{enemy2.name}</span>
+                <span className="text-xs text-gray-400">attaque</span>
+                <span className="text-sm font-black" style={{ color: TYPE_COLORS[e2Intent.type] || '#f87171' }}>
+                  {e2Intent.moveName || 'Attaque'}
+                </span>
+                <span className="text-xs text-gray-400">sur</span>
+                <span className="text-xs text-white">{(e2Intent.targets || []).map(t => t.targetName).join(', ')}</span>
+                <span className="font-black text-sm text-gray-200">
+                  -{(e2Intent.targets || []).reduce((s, t) => s + t.damage, 0)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1064,10 +1058,8 @@ export default function BattleScreen() {
 
         {/* Clear separation between the enemy zone (above) and your team (below) */}
         {phase !== 'win' && phase !== 'lose' && (
-          <div className="flex items-center gap-2 my-0.5 select-none">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-500/40 to-red-500/40" />
-            <span className="text-[9px] font-black text-red-300/80 tracking-widest">VS</span>
-            <div className="flex-1 h-px bg-gradient-to-l from-transparent via-green-500/40 to-green-500/40" />
+          <div className="flex items-center justify-center my-1 select-none">
+            <span className="text-3xl font-black text-red-400 drop-shadow-lg">VS</span>
           </div>
         )}
 
@@ -1161,7 +1153,7 @@ export default function BattleScreen() {
         {/* Win panel */}
         {phase === 'win' && winSummary && (
           <div className="rounded-2xl p-4 border border-green-700/50 bg-green-900/15 text-center">
-            <p className="text-3xl mb-1">{enemy.isBoss ? '🏆' : '✅'}</p>
+            <p className="text-3xl mb-1">{enemy.isBoss ? '🏆' : '⭐'}</p>
             <p className="font-game text-sm text-green-400">Victoire !</p>
             <div className="flex justify-center gap-4 mt-2 text-xs">
               <span className="text-yellow-300">+{winSummary.goldGain} 💰</span>
@@ -1188,13 +1180,13 @@ export default function BattleScreen() {
                 {winSummary.xpRows.map(row => <XpGainRow key={row.uid} row={row} />)}
               </div>
             )}
-            {/* No capture during trainer/league battles — you fight the trainer, not wild mons */}
+            {/* No capture during trainer/league battles */}
             {!run.trainerName && (
               <div className="mt-3">
                 {caught ? (
                   caught.ok && caught.full && run.pendingCatch ? (
                     <div>
-                      <p className="text-xs font-bold text-green-300 mb-1.5">🎉 {caught.name} capturé ! Équipe pleine — qui remplacer ?</p>
+                      <p className="text-sm font-black text-green-300 mb-2">🎉 {caught.name} capturé !<br/><span className="text-xs font-bold text-gray-400">Équipe pleine — qui remplacer ?</span></p>
                       <div className="flex justify-center gap-2 flex-wrap">
                         {run.team.map(m => (
                           <button key={m.uid}
@@ -1213,35 +1205,55 @@ export default function BattleScreen() {
                       </button>
                     </div>
                   ) : (
-                    <p className={`text-xs font-bold ${caught.ok ? 'text-green-300' : 'text-gray-500'}`}>
-                      {caught.ok
-                        ? (caught.released ? `🔄 ${caught.released} relâché — ${caught.name} rejoint l'équipe !`
-                          : caught.kept ? `📦 ${caught.name} laissé (ajouté au Pokédex).`
-                          : `🎉 ${caught.name} rejoint l'équipe !`)
-                        : `💨 ${caught.name} s'est échappé…`}
-                    </p>
+                    <div className="py-2">
+                      {caught.ok ? (
+                        <p className="text-base font-black text-green-300">
+                          🎉 {caught.released ? `${caught.released} relâché — ${caught.name} rejoint l'équipe !`
+                            : caught.kept ? `${caught.name} laissé (Pokédex mis à jour).`
+                            : `${caught.name} rejoint l'équipe !`}
+                        </p>
+                      ) : (
+                        <p className="text-base font-black text-gray-400">💨 {caught.name} s'est échappé…</p>
+                      )}
+                    </div>
                   )
                 ) : (
                   <>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1.5">
-                      {enemy.isBoss ? 'Master Ball uniquement' : throwUsed ? '1 lancer max utilisé' : 'Tente une capture'}
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">
+                      {throwUsed ? '1 lancer max utilisé' : 'Tente une capture'}
                     </p>
                     {!throwUsed && (
-                      <div className="flex justify-center gap-2 flex-wrap">
-                        {BALLS.map(b => {
-                          const owned = run.balls?.[b.id] || 0
-                          const usable = owned > 0 && (!enemy.isBoss || b.rate >= 1)
-                          return (
-                            <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
-                              className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
-                              style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
-                              <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
-                              <span className="text-[9px] font-bold text-white">×{owned}</span>
-                              <span className="text-[8px] font-bold" style={{ color: b.color }}>{Math.round((b.rate ?? 0) * 100)}%</span>
-                            </button>
-                          )
-                        })}
-                      </div>
+                      <>
+                        {/* Catch rate bars */}
+                        <div className="mb-3 space-y-1.5">
+                          {BALLS.filter(b => (run.balls?.[b.id] || 0) > 0).map(b => {
+                            const rate = Math.round((b.rate ?? 0) * 100)
+                            return (
+                              <div key={b.id} className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-gray-300 w-20 flex-shrink-0">{b.name}</span>
+                                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${rate}%`, background: b.color }} />
+                                </div>
+                                <span className="text-[9px] font-black flex-shrink-0" style={{ color: b.color }}>{rate}%</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="flex justify-center gap-2 flex-wrap">
+                          {BALLS.map(b => {
+                            const owned = run.balls?.[b.id] || 0
+                            const usable = owned > 0
+                            return (
+                              <button key={b.id} onClick={() => tryCatch(b.id)} disabled={!usable}
+                                className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 transition-all ${usable ? 'active:scale-95' : 'opacity-30'}`}
+                                style={{ background: b.color + '22', border: `1px solid ${b.color}66` }}>
+                                <ItemSprite slug={b.slug} emoji={b.emoji} size={26} />
+                                <span className="text-[9px] font-bold text-white">×{owned}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </>
                     )}
                   </>
                 )}
@@ -1259,11 +1271,6 @@ export default function BattleScreen() {
           </div>
         )}
 
-        {/* Battle log — auto-scrolls to latest entry */}
-        <div ref={logRef} className="bg-game-surface rounded-xl p-2.5 border border-game-border max-h-24 overflow-y-auto scroll-smooth">
-          {log.length === 0 && <p className="text-[10px] text-gray-700">…</p>}
-          {log.map((l, i) => <p key={i} className="text-[10px] text-gray-500 leading-relaxed">{l}</p>)}
-        </div>
       </div>
 
       {/* Bottom: shared random hand */}

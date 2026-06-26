@@ -14,6 +14,8 @@ export default function RunEndScreen() {
   const reached = lastSummary?.reached ?? 0
   const crystals = lastSummary?.crystals ?? 0
   const money = lastSummary?.money ?? 0
+  const baseGold = lastSummary?.baseGold ?? money
+  const bonusGold = lastSummary?.bonusGold ?? 0
   const record = lastSummary?.record
   const biome = biomeForWave(reached || 1)
 
@@ -30,7 +32,11 @@ export default function RunEndScreen() {
           <div className="h-px bg-white/10 my-4" />
           <div className="flex justify-around text-sm">
             <div><p className="text-purple-300 font-black text-lg">+{crystals}</p><p className="text-[10px] text-gray-500">💎 Cristaux</p></div>
-            <div><p className="text-yellow-300 font-black text-lg">+{money}</p><p className="text-[10px] text-gray-500">💰 Argent</p></div>
+            <div>
+              <p className="text-yellow-300 font-black text-lg">+{money}</p>
+              <p className="text-[10px] text-gray-500">💰 Argent</p>
+              {bonusGold > 0 && <p className="text-[9px] text-gray-600">{baseGold}+{bonusGold}</p>}
+            </div>
             <div><p className="text-white font-black text-lg">{bestWave}</p><p className="text-[10px] text-gray-500">🏆 Record</p></div>
           </div>
         </div>
