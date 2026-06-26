@@ -19,6 +19,8 @@ export const PATCH_NOTES = [
       { type: 'fix', text: 'Capturer avec une équipe pleine : on choisit désormais quel Pokémon échanger au lieu de perdre la capture.' },
       { type: 'feat', text: 'Centre Commercial (après chaque boss) : articles débloqués au fil des vagues, max 5 achats, prix croissants, CT à partir de la vague 100.' },
       { type: 'feat', text: 'Centre Pokémon (toutes les 5 victoires) : soigne tes Pokémon contre de l\'or (10 % par Pokémon + selon sa puissance, plafonné à 90 %).' },
+      { type: 'feat', text: 'Écran d\'expédition repensé : chemin vertical illustré, encart « Mon équipe » (vue 2 colonnes + onglet « Mes CT » pour apprendre des CT), bouton Légende.' },
+      { type: 'feat', text: 'En rencontre, « échanger une attaque » est désormais un tirage au sort à accepter.' },
     ],
   },
   {

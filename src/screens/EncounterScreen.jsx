@@ -123,113 +123,100 @@ function ProfShenSwapPokemon({ team, onConfirm, onBack }) {
   )
 }
 
-function ProfShenSwapAttack({ team, hp, onConfirm, onBack }) {
-  const [step, setStep] = useState('pick_slot')  // 'pick_slot' | 'pick_replacement'
-  const [selectedMonUid, setSelectedMonUid] = useState(null)
-  const [selectedCardKey, setSelectedCardKey] = useState(null)
+// Slot-machine attack swap: a random new attack is drawn for a randomly chosen
+// team Pokémon. You can only accept (the draw IS the choice).
+function ProfShenSwapAttack({ team, onConfirm, onBack }) {
+  const [spinPhase, setSpinPhase] = useState('idle')  // 'idle' | 'spinning' | 'done'
+  const [spinPos, setSpinPos] = useState(0)
+  const spinRef = useRef(null)
 
-  // All attacks available in the full pool (all team Pokémon's full moveset)
-  const fullPool = useMemo(() => {
-    const seen = new Set()
-    const pool = []
-    for (const mon of team) {
-      const moves = buildMoveset(mon)
-      for (const m of moves) {
-        if (!seen.has(m.key)) { seen.add(m.key); pool.push({ ...m, ownerName: mon.name, ownerId: mon.id }) }
-      }
+  // Candidate attacks = unique moves drawn from the whole team's movesets.
+  const pool = useMemo(() => {
+    const seen = new Set(); const arr = []
+    for (const mon of team) for (const m of buildMoveset(mon)) {
+      const sig = m.type + '|' + m.name
+      if (!seen.has(sig)) { seen.add(sig); arr.push(m) }
     }
-    return pool
+    return arr.slice(0, 8)
   }, [team])
 
-  // The slot being replaced
-  const selectedMon = team.find(m => m.uid === selectedMonUid)
-  const selectedMonMoves = selectedMon ? buildMoveset(selectedMon).slice(0, movesetSize(selectedMon)) : []
+  // The Pokémon that will receive the drawn attack (chosen at random).
+  const target = useMemo(() => team[Math.floor(Math.random() * team.length)], []) // eslint-disable-line
 
-  function confirmReplacement(newMove) {
-    if (!selectedMon || !selectedCardKey) return
-    // Build the new customMoves array for that Pokémon
-    const curMoves = buildMoveset(selectedMon).slice(0, movesetSize(selectedMon))
-    const newMoves = curMoves.map(m => m.key === selectedCardKey ? { ...newMove, key: selectedCardKey, ownerUid: selectedMon.uid, ownerName: selectedMon.name, ownerId: selectedMon.id, ownerRarity: selectedMon.rarity } : m)
-    onConfirm({ monUid: selectedMonUid, customMoves: newMoves })
-  }
+  useEffect(() => () => clearInterval(spinRef.current), [])
+  const highlighted = Math.round(spinPos) % Math.max(1, pool.length)
 
-  if (step === 'pick_replacement') {
-    const oldMove = selectedMonMoves.find(m => m.key === selectedCardKey)
-    return (
-      <div className="space-y-4">
-        <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3 text-sm">
-          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Remplacer</p>
-          <p className="font-bold text-white">{oldMove?.emoji} {oldMove?.name}</p>
-          <p className="text-[10px] text-gray-400">sur {selectedMon?.name}</p>
-        </div>
-        <p className="text-xs text-gray-400">Choisir le remplacement :</p>
-        <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
-          {fullPool.filter(m => m.key !== selectedCardKey).map((move, i) => {
-            const tc = TYPE_COLORS[move.type] || '#64748b'
-            return (
-              <button key={i} onClick={() => confirmReplacement(move)}
-                className="w-full flex items-center gap-3 rounded-xl p-3 border text-left transition-all active:scale-95"
-                style={{ background: tc + '11', borderColor: tc + '33' }}>
-                <span className="text-2xl flex-shrink-0">{move.emoji}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-white text-sm">{move.name}</p>
-                  <p className="text-[10px] text-gray-400">{move.desc}</p>
-                  <p className="text-[9px] font-bold mt-0.5" style={{ color: tc }}>{move.type} · {move.ownerName}</p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-        <button onClick={() => setStep('pick_slot')} className="w-full py-3 rounded-xl border border-gray-700 text-gray-400 text-sm font-bold">
-          ← Retour
-        </button>
-      </div>
-    )
+  function launchSpin() {
+    if (!pool.length) return
+    const winner = Math.floor(Math.random() * pool.length)
+    const totalDist = 3 * pool.length + winner
+    const duration = 3000
+    const start = Date.now()
+    setSpinPhase('spinning')
+    spinRef.current = setInterval(() => {
+      const t = Math.min((Date.now() - start) / duration, 1)
+      setSpinPos(totalDist * (1 - Math.pow(1 - t, 4)))
+      if (t >= 1) {
+        clearInterval(spinRef.current)
+        setSpinPhase('done')
+        const chosen = pool[winner]
+        const newMove = { ...chosen, key: `${target.uid}-swap`, ownerUid: target.uid, ownerName: target.name, ownerId: target.id, ownerRarity: target.rarity }
+        setTimeout(() => onConfirm({ monUid: target.uid, customMoves: [newMove] }), 900)
+      }
+    }, 16)
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-400">Choisis l'attaque à remplacer :</p>
-      <div className="space-y-3">
-        {team.map(mon => {
-          const tc = TYPE_COLORS[(mon.types || ['normal'])[0]] || '#64748b'
-          const moves = buildMoveset(mon).slice(0, movesetSize(mon))
-          return (
-            <div key={mon.uid} className="rounded-xl border p-3" style={{ background: tc + '0a', borderColor: tc + '33' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${mon.shiny ? 'shiny/' : ''}${mon.id}.png`}
-                  alt={mon.name} className="w-8 h-8 object-contain pixelated" />
-                <p className="font-bold text-white text-sm">{mon.name}</p>
-                {mon.shiny && <span className="text-[10px]">✨</span>}
-                {mon.holo  && <span className="text-[10px]">🌈</span>}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {moves.map(move => {
-                  const mtc = TYPE_COLORS[move.type] || '#64748b'
-                  const sel = selectedMonUid === mon.uid && selectedCardKey === move.key
-                  return (
-                    <button key={move.key} onClick={() => { setSelectedMonUid(mon.uid); setSelectedCardKey(move.key) }}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border text-left transition-all active:scale-95 text-xs"
-                      style={{ background: sel ? mtc + '44' : mtc + '18', borderColor: sel ? mtc + 'cc' : mtc + '44' }}>
-                      <span>{move.emoji}</span>
-                      <span className="font-bold text-white">{move.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+      {/* Recipient */}
+      <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-3">
+        <p className="text-[10px] text-gray-400 mb-1 font-bold uppercase">Pokémon qui reçoit l'attaque</p>
+        <div className="flex items-center gap-3">
+          <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${target.shiny ? 'shiny/' : ''}${target.id}.png`}
+            alt={target.name} className="w-12 h-12 object-contain pixelated" />
+          <div>
+            <p className="font-black text-white text-sm">{target.name}</p>
+            <p className="text-[10px] text-gray-400">Niv.{target.level}</p>
+            <p className="text-[9px] text-yellow-500/70 italic mt-0.5">L'attaque tirée remplacera son attaque.</p>
+          </div>
+        </div>
       </div>
-      <div className="flex gap-3 pt-2">
-        <button onClick={onBack} className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-400 text-sm font-bold">
-          Annuler
-        </button>
-        <button onClick={() => setStep('pick_replacement')} disabled={!selectedCardKey}
-          className={`flex-1 py-3 rounded-xl font-black text-sm transition-all ${selectedCardKey ? 'bg-blue-600 text-white active:scale-95' : 'bg-gray-800 text-gray-600'}`}>
-          Choisir le remplacement →
-        </button>
+
+      {/* Slot machine over attacks */}
+      <div className="rounded-xl border border-blue-700/30 bg-black/30 p-3">
+        <p className="text-[10px] text-gray-500 text-center mb-2 uppercase font-bold">Tirage au sort de l'attaque</p>
+        <div className="relative h-6 mb-1">
+          <span className="absolute text-yellow-400 text-base leading-none"
+            style={{ left: `calc(${(highlighted / pool.length) * 100}% + ${(1 / pool.length / 2) * 100}% - 8px)` }}>▼</span>
+        </div>
+        <div className="flex justify-around gap-1">
+          {pool.map((move, i) => {
+            const tc = TYPE_COLORS[move.type] || '#64748b'
+            const isHl = highlighted === i && spinPhase !== 'idle'
+            return (
+              <div key={i} className="flex flex-col items-center rounded-lg p-1.5 border transition-all flex-1 min-w-0"
+                style={{ background: isHl ? tc + '33' : 'rgba(0,0,0,0.4)', borderColor: isHl ? tc + 'cc' : tc + '22', transform: isHl ? 'scale(1.1)' : 'scale(1)', boxShadow: isHl ? `0 0 14px ${tc}88` : 'none' }}>
+                <span className="text-lg">{move.emoji}</span>
+                <p className="text-[7px] text-gray-300 font-bold text-center truncate w-full mt-0.5">{move.name}</p>
+              </div>
+            )
+          })}
+        </div>
       </div>
+
+      {spinPhase === 'idle' ? (
+        <div className="flex gap-3">
+          <button onClick={onBack} className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-400 text-sm font-bold">Annuler</button>
+          <button onClick={launchSpin} disabled={!pool.length}
+            className="flex-1 py-3 rounded-xl font-black text-sm bg-blue-600 text-white active:scale-95 transition-all disabled:opacity-40">
+            🎲 Lancer le tirage !
+          </button>
+        </div>
+      ) : spinPhase === 'spinning' ? (
+        <p className="text-center text-blue-300 font-bold animate-pulse text-sm py-2">🎲 Tirage en cours…</p>
+      ) : (
+        <p className="text-center text-yellow-300 font-black text-sm py-2">🎉 {pool[highlighted]?.name} pour {target.name} !</p>
+      )}
     </div>
   )
 }
@@ -325,7 +312,7 @@ export default function EncounterScreen() {
               <div className="w-12 h-12 rounded-xl bg-blue-900/50 flex items-center justify-center text-2xl flex-shrink-0">⚡</div>
               <div>
                 <p className="font-bold text-white text-sm">Échanger une attaque</p>
-                <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">Remplacez une attaque d'un Pokémon par une autre issue du répertoire de votre équipe.</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">Tirage au sort : une nouvelle attaque est attribuée au hasard à un de vos Pokémon. À accepter tel quel.</p>
               </div>
             </button>
 
